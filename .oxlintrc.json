@@ -1,0 +1,23 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "extends": ["./node_modules/ultracite/config/oxlint/core/.oxlintrc.json"],
+  "ignorePatterns": ["dist", "node_modules", ".cache", ".scratch"],
+  "rules": {
+    "typescript/no-non-null-assertion": "off",
+    "default-case": "off",
+    "complexity": "warn",
+    "jest/require-hook": "off",
+    "func-style": "off",
+    "import/consistent-type-specifier-style": "off",
+    "no-warning-comments": "off",
+    "sort-keys": "off",
+    "max-statements": "off",
+    "prefer-destructuring": "off",
+    "unicorn/switch-case-braces": "off",
+    "typescript/prefer-reduce-type-parameter": "off",
+    "jsdoc/require-param-type": "off",
+    "jsdoc/require-returns-type": "off",
+    "no-inline-comments": "off",
+    "no-plusplus": "off"
+  }
+}
