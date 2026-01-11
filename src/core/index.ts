@@ -38,6 +38,9 @@ export {
   type QueryOptions,
 } from "./query";
 
+// Repo Detection
+export { detectRepo, type RepoDetectResult } from "./repo-detect";
+
 // Re-export schemas
 export * from "../schema/entry";
 export * from "../schema/config";

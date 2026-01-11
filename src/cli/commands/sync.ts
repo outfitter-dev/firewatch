@@ -3,6 +3,7 @@ import { Command } from "commander";
 import {
   GitHubClient,
   detectAuth,
+  detectRepo,
   ensureDirectories,
   parseSince,
   syncRepo,
@@ -10,7 +11,7 @@ import {
 
 export const syncCommand = new Command("sync")
   .description("Fetch and update PR data from GitHub")
-  .argument("[repo]", "Repository to sync (owner/repo format)")
+  .argument("[repo]", "Repository to sync (owner/repo format, or auto-detect)")
   .option("--full", "Force full refresh (ignore cursor)")
   .option("--since <duration>", "Only PRs updated since (e.g., 7d, 24h)")
   .option("--with-graphite", "Include Graphite stack metadata")
@@ -28,12 +29,25 @@ export const syncCommand = new Command("sync")
       const client = new GitHubClient(auth.token);
 
       // Determine repos to sync
-      const repos = repo ? [repo] : [];
+      let repos: string[] = [];
+
+      if (repo) {
+        repos = [repo];
+      } else {
+        // Try to auto-detect from current directory
+        const detected = await detectRepo();
+        if (detected.repo) {
+          console.error(
+            `Detected ${detected.repo} from ${detected.source}`
+          );
+          repos = [detected.repo];
+        }
+      }
 
       if (repos.length === 0) {
         console.error(
-          "No repository specified. Use: fw sync owner/repo\n" +
-            'Or configure default repos with: fw config set repos "owner/repo1,owner/repo2"'
+          "No repository detected. Use: fw sync owner/repo\n" +
+            "Or run from within a git repo with a GitHub remote."
         );
         process.exit(1);
       }

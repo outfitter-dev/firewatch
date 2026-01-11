@@ -8,6 +8,7 @@ dist/
 # Bun
 bun.lock
 *.lockb
+*.bun-build
 
 # Cache and scratch
 .cache/
