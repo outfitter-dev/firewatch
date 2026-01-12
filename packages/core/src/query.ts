@@ -13,6 +13,9 @@ import type { FirewatchEntry, PrState } from "./schema/entry";
  * Query filters.
  */
 export interface QueryFilters {
+  /** Filter by entry ID */
+  id?: string;
+
   /** Filter by repository (partial match) */
   repo?: string;
 
@@ -117,6 +120,10 @@ function matchesFilters(
   plugins: FirewatchPlugin[]
 ): boolean {
   if (filters.repo && !entry.repo.includes(filters.repo)) {
+    return false;
+  }
+
+  if (filters.id && entry.id !== filters.id) {
     return false;
   }
 

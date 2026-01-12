@@ -22,7 +22,9 @@ import { Command } from "commander";
 import ora from "ora";
 
 import { configCommand } from "./commands/config";
+import { commentCommand } from "./commands/comment";
 import { queryCommand } from "./commands/query";
+import { resolveCommand } from "./commands/resolve";
 import { statusCommand } from "./commands/status";
 import { printSchema, schemaCommand } from "./commands/schema";
 import { syncCommand } from "./commands/sync";
@@ -250,6 +252,8 @@ program.addCommand(syncCommand);
 program.addCommand(queryCommand);
 program.addCommand(statusCommand);
 program.addCommand(lookoutCommand);
+program.addCommand(commentCommand);
+program.addCommand(resolveCommand);
 program.addCommand(configCommand);
 program.addCommand(schemaCommand);
 

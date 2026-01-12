@@ -254,12 +254,20 @@ Tight per-PR summary with minimal context:
 fw status --short
 ```
 
-### comment (planned)
+### comment
 
 Post a comment and optionally resolve in one step:
 
 ```bash
 fw comment 42 "Fixed in abc123" --reply-to comment-2001 --resolve
+```
+
+### resolve
+
+Resolve review comment threads by comment ID:
+
+```bash
+fw resolve comment-2001 comment-2002
 ```
 
 ## Example jq Workflows

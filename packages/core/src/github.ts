@@ -95,6 +95,98 @@ query PRActivity($owner: String!, $repo: String!, $first: Int!, $after: String, 
 }
 `;
 
+const PR_ID_QUERY = `
+query PullRequestId($owner: String!, $repo: String!, $number: Int!) {
+  repository(owner: $owner, name: $repo) {
+    pullRequest(number: $number) {
+      id
+    }
+  }
+}
+`;
+
+const REVIEW_THREADS_QUERY = `
+query ReviewThreads($owner: String!, $repo: String!, $number: Int!, $first: Int!, $after: String) {
+  repository(owner: $owner, name: $repo) {
+    pullRequest(number: $number) {
+      reviewThreads(first: $first, after: $after) {
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+        nodes {
+          id
+          comments(first: 100) {
+            pageInfo {
+              hasNextPage
+              endCursor
+            }
+            nodes {
+              id
+            }
+          }
+        }
+      }
+    }
+  }
+}
+`;
+
+const REVIEW_THREAD_COMMENTS_QUERY = `
+query ReviewThreadComments($threadId: ID!, $first: Int!, $after: String) {
+  node(id: $threadId) {
+    ... on PullRequestReviewThread {
+      comments(first: $first, after: $after) {
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+        nodes {
+          id
+        }
+      }
+    }
+  }
+}
+`;
+
+const ADD_COMMENT_MUTATION = `
+mutation AddComment($subjectId: ID!, $body: String!) {
+  addComment(input: { subjectId: $subjectId, body: $body }) {
+    commentEdge {
+      node {
+        id
+        url
+      }
+    }
+  }
+}
+`;
+
+const ADD_REVIEW_THREAD_REPLY_MUTATION = `
+mutation AddReviewThreadReply($threadId: ID!, $body: String!) {
+  addPullRequestReviewThreadReply(
+    input: { pullRequestReviewThreadId: $threadId, body: $body }
+  ) {
+    comment {
+      id
+      url
+    }
+  }
+}
+`;
+
+const RESOLVE_REVIEW_THREAD_MUTATION = `
+mutation ResolveReviewThread($threadId: ID!) {
+  resolveReviewThread(input: { threadId: $threadId }) {
+    thread {
+      id
+      isResolved
+    }
+  }
+}
+`;
+
 /**
  * GraphQL response types.
  */
@@ -117,6 +209,82 @@ export interface PRActivityData {
       nodes: PRNode[];
     };
   };
+}
+
+interface PullRequestIdData {
+  repository: {
+    pullRequest: {
+      id: string;
+    } | null;
+  } | null;
+}
+
+interface ReviewThreadsData {
+  repository: {
+    pullRequest: {
+      reviewThreads: {
+        pageInfo: {
+          hasNextPage: boolean;
+          endCursor: string | null;
+        };
+        nodes: {
+          id: string;
+          comments: {
+            pageInfo: {
+              hasNextPage: boolean;
+              endCursor: string | null;
+            };
+            nodes: {
+              id: string;
+            }[];
+          };
+        }[];
+      };
+    } | null;
+  } | null;
+}
+
+interface ReviewThreadCommentsData {
+  node: {
+    comments: {
+      pageInfo: {
+        hasNextPage: boolean;
+        endCursor: string | null;
+      };
+      nodes: {
+        id: string;
+      }[];
+    };
+  } | null;
+}
+
+interface AddCommentData {
+  addComment: {
+    commentEdge: {
+      node: {
+        id: string;
+        url: string | null;
+      };
+    } | null;
+  } | null;
+}
+
+interface AddReviewThreadReplyData {
+  addPullRequestReviewThreadReply: {
+    comment: {
+      id: string;
+      url: string | null;
+    } | null;
+  } | null;
+}
+
+interface ResolveReviewThreadData {
+  resolveReviewThread: {
+    thread: {
+      id: string;
+      isResolved: boolean;
+    } | null;
+  } | null;
 }
 
 export interface PRNode {
@@ -190,6 +358,20 @@ export interface PRNode {
 export class GitHubClient {
   constructor(private token: string) {}
 
+  private static unwrap<T>(response: GraphQLResponse<T>): T {
+    if (response.errors) {
+      throw new Error(
+        `GraphQL errors: ${response.errors.map((e) => e.message).join(", ")}`
+      );
+    }
+
+    if (!response.data) {
+      throw new Error("No data returned from GitHub API");
+    }
+
+    return response.data;
+  }
+
   /**
    * Execute a GraphQL query.
    */
@@ -238,16 +420,142 @@ export class GitHubClient {
       states,
     });
 
-    if (response.errors) {
-      throw new Error(
-        `GraphQL errors: ${response.errors.map((e) => e.message).join(", ")}`
-      );
+    return GitHubClient.unwrap(response);
+  }
+
+  async fetchPullRequestId(
+    owner: string,
+    repo: string,
+    number: number
+  ): Promise<string> {
+    const response = await this.query<PullRequestIdData>(PR_ID_QUERY, {
+      owner,
+      repo,
+      number,
+    });
+
+    const data = GitHubClient.unwrap(response);
+    const prId = data.repository?.pullRequest?.id;
+    if (!prId) {
+      throw new Error(`Pull request ${owner}/${repo}#${number} not found`);
+    }
+    return prId;
+  }
+
+  async fetchReviewThreadMap(
+    owner: string,
+    repo: string,
+    number: number
+  ): Promise<Map<string, string>> {
+    const map = new Map<string, string>();
+    let after: string | null = null;
+    let hasNextPage = true;
+
+    while (hasNextPage) {
+      const response: GraphQLResponse<ReviewThreadsData> =
+        await this.query<ReviewThreadsData>(REVIEW_THREADS_QUERY, {
+          owner,
+          repo,
+          number,
+          first: 50,
+          after,
+        });
+
+      const data: ReviewThreadsData = GitHubClient.unwrap(response);
+      const threads = data.repository?.pullRequest?.reviewThreads;
+      if (!threads) {
+        throw new Error(`Pull request ${owner}/${repo}#${number} not found`);
+      }
+
+      for (const thread of threads.nodes) {
+        for (const comment of thread.comments.nodes) {
+          map.set(comment.id, thread.id);
+        }
+
+        let commentCursor = thread.comments.pageInfo.endCursor;
+        let hasMoreComments = thread.comments.pageInfo.hasNextPage;
+
+        while (hasMoreComments) {
+          const response: GraphQLResponse<ReviewThreadCommentsData> =
+            await this.query<ReviewThreadCommentsData>(
+              REVIEW_THREAD_COMMENTS_QUERY,
+              {
+                threadId: thread.id,
+                first: 100,
+                after: commentCursor,
+              }
+            );
+
+          const data: ReviewThreadCommentsData = GitHubClient.unwrap(response);
+          const comments = data.node?.comments;
+          if (!comments) {
+            break;
+          }
+
+          for (const comment of comments.nodes) {
+            map.set(comment.id, thread.id);
+          }
+
+          hasMoreComments = comments.pageInfo.hasNextPage;
+          commentCursor = comments.pageInfo.endCursor;
+        }
+      }
+
+      hasNextPage = threads.pageInfo.hasNextPage;
+      after = threads.pageInfo.endCursor;
     }
 
-    if (!response.data) {
-      throw new Error("No data returned from GitHub API");
+    return map;
+  }
+
+  async addIssueComment(
+    subjectId: string,
+    body: string
+  ): Promise<{ id: string; url?: string }> {
+    const response = await this.query<AddCommentData>(ADD_COMMENT_MUTATION, {
+      subjectId,
+      body,
+    });
+
+    const data = GitHubClient.unwrap(response);
+    const node = data.addComment?.commentEdge?.node;
+    if (!node) {
+      throw new Error("No comment returned from GitHub API");
     }
 
-    return response.data;
+    return { id: node.id, ...(node.url && { url: node.url }) };
+  }
+
+  async addReviewThreadReply(
+    threadId: string,
+    body: string
+  ): Promise<{ id: string; url?: string }> {
+    const response = await this.query<AddReviewThreadReplyData>(
+      ADD_REVIEW_THREAD_REPLY_MUTATION,
+      {
+        threadId,
+        body,
+      }
+    );
+
+    const data = GitHubClient.unwrap(response);
+    const comment = data.addPullRequestReviewThreadReply?.comment;
+    if (!comment) {
+      throw new Error("No reply returned from GitHub API");
+    }
+
+    return { id: comment.id, ...(comment.url && { url: comment.url }) };
+  }
+
+  async resolveReviewThread(threadId: string): Promise<void> {
+    const response = await this.query<ResolveReviewThreadData>(
+      RESOLVE_REVIEW_THREAD_MUTATION,
+      { threadId }
+    );
+
+    const data = GitHubClient.unwrap(response);
+    if (!data.resolveReviewThread?.thread?.id) {
+      throw new Error("No thread returned from GitHub API");
+    }
   }
 }
