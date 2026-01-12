@@ -133,6 +133,8 @@ XDG Base Directory compliant (cross-platform via `env-paths`):
 ~/.config/firewatch/             # XDG_CONFIG_HOME/firewatch
 └── config.toml                  # User settings
 
+./.firewatch.toml                # Project-local settings (repo root)
+
 ~/.local/share/firewatch/        # XDG_DATA_HOME/firewatch
 └── (future: persistent data)
 ```
@@ -203,8 +205,9 @@ fw sync                           # Sync all configured repos
 fw sync outfitter-dev/ranger      # Sync specific repo
 fw sync --full                    # Force full refresh (ignore cursor)
 fw sync --since 7d                # Only PRs updated in last 7 days
-fw sync --with-graphite           # Include Graphite stack metadata
 ```
+
+Graphite stack metadata is auto-detected when running inside a Graphite-managed repo. You can also enable it by default with `graphite_enabled = true`.
 
 ### query
 
@@ -218,6 +221,7 @@ fw query --author galligan        # Filter by author
 fw query --type review            # Filter by type
 fw query --since 24h              # Filter by time
 fw query --stack                  # Show entries grouped by Graphite stack
+fw query --worklist               # Per-PR summary (stack-aware)
 ```
 
 ### config
@@ -228,6 +232,40 @@ Manage settings.
 fw config show                    # Display current config
 fw config set repos "org/repo1,org/repo2"
 fw config set github-token <token>  # Optional if gh CLI works
+fw config set default-stack true
+fw config set --local default-stack true
+```
+
+### schema
+
+Print schema information for JSONL outputs.
+
+```bash
+fw schema                         # Query output schema (JSON)
+fw schema entry                   # Entry schema (JSON)
+fw schema worklist                # Worklist schema (JSON)
+```
+
+### status (planned)
+
+Tight per-PR summary with minimal context:
+
+```bash
+fw status --short
+```
+
+Until that exists, build it from the worklist:
+
+```bash
+fw query --worklist | jq '{repo, pr, pr_title, pr_state, changes_requested: .review_states.changes_requested, comments: .counts.comments}'
+```
+
+### comment (planned)
+
+Post a comment and optionally resolve in one step:
+
+```bash
+fw comment 42 "Fixed in abc123" --reply-to comment-2001 --resolve
 ```
 
 ## Example jq Workflows
@@ -251,6 +289,9 @@ fw query | jq -r '[.repo, .pr, .type, .author, .created_at] | @csv'
 
 # Find reviews for PRs in a Graphite stack
 fw query --type review | jq 'select(.graphite.stack_id == "feat-auth")'
+
+# Short status snapshot (worklist)
+fw query --worklist | jq '{repo, pr, pr_title, pr_state, changes_requested: .review_states.changes_requested, comments: .counts.comments}'
 ```
 
 ## Authentication
@@ -295,6 +336,8 @@ interface FirewatchPlugin {
 ### Graphite Plugin
 
 Enriches entries with Graphite stack context:
+
+Stack metadata fields are structured to map cleanly to GitHub's stacked PRs as those APIs roll out.
 
 ```typescript
 // plugins/graphite/index.ts
