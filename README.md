@@ -50,6 +50,15 @@ fw sync --since 7d
 fw sync --full
 ```
 
+### check
+
+Refresh staleness hints in the local cache.
+
+```bash
+fw check
+fw check owner/repo
+```
+
 ### query
 
 Filter cached activity and print JSONL to stdout.
@@ -187,6 +196,8 @@ fw schema worklist
 ```bash
 fw status --short
 ```
+
+After running `fw check`, comment entries may include `file_activity_after` staleness hints.
 
 ## Write Ops
 

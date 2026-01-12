@@ -28,6 +28,16 @@ fw sync --full
 
 When running `fw` inside a repo with no cache yet, it auto-syncs first and then runs your query.
 
+## Check
+
+Refresh staleness hints in the local cache:
+
+```bash
+fw check
+```
+
+After `fw check`, comment entries can include `file_activity_after` so you can see whether follow-up commits landed after the feedback.
+
 ## Query
 
 ```bash

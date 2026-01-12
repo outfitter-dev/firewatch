@@ -39,6 +39,9 @@ export {
   type QueryOptions,
 } from "./query";
 
+// Check
+export { checkRepo, type CheckResult } from "./check";
+
 // Worklist
 export { buildWorklist, sortWorklist } from "./worklist";
 

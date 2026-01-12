@@ -23,6 +23,7 @@ import ora from "ora";
 
 import { configCommand } from "./commands/config";
 import { commentCommand } from "./commands/comment";
+import { checkCommand } from "./commands/check";
 import { queryCommand } from "./commands/query";
 import { resolveCommand } from "./commands/resolve";
 import { statusCommand } from "./commands/status";
@@ -249,6 +250,7 @@ program
   });
 
 program.addCommand(syncCommand);
+program.addCommand(checkCommand);
 program.addCommand(queryCommand);
 program.addCommand(statusCommand);
 program.addCommand(lookoutCommand);

@@ -22,6 +22,16 @@ export const ENTRY_SCHEMA_DOC = {
     url: { type: "string", optional: true },
     file: { type: "string", optional: true },
     line: { type: "number", optional: true },
+    file_activity_after: {
+      type: "object",
+      optional: true,
+      fields: {
+        modified: { type: "boolean" },
+        commits_touching_file: { type: "number" },
+        latest_commit: { type: "string", optional: true },
+        latest_commit_at: { type: "string", format: "date-time", optional: true },
+      },
+    },
     graphite: {
       type: "object",
       optional: true,
