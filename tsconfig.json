@@ -4,6 +4,7 @@
   "references": [
     { "path": "packages/core" },
     { "path": "packages/shared" },
-    { "path": "apps/cli" }
+    { "path": "apps/cli" },
+    { "path": "apps/mcp" }
   ]
 }
