@@ -410,34 +410,35 @@ export const graphitePlugin: FirewatchPlugin = {
 
 **Use case**: Agents navigating stacked PRs can understand where a reviewed file exists in the stack hierarchy.
 
-## MCP Server (Future)
+## MCP Server
 
-The core logic is designed to be interface-agnostic. An MCP server would expose:
+The MCP server exposes a single tool with an action parameter:
 
 ```typescript
-// Planned MCP tools
-tools: [
-  {
-    name: "firewatch_sync",
-    description: "Sync PR data from GitHub",
-    inputSchema: { repo: "string", full: "boolean?" },
-  },
-  {
-    name: "firewatch_query",
-    description: "Query cached PR activity",
-    inputSchema: {
-      repo: "string?",
-      pr: "number?",
-      type: "string?",
-      since: "string?",
-    },
-  },
-  {
-    name: "firewatch_stack",
-    description: "Get Graphite stack for a PR",
-    inputSchema: { pr: "number", repo: "string" },
-  },
-];
+// MCP tool
+{
+  name: "firewatch",
+  description: "GitHub PR activity (query/sync/check/status/comment/resolve)",
+  inputSchema: {
+    action: "query | sync | check | status | comment | resolve | schema | help",
+    repo?: "string",
+    pr?: "number",
+    type?: "comment | review | commit | ci | event",
+    author?: "string",
+    states?: "string[]",
+    label?: "string",
+    since?: "string",
+    worklist?: "boolean",
+    status_short?: "boolean",
+    stack_id?: "string",
+    group_stack?: "boolean",
+    body?: "string",
+    reply_to?: "string",
+    resolve?: "boolean",
+    comment_ids?: "string[]",
+    schema?: "query | entry | worklist"
+  }
+}
 ```
 
 This allows AI agents to query PR activity directly without shelling out to the CLI.
