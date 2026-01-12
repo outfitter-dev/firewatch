@@ -246,18 +246,12 @@ fw schema entry                   # Entry schema (JSON)
 fw schema worklist                # Worklist schema (JSON)
 ```
 
-### status (planned)
+### status
 
 Tight per-PR summary with minimal context:
 
 ```bash
 fw status --short
-```
-
-Until that exists, build it from the worklist:
-
-```bash
-fw query --worklist | jq '{repo, pr, pr_title, pr_state, changes_requested: .review_states.changes_requested, comments: .counts.comments}'
 ```
 
 ### comment (planned)
@@ -291,7 +285,7 @@ fw query | jq -r '[.repo, .pr, .type, .author, .created_at] | @csv'
 fw query --type review | jq 'select(.graphite.stack_id == "feat-auth")'
 
 # Short status snapshot (worklist)
-fw query --worklist | jq '{repo, pr, pr_title, pr_state, changes_requested: .review_states.changes_requested, comments: .counts.comments}'
+fw status --short
 ```
 
 ## Authentication

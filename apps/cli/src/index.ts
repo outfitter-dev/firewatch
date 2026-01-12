@@ -23,6 +23,7 @@ import ora from "ora";
 
 import { configCommand } from "./commands/config";
 import { queryCommand } from "./commands/query";
+import { statusCommand } from "./commands/status";
 import { printSchema, schemaCommand } from "./commands/schema";
 import { syncCommand } from "./commands/sync";
 import { outputStackedEntries } from "./stack";
@@ -247,6 +248,7 @@ program
 
 program.addCommand(syncCommand);
 program.addCommand(queryCommand);
+program.addCommand(statusCommand);
 program.addCommand(lookoutCommand);
 program.addCommand(configCommand);
 program.addCommand(schemaCommand);

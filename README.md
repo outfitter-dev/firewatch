@@ -26,6 +26,9 @@ fw --worklist
 
 # Schema for query output
 fw --schema
+
+# Tight status snapshot
+fw status --short
 ```
 
 Tip: running `fw` in a repo auto-syncs if there's no cache yet, then runs your query. For a fresh session, `fw --worklist` keeps the output minimal.
@@ -83,6 +86,15 @@ Print JSON schema hints for query outputs.
 fw schema
 fw schema entry
 fw schema worklist
+```
+
+### status
+
+Summarize PR activity.
+
+```bash
+fw status
+fw status --short
 ```
 
 ## Configuration
@@ -150,13 +162,11 @@ fw schema worklist
 
 ## Short Status Snapshot
 
-Firewatch doesn't ship a `status` command yet, but the worklist makes it easy to keep output tight:
+`fw status --short` is a tight, per-PR snapshot:
 
 ```bash
-fw query --worklist | jq '{repo, pr, pr_title, pr_state, changes_requested: .review_states.changes_requested, comments: .counts.comments}'
+fw status --short
 ```
-
-The plan is to add `fw status --short` as a thin wrapper over this view.
 
 ## Planned Write Ops
 
