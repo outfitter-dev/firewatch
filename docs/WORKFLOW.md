@@ -142,13 +142,11 @@ The JSONL records are denormalized, so each line includes PR context plus the sp
 
 ## Short Status Snapshot
 
-If you want an ultra-tight status view, build it off the worklist:
+If you want an ultra-tight status view, use:
 
 ```bash
-fw query --worklist | jq '{repo, pr, pr_title, pr_state, changes_requested: .review_states.changes_requested, comments: .counts.comments}'
+fw status --short
 ```
-
-Planned: `fw status --short` will be a thin wrapper over this view.
 
 ## Write Ops (Planned)
 
