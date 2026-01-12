@@ -9,6 +9,8 @@ import {
 } from "@outfitter/firewatch-core";
 import { Command } from "commander";
 
+import { writeJsonLine } from "../utils/json";
+
 function resolveRepos(
   repo: string | undefined,
   configRepos: string[],
@@ -77,7 +79,7 @@ export const checkCommand = new Command("check")
         ) => client.getCommitFiles(owner, repoName, commitId);
 
         const result = await checkRepo(r, { resolveCommitFiles });
-        console.log(JSON.stringify(result));
+        await writeJsonLine(result);
       }
     } catch (error) {
       console.error(

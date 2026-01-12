@@ -21,6 +21,15 @@ export const FileActivityAfterSchema = z.object({
 
 export type FileActivityAfter = z.infer<typeof FileActivityAfterSchema>;
 
+export const FileProvenanceSchema = z.object({
+  origin_pr: z.number().int().positive(),
+  origin_branch: z.string(),
+  origin_commit: z.string(),
+  stack_position: z.number().int().positive(),
+});
+
+export type FileProvenance = z.infer<typeof FileProvenanceSchema>;
+
 /**
  * PR state enum.
  */
@@ -75,6 +84,7 @@ export const FirewatchEntrySchema = z.object({
   file: z.string().optional(),
   line: z.number().int().positive().optional(),
   file_activity_after: FileActivityAfterSchema.optional(),
+  file_provenance: FileProvenanceSchema.optional(),
 
   // Plugin data
   graphite: GraphiteMetadataSchema.optional(),

@@ -1,6 +1,6 @@
 import { $ } from "bun";
 
-import type { FirewatchEntry } from "../../schema/entry";
+import type { FirewatchEntry, FileProvenance } from "../../schema/entry";
 import type { FirewatchPlugin } from "../types";
 
 interface GraphiteStackBranch {
@@ -13,8 +13,13 @@ export interface GraphiteStack {
   branches: GraphiteStackBranch[];
 }
 
+type FileProvenanceMap = Map<string, FileProvenance>;
+type FileProvenanceIndex = Map<string, FileProvenanceMap>;
+
 let cachedStacks: GraphiteStack[] | null | undefined;
 let stackPromise: Promise<GraphiteStack[] | null> | null = null;
+let cachedProvenance: FileProvenanceIndex | null | undefined;
+let provenancePromise: Promise<FileProvenanceIndex | null> | null = null;
 
 function loadStacks(): Promise<GraphiteStack[] | null> {
   if (cachedStacks !== undefined) {
@@ -45,6 +50,117 @@ function loadStacks(): Promise<GraphiteStack[] | null> {
 
 export function getGraphiteStacks(): Promise<GraphiteStack[] | null> {
   return loadStacks();
+}
+
+async function resolveTrunkBranch(): Promise<string> {
+  const result = await $`git rev-parse --abbrev-ref origin/HEAD`
+    .nothrow()
+    .quiet();
+  if (result.exitCode === 0) {
+    const ref = result.text().trim();
+    if (ref.startsWith("origin/")) {
+      return ref.slice("origin/".length);
+    }
+  }
+  return "main";
+}
+
+async function getChangedFiles(
+  parent: string,
+  branch: string
+): Promise<string[]> {
+  const result = await $`git diff --name-only ${parent}..${branch}`
+    .nothrow()
+    .quiet();
+  if (result.exitCode !== 0) {
+    return [];
+  }
+  const text = result.text().trim();
+  if (!text) {
+    return [];
+  }
+  return text.split("\n").map((line) => line.trim()).filter(Boolean);
+}
+
+async function getBranchCommit(branch: string): Promise<string | null> {
+  const result = await $`git rev-parse --short ${branch}`.nothrow().quiet();
+  if (result.exitCode !== 0) {
+    return null;
+  }
+  const sha = result.text().trim();
+  return sha.length > 0 ? sha : null;
+}
+
+async function buildStackProvenance(
+  stack: GraphiteStack,
+  trunk: string
+): Promise<FileProvenanceMap> {
+  const map: FileProvenanceMap = new Map();
+  const branches = stack.branches;
+
+  for (const [index, branch] of branches.entries()) {
+    if (!branch.prNumber) {
+      continue;
+    }
+    const parent = index === 0 ? trunk : branches[index - 1]?.name;
+    if (!parent) {
+      continue;
+    }
+    const files = await getChangedFiles(parent, branch.name);
+    if (files.length === 0) {
+      continue;
+    }
+    const commit = await getBranchCommit(branch.name);
+    if (!commit) {
+      continue;
+    }
+
+    for (const file of files) {
+      map.set(file, {
+        origin_pr: branch.prNumber,
+        origin_branch: branch.name,
+        origin_commit: commit,
+        stack_position: index + 1,
+      });
+    }
+  }
+
+  return map;
+}
+
+function loadFileProvenance(): Promise<FileProvenanceIndex | null> {
+  if (cachedProvenance !== undefined) {
+    return Promise.resolve(cachedProvenance);
+  }
+
+  if (!provenancePromise) {
+    provenancePromise = (async () => {
+      const stacks = await getGraphiteStacks();
+      if (!stacks) {
+        cachedProvenance = null;
+        return cachedProvenance;
+      }
+
+      const trunk = await resolveTrunkBranch();
+      const index: FileProvenanceIndex = new Map();
+
+      for (const stack of stacks) {
+        const map = await buildStackProvenance(stack, trunk);
+        if (map.size > 0) {
+          index.set(stack.name, map);
+        }
+      }
+
+      cachedProvenance = index;
+      return cachedProvenance;
+    })();
+  }
+
+  return provenancePromise;
+}
+
+export function getFileProvenanceIndex(): Promise<FileProvenanceIndex | null> {
+  return loadFileProvenance();
 }
 
 /**
@@ -82,6 +198,15 @@ export const graphitePlugin: FirewatchPlugin = {
             parent_pr:
               position > 0 ? stack.branches[position - 1]?.prNumber : undefined,
           };
+        }
+      }
+
+      if (entry.file && entry.graphite?.stack_id) {
+        const provenanceIndex = await getFileProvenanceIndex();
+        const stackMap = provenanceIndex?.get(entry.graphite.stack_id);
+        const provenance = stackMap?.get(entry.file);
+        if (provenance) {
+          entry.file_provenance = provenance;
         }
       }
     } catch {

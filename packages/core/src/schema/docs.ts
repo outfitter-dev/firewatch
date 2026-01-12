@@ -32,6 +32,16 @@ export const ENTRY_SCHEMA_DOC = {
         latest_commit_at: { type: "string", format: "date-time", optional: true },
       },
     },
+    file_provenance: {
+      type: "object",
+      optional: true,
+      fields: {
+        origin_pr: { type: "number" },
+        origin_branch: { type: "string" },
+        origin_commit: { type: "string" },
+        stack_position: { type: "number" },
+      },
+    },
     graphite: {
       type: "object",
       optional: true,

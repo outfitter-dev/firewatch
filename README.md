@@ -59,6 +59,8 @@ fw check
 fw check owner/repo
 ```
 
+When running inside a repo, Firewatch will use local git history to match commits to comment file paths for more accurate staleness hints.
+
 ### query
 
 Filter cached activity and print JSONL to stdout.
@@ -150,6 +152,7 @@ If the repo uses Graphite, Firewatch can enrich entries with stack metadata. Sta
 - Auto-detected when running inside a Graphite repo.
 - Enable by default in config with `graphite_enabled = true`.
 - Show grouped output with `--stack` (or `default_stack = true`).
+- Review comments can include `file_provenance` to show which PR in a stack last modified a file.
 
 Stack metadata is designed to be compatible with GitHub's stacked PRs as they roll out.
 
@@ -197,7 +200,7 @@ fw schema worklist
 fw status --short
 ```
 
-After running `fw check`, comment entries may include `file_activity_after` staleness hints.
+After running `fw check`, comment entries may include `file_activity_after` staleness hints. When commit file lists are available, the hints are scoped to the comment's file; otherwise they fall back to PR-level activity.
 
 ## Write Ops
 
