@@ -12,6 +12,15 @@ export const GraphiteMetadataSchema = z.object({
 
 export type GraphiteMetadata = z.infer<typeof GraphiteMetadataSchema>;
 
+export const FileActivityAfterSchema = z.object({
+  modified: z.boolean(),
+  commits_touching_file: z.number().int().nonnegative(),
+  latest_commit: z.string().optional(),
+  latest_commit_at: z.string().datetime().optional(),
+});
+
+export type FileActivityAfter = z.infer<typeof FileActivityAfterSchema>;
+
 /**
  * PR state enum.
  */
@@ -65,6 +74,7 @@ export const FirewatchEntrySchema = z.object({
   url: z.string().url().optional(),
   file: z.string().optional(),
   line: z.number().int().positive().optional(),
+  file_activity_after: FileActivityAfterSchema.optional(),
 
   // Plugin data
   graphite: GraphiteMetadataSchema.optional(),
