@@ -52,6 +52,35 @@ test("buildWorklist aggregates counts and latest activity", () => {
   expect(worklist[0]?.latest_activity_author).toBe("alice");
 });
 
+test("buildWorklist prefers updated_at when computing last activity", () => {
+  const entries = [
+    {
+      ...baseEntry,
+      id: "comment-1",
+      pr: 20,
+      type: "comment" as const,
+      author: "alice",
+      created_at: "2025-01-02T10:00:00.000Z",
+      updated_at: "2025-01-02T12:00:00.000Z",
+    },
+    {
+      ...baseEntry,
+      id: "commit-1",
+      pr: 20,
+      type: "commit" as const,
+      author: "bob",
+      body: "Update code",
+      created_at: "2025-01-02T11:00:00.000Z",
+    },
+  ];
+
+  const worklist = buildWorklist(entries);
+  expect(worklist).toHaveLength(1);
+  expect(worklist[0]?.last_activity_at).toBe("2025-01-02T12:00:00.000Z");
+  expect(worklist[0]?.latest_activity_type).toBe("comment");
+  expect(worklist[0]?.latest_activity_author).toBe("alice");
+});
+
 test("sortWorklist orders by stack position when present", () => {
   const items = buildWorklist([
     {

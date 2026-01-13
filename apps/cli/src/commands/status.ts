@@ -17,7 +17,7 @@ function parseStates(value: string): PrState[] {
   return value.split(",").map((s) => s.trim() as PrState);
 }
 
-interface StatusCommandOptions {
+export interface StatusCommandOptions {
   repo?: string;
   pr?: number;
   state?: string;
@@ -51,7 +51,7 @@ function resolveStates(
   return config.default_states ?? ["open", "draft"];
 }
 
-function buildStatusQueryOptions(
+export function buildStatusQueryOptions(
   options: StatusCommandOptions,
   config: FirewatchConfig
 ) {

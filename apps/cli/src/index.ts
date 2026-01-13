@@ -190,6 +190,7 @@ async function outputEntries(
 }
 
 const program = new Command();
+program.enablePositionalOptions();
 
 program
   .name("fw")

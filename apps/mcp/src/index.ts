@@ -81,8 +81,6 @@ const FirewatchParamsSchema = z.object(FirewatchParamsShape);
 
 type FirewatchParams = z.infer<typeof FirewatchParamsSchema>;
 
-const server = new McpServer({ name: "firewatch", version: "0.1.0" });
-
 interface McpToolResult {
   [key: string]: unknown;
   content: { type: "text"; text: string }[];
@@ -621,30 +619,39 @@ Actions: query (filter entries), sync (fetch GitHub), status (PR summary), looko
 
 Common: query with since="24h", type="review", worklist=true for aggregated view. Use lookout for smart "since last check" reconnaissance.`;
 
-server.tool("firewatch", TOOL_DESCRIPTION, FirewatchParamsShape, (params) => {
-  switch (params.action) {
-    case "query":
-      return handleQuery(params);
-    case "sync":
-      return handleSync(params);
-    case "check":
-      return handleCheck(params);
-    case "status":
-      return handleStatus(params);
-    case "comment":
-      return handleComment(params);
-    case "resolve":
-      return handleResolve(params);
-    case "schema":
-      return textResult(JSON.stringify(schemaDoc(params.schema), null, 2));
-    case "help":
-      return textResult(buildHelpText());
-    default:
-      return textResult("Unknown action");
-  }
-});
+export function createServer(): McpServer {
+  const server = new McpServer({ name: "firewatch", version: "0.1.0" });
+
+  server.tool("firewatch", TOOL_DESCRIPTION, FirewatchParamsShape, (params) => {
+    switch (params.action) {
+      case "query":
+        return handleQuery(params);
+      case "sync":
+        return handleSync(params);
+      case "check":
+        return handleCheck(params);
+      case "status":
+        return handleStatus(params);
+      case "lookout":
+        return handleLookout(params);
+      case "comment":
+        return handleComment(params);
+      case "resolve":
+        return handleResolve(params);
+      case "schema":
+        return textResult(JSON.stringify(schemaDoc(params.schema), null, 2));
+      case "help":
+        return textResult(buildHelpText());
+      default:
+        return textResult("Unknown action");
+    }
+  });
+
+  return server;
+}
 
 export async function run(): Promise<void> {
+  const server = createServer();
   const transport = new StdioServerTransport();
   await server.connect(transport);
 }
