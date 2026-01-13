@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "description": "MCP server for Firewatch",
   "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
   "bin": {
     "fw-mcp": "./bin/fw-mcp.ts"
   },
