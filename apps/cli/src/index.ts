@@ -21,13 +21,16 @@ import {
 import { Command } from "commander";
 import ora from "ora";
 
-import { configCommand } from "./commands/config";
-import { commentCommand } from "./commands/comment";
 import { checkCommand } from "./commands/check";
+import { commentCommand } from "./commands/comment";
+import { configCommand } from "./commands/config";
+import { lookoutCommand } from "./commands/lookout";
+import { mcpCommand } from "./commands/mcp";
 import { queryCommand } from "./commands/query";
+import { recapCommand } from "./commands/recap";
 import { resolveCommand } from "./commands/resolve";
-import { statusCommand } from "./commands/status";
 import { printSchema, schemaCommand } from "./commands/schema";
+import { statusCommand } from "./commands/status";
 import { syncCommand } from "./commands/sync";
 import { outputStackedEntries } from "./stack";
 import { outputWorklist } from "./worklist";
@@ -253,10 +256,13 @@ program.addCommand(syncCommand);
 program.addCommand(checkCommand);
 program.addCommand(queryCommand);
 program.addCommand(statusCommand);
+program.addCommand(recapCommand);
+program.addCommand(lookoutCommand);
 program.addCommand(commentCommand);
 program.addCommand(resolveCommand);
 program.addCommand(configCommand);
 program.addCommand(schemaCommand);
+program.addCommand(mcpCommand);
 
 export { program };
 
