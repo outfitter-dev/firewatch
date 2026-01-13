@@ -98,6 +98,46 @@ function mergeConfig(
   return merged as FirewatchConfig;
 }
 
+function splitArrayValues(inner: string): string[] {
+  const items: string[] = [];
+  let current = "";
+  let inQuote = false;
+  let quoteChar = "";
+
+  for (const char of inner) {
+    if ((char === '"' || char === "'") && !inQuote) {
+      inQuote = true;
+      quoteChar = char;
+      current += char;
+      continue;
+    }
+
+    if (inQuote && char === quoteChar) {
+      inQuote = false;
+      current += char;
+      continue;
+    }
+
+    if (char === "," && !inQuote) {
+      const value = current.trim();
+      if (value) {
+        items.push(value);
+      }
+      current = "";
+      continue;
+    }
+
+    current += char;
+  }
+
+  const value = current.trim();
+  if (value) {
+    items.push(value);
+  }
+
+  return items;
+}
+
 async function findFileUp(
   filename: string,
   startDir: string
@@ -200,8 +240,7 @@ function parseValue(value: string): unknown {
     if (inner === "") {
       return [];
     }
-    // Split by comma, handling quoted strings
-    const items = inner.split(/,\s*/).map((item) => parseValue(item.trim()));
+    const items = splitArrayValues(inner).map((item) => parseValue(item.trim()));
     return items;
   }
 

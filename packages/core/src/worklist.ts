@@ -136,7 +136,11 @@ export function buildWorklist(entries: FirewatchEntry[]): WorklistEntry[] {
 }
 
 export function sortWorklist(items: WorklistEntry[]): WorklistEntry[] {
-  const withStack = items.filter((item) => item.graphite?.stack_id);
+  const withStack = items.filter(
+    (item): item is WorklistEntry & {
+      graphite: NonNullable<WorklistEntry["graphite"]> & { stack_id: string };
+    } => Boolean(item.graphite?.stack_id)
+  );
   const withoutStack = items.filter((item) => !item.graphite?.stack_id);
 
   if (withStack.length === 0) {
@@ -149,10 +153,7 @@ export function sortWorklist(items: WorklistEntry[]): WorklistEntry[] {
 
   const stackGroups = new Map<string, WorklistEntry[]>();
   for (const item of withStack) {
-    const stackId = item.graphite?.stack_id;
-    if (!stackId) {
-      continue;
-    }
+    const stackId = item.graphite.stack_id;
     const group = stackGroups.get(stackId) ?? [];
     group.push(item);
     stackGroups.set(stackId, group);
