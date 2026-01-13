@@ -1,6 +1,7 @@
 import { buildWorklist, sortWorklist, type FirewatchEntry } from "@outfitter/firewatch-core";
 
 import { ensureGraphiteMetadata } from "./stack";
+import { writeJsonLine } from "./utils/json";
 
 export async function outputWorklist(
   entries: FirewatchEntry[]
@@ -13,7 +14,7 @@ export async function outputWorklist(
   }
 
   for (const item of worklist) {
-    console.log(JSON.stringify(item));
+    await writeJsonLine(item);
   }
 
   return true;

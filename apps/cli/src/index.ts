@@ -1,15 +1,12 @@
 import {
   type EntryType,
   type FirewatchConfig,
-  type FirewatchEntry,
-  type PrState,
   GitHubClient,
   detectAuth,
   detectRepo,
   ensureDirectories,
   getRepoCachePath,
   loadConfig,
-  outputJsonl,
   parseSince,
   queryEntries,
   syncRepo,
@@ -32,15 +29,8 @@ import { resolveCommand } from "./commands/resolve";
 import { printSchema, schemaCommand } from "./commands/schema";
 import { statusCommand } from "./commands/status";
 import { syncCommand } from "./commands/sync";
-import { outputStackedEntries } from "./stack";
-import { outputWorklist } from "./worklist";
-
-/**
- * Parse comma-separated state values.
- */
-function parseStates(value: string): PrState[] {
-  return value.split(",").map((s) => s.trim() as PrState);
-}
+import { outputEntries } from "./utils/output";
+import { resolveStates } from "./utils/states";
 
 interface RootCommandOptions {
   pr?: number;
@@ -56,6 +46,7 @@ interface RootCommandOptions {
   stack?: boolean;
   worklist?: boolean;
   schema?: boolean;
+  json?: boolean;
 }
 
 function resolveRepo(
@@ -70,28 +61,6 @@ function resolveRepo(
     return detected.repo;
   }
   return null;
-}
-
-function resolveStates(
-  options: RootCommandOptions,
-  config: FirewatchConfig
-): PrState[] {
-  if (options.state) {
-    return parseStates(options.state);
-  }
-  if (options.active) {
-    return ["open", "draft"];
-  }
-  if (options.open && options.draft) {
-    return ["open", "draft"];
-  }
-  if (options.open) {
-    return ["open"];
-  }
-  if (options.draft) {
-    return ["draft"];
-  }
-  return config.default_states ?? ["open", "draft"];
 }
 
 async function ensureRepoCache(
@@ -117,7 +86,11 @@ async function ensureRepoCache(
     process.exit(1);
   }
 
-  const spinner = ora(`Syncing ${repoFilter}...`).start();
+  const spinner = ora({
+    text: `Syncing ${repoFilter}...`,
+    stream: process.stderr,
+    isEnabled: process.stderr.isTTY,
+  }).start();
   try {
     const client = new GitHubClient(auth.token);
     let graphiteAvailable = false;
@@ -162,32 +135,6 @@ function buildQueryOptions(
   };
 }
 
-async function outputEntries(
-  entries: FirewatchEntry[],
-  options: RootCommandOptions,
-  config: FirewatchConfig
-): Promise<void> {
-  if (options.worklist) {
-    const wrote = await outputWorklist(entries);
-    if (!wrote) {
-      console.error("No entries found for worklist.");
-    }
-    return;
-  }
-
-  const stackMode = options.stack || config.default_stack;
-  if (stackMode) {
-    const wrote = await outputStackedEntries(entries);
-    if (!wrote) {
-      console.error(
-        "No Graphite stack data found. Re-sync (graphite auto-detects) or enable graphite in config."
-      );
-    }
-    return;
-  }
-
-  outputJsonl(entries);
-}
 
 const program = new Command();
 program.enablePositionalOptions();
@@ -218,6 +165,7 @@ program
   .option("--stack", "Show entries grouped by Graphite stack")
   .option("--worklist", "Aggregate entries into a per-PR worklist")
   .option("--schema", "Print the query result schema (JSON)")
+  .option("--json", "Output JSONL (default)")
   .action(async (repo: string | undefined, options: RootCommandOptions) => {
     try {
       if (options.schema) {

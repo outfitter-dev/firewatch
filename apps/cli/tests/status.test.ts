@@ -3,6 +3,7 @@ import { expect, test } from "bun:test";
 import type { FirewatchConfig, FirewatchEntry } from "@outfitter/firewatch-core";
 import { outputStatusShort } from "../src/status";
 import { buildStatusQueryOptions } from "../src/commands/status";
+import { captureStdout } from "./helpers";
 
 test("outputStatusShort emits a tight per-PR summary", async () => {
   const entries: FirewatchEntry[] = [
@@ -63,18 +64,10 @@ test("outputStatusShort emits a tight per-PR summary", async () => {
     },
   ];
 
-  const logs: string[] = [];
-  const originalLog = console.log;
-  console.log = (value?: unknown) => {
-    logs.push(String(value));
-  };
-
-  try {
+  const logs = await captureStdout(async () => {
     const wrote = await outputStatusShort(entries);
     expect(wrote).toBe(true);
-  } finally {
-    console.log = originalLog;
-  }
+  });
 
   expect(logs).toHaveLength(2);
 

@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 
 import type { FirewatchEntry } from "@outfitter/firewatch-core";
 import { ensureGraphiteMetadata, outputStackedEntries } from "../src/stack";
+import { captureStdout } from "./helpers";
 
 test("outputStackedEntries groups by stack and injects metadata", async () => {
   const entries: FirewatchEntry[] = [
@@ -43,18 +44,10 @@ test("outputStackedEntries groups by stack and injects metadata", async () => {
     },
   ];
 
-  const logs: string[] = [];
-  const originalLog = console.log;
-  console.log = (value?: unknown) => {
-    logs.push(String(value));
-  };
-
-  try {
+  const logs = await captureStdout(async () => {
     const wrote = await outputStackedEntries(entries, { stacks });
     expect(wrote).toBe(true);
-  } finally {
-    console.log = originalLog;
-  }
+  });
 
   expect(logs).toHaveLength(1);
   const group = JSON.parse(logs[0]!);

@@ -27,7 +27,11 @@ export const ENTRY_SCHEMA_DOC = {
       optional: true,
       fields: {
         modified: { type: "boolean" },
-        commits_touching_file: { type: "number" },
+        commits_touching_file: {
+          type: "number",
+          description:
+            "Best-effort count of commits after the comment. File-scoped when file lists are available; otherwise PR-wide.",
+        },
         latest_commit: { type: "string", optional: true },
         latest_commit_at: { type: "string", format: "date-time", optional: true },
       },

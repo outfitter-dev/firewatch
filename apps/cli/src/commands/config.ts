@@ -5,21 +5,143 @@ import {
   getProjectConfigPath,
 } from "@outfitter/firewatch-core";
 import { Command } from "commander";
+import { mkdir } from "node:fs/promises";
+import { dirname } from "node:path";
+
+import { writeJsonLine } from "../utils/json";
 
 export const configCommand = new Command("config").description(
   "Manage Firewatch settings"
 );
 
+async function resolveConfigPath(local?: boolean): Promise<string> {
+  if (local) {
+    const projectPath = await getProjectConfigPath();
+    if (!projectPath) {
+      throw new Error("No project config path found. Run inside a git repo.");
+    }
+    await mkdir(dirname(projectPath), { recursive: true });
+    return projectPath;
+  }
+
+  await ensureDirectories();
+  return PATHS.configFile;
+}
+
+async function readConfigFile(path: string): Promise<Record<string, unknown>> {
+  const configFile = Bun.file(path);
+  const config: Record<string, unknown> = {};
+
+  if (await configFile.exists()) {
+    const content = await configFile.text();
+    for (const line of content.split("\n")) {
+      const match = line.match(/^(\w+)\s*=\s*(.+)$/);
+      if (!match) {
+        continue;
+      }
+      const [, key, raw] = match;
+      if (!key || !raw) {
+        continue;
+      }
+      try {
+        config[key] = JSON.parse(raw.replaceAll("'", '"'));
+      } catch {
+        config[key] = raw.replaceAll(/^["']|["']$/g, "");
+      }
+    }
+  }
+
+  return config;
+}
+
+function applyConfigValue(
+  config: Record<string, unknown>,
+  key: string,
+  value: string
+): string {
+  const normalizedKey = key.replaceAll("-", "_");
+
+  if (normalizedKey === "repos") {
+    config.repos = value.split(",").map((r) => r.trim());
+  } else if (normalizedKey === "github_token") {
+    config.github_token = value;
+  } else if (normalizedKey === "graphite_enabled") {
+    config.graphite_enabled = value === "true";
+  } else if (normalizedKey === "default_stack") {
+    config.default_stack = value === "true";
+  } else if (normalizedKey === "default_states") {
+    config.default_states = value.split(",").map((s) => s.trim());
+  } else {
+    config[normalizedKey] = value;
+  }
+
+  return normalizedKey;
+}
+
+function serializeConfig(config: Record<string, unknown>): string {
+  const lines: string[] = [];
+  for (const [key, value] of Object.entries(config)) {
+    if (Array.isArray(value)) {
+      lines.push(`${key} = ${JSON.stringify(value)}`);
+    } else if (typeof value === "boolean") {
+      lines.push(`${key} = ${value}`);
+    } else if (typeof value === "number") {
+      lines.push(`${key} = ${value}`);
+    } else {
+      lines.push(`${key} = "${value}"`);
+    }
+  }
+
+  return `${lines.join("\n")}\n`;
+}
+
 configCommand
   .command("show")
   .description("Display current configuration")
-  .action(async () => {
+  .option("--json", "Output JSON")
+  .action(async (options) => {
     try {
       const paths = await getConfigPaths();
       const userFile = Bun.file(paths.user);
-      const projectFile = paths.project ? Bun.file(paths.project) : null;
+      const projectPath = await getProjectConfigPath();
+      const projectFile = projectPath ? Bun.file(projectPath) : null;
+      const hasUserConfig = await userFile.exists();
+      const hasProjectConfig = projectFile ? await projectFile.exists() : false;
 
-      if (await userFile.exists()) {
+      if (options.json) {
+        const payload: Record<string, unknown> = {
+          user: {
+            path: paths.user,
+            exists: hasUserConfig,
+            content: hasUserConfig ? await userFile.text() : null,
+          },
+          project: projectPath
+            ? {
+                path: projectPath,
+                exists: hasProjectConfig,
+                content:
+                  hasProjectConfig && projectFile
+                    ? await projectFile.text()
+                    : null,
+              }
+            : null,
+        };
+
+        if (!hasUserConfig && !hasProjectConfig) {
+          payload.example = {
+            repos: ["owner/repo1", "owner/repo2"],
+            graphite_enabled: true,
+            default_stack: true,
+            default_since: "7d",
+            default_states: ["open", "draft"],
+          };
+        }
+
+        await writeJsonLine(payload);
+        return;
+      }
+
+      if (hasUserConfig) {
         console.log(`# User config (${paths.user})`);
         console.log(await userFile.text());
       } else {
@@ -27,20 +149,17 @@ configCommand
         console.log("# No configuration file found.");
       }
 
-      if (projectFile) {
-        if (await projectFile.exists()) {
-          console.log(`\n# Project config (${paths.project})`);
+      if (projectPath) {
+        if (hasProjectConfig && projectFile) {
+          console.log(`\n# Project config (${projectPath})`);
           console.log(await projectFile.text());
-        }
-      } else {
-        const projectPath = await getProjectConfigPath();
-        if (projectPath) {
+        } else {
           console.log(`\n# Project config (${projectPath})`);
           console.log("# No project configuration file found.");
         }
       }
 
-      if (!(await userFile.exists()) && !projectFile) {
+      if (!hasUserConfig && !hasProjectConfig) {
         console.log("\n# Example config:");
         console.log('# repos = ["owner/repo1", "owner/repo2"]');
         console.log("# graphite_enabled = true");
@@ -61,76 +180,26 @@ configCommand
   .command("set")
   .description("Set a configuration value")
   .option("--local", "Write to project config in the repo")
+  .option("--json", "Output JSON")
   .argument("<key>", "Configuration key")
   .argument("<value>", "Configuration value")
   .action(async (key: string, value: string, options) => {
     try {
-      let configPath: string = PATHS.configFile;
-      if (options.local) {
-        const projectPath = await getProjectConfigPath();
-        if (!projectPath) {
-          console.error("No project config path found. Run inside a git repo.");
-          process.exit(1);
-        }
-        configPath = projectPath;
-      } else {
-        await ensureDirectories();
+      const configPath = await resolveConfigPath(options.local);
+      const config = await readConfigFile(configPath);
+      const normalizedKey = applyConfigValue(config, key, value);
+      await Bun.write(configPath, serializeConfig(config));
+      if (options.json) {
+        await writeJsonLine({
+          ok: true,
+          path: configPath,
+          key: normalizedKey,
+          value: config[normalizedKey],
+          ...(options.local && { local: true }),
+        });
+        return;
       }
 
-      // Read existing config or create empty
-      const configFile = Bun.file(configPath);
-      const config: Record<string, unknown> = {};
-
-      if (await configFile.exists()) {
-        const content = await configFile.text();
-        // Simple TOML parsing for basic key-value pairs
-        for (const line of content.split("\n")) {
-          const match = line.match(/^(\w+)\s*=\s*(.+)$/);
-          if (match) {
-            const [, k, v] = match;
-            if (k && v) {
-              try {
-                config[k] = JSON.parse(v.replaceAll("'", '"'));
-              } catch {
-                config[k] = v.replaceAll(/^["']|["']$/g, "");
-              }
-            }
-          }
-        }
-      }
-
-      // Handle special keys
-      const normalizedKey = key.replaceAll("-", "_");
-
-      if (normalizedKey === "repos") {
-        config.repos = value.split(",").map((r) => r.trim());
-      } else if (normalizedKey === "github_token") {
-        config.github_token = value;
-      } else if (normalizedKey === "graphite_enabled") {
-        config.graphite_enabled = value === "true";
-      } else if (normalizedKey === "default_stack") {
-        config.default_stack = value === "true";
-      } else if (normalizedKey === "default_states") {
-        config.default_states = value.split(",").map((s) => s.trim());
-      } else {
-        config[normalizedKey] = value;
-      }
-
-      // Write back as TOML
-      const lines: string[] = [];
-      for (const [k, v] of Object.entries(config)) {
-        if (Array.isArray(v)) {
-          lines.push(`${k} = ${JSON.stringify(v)}`);
-        } else if (typeof v === "boolean") {
-          lines.push(`${k} = ${v}`);
-        } else if (typeof v === "number") {
-          lines.push(`${k} = ${v}`);
-        } else {
-          lines.push(`${k} = "${v}"`);
-        }
-      }
-
-      await Bun.write(configPath, `${lines.join("\n")}\n`);
       console.log(`Set ${key} = ${value}`);
     } catch (error) {
       console.error(
@@ -144,8 +213,20 @@ configCommand
 configCommand
   .command("path")
   .description("Show configuration file paths")
-  .action(async () => {
+  .option("--json", "Output JSON")
+  .action(async (options) => {
     const projectPath = await getProjectConfigPath();
+    if (options.json) {
+      await writeJsonLine({
+        config: PATHS.configFile,
+        project: projectPath,
+        cache: PATHS.cache,
+        data: PATHS.data,
+        repos: PATHS.repos,
+        meta: PATHS.meta,
+      });
+      return;
+    }
     console.log(`Config:  ${PATHS.configFile}`);
     if (projectPath) {
       console.log(`Project: ${projectPath}`);

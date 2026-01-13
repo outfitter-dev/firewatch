@@ -14,10 +14,14 @@ import {
 } from "@outfitter/firewatch-core/plugins";
 import { Command } from "commander";
 
+import { writeJsonLine } from "../utils/json";
+
 interface SyncCommandOptions {
   full?: boolean;
   since?: string;
   withGraphite?: boolean;
+  stack?: boolean;
+  json?: boolean;
 }
 
 function resolveRepos(
@@ -44,7 +48,7 @@ async function resolveGraphiteEnabled(
   config: FirewatchConfig,
   detectedRepo: string | null
 ): Promise<boolean> {
-  if (options.withGraphite || config.graphite_enabled) {
+  if (options.withGraphite || options.stack || config.graphite_enabled) {
     return true;
   }
   if (detectedRepo) {
@@ -85,6 +89,15 @@ async function syncRepos(
       plugins: useGraphite ? [graphitePlugin] : [],
     });
 
+    if (options.json) {
+      await writeJsonLine({
+        repo: r,
+        prs_processed: result.prsProcessed,
+        entries_added: result.entriesAdded,
+        ...(useGraphite && { graphite: true }),
+      });
+    }
+
     console.error(
       `  ${result.prsProcessed} PRs processed, ${result.entriesAdded} entries added`
     );
@@ -97,6 +110,8 @@ export const syncCommand = new Command("sync")
   .option("--full", "Force full refresh (ignore cursor)")
   .option("--since <duration>", "Only PRs updated since (e.g., 7d, 24h)")
   .option("--with-graphite", "Include Graphite stack metadata")
+  .option("--stack", "Alias for --with-graphite")
+  .option("--json", "Output JSONL (default)")
   .action(async (repo: string | undefined, options: SyncCommandOptions) => {
     try {
       await ensureDirectories();

@@ -7,6 +7,7 @@ import {
 import { Command } from "commander";
 
 import { parseRepoInput } from "../repo";
+import { writeJsonLine } from "../utils/json";
 
 interface CommentCommandOptions {
   repo?: string;
@@ -37,6 +38,7 @@ export const commentCommand = new Command("comment")
   .option("--repo <name>", "Repository (owner/repo format)")
   .option("--reply-to <commentId>", "Reply to a review comment")
   .option("--resolve", "Resolve the review thread after replying")
+  .option("--json", "Output JSON (default)")
   .action(
     async (
       pr: number,
@@ -76,32 +78,28 @@ export const commentCommand = new Command("comment")
             await client.resolveReviewThread(threadId);
           }
 
-          console.log(
-            JSON.stringify({
-              ok: true,
-              repo,
-              pr,
-              comment_id: reply.id,
-              reply_to: options.replyTo,
-              ...(options.resolve && { resolved: true }),
-              ...(reply.url && { url: reply.url }),
-            })
-          );
+          await writeJsonLine({
+            ok: true,
+            repo,
+            pr,
+            comment_id: reply.id,
+            reply_to: options.replyTo,
+            ...(options.resolve && { resolved: true }),
+            ...(reply.url && { url: reply.url }),
+          });
           return;
         }
 
         const prId = await client.fetchPullRequestId(owner, name, pr);
         const comment = await client.addIssueComment(prId, body);
 
-        console.log(
-          JSON.stringify({
-            ok: true,
-            repo,
-            pr,
-            comment_id: comment.id,
-            ...(comment.url && { url: comment.url }),
-          })
-        );
+        await writeJsonLine({
+          ok: true,
+          repo,
+          pr,
+          comment_id: comment.id,
+          ...(comment.url && { url: comment.url }),
+        });
       } catch (error) {
         console.error(
           "Comment failed:",

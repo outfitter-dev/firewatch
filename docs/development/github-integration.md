@@ -10,7 +10,7 @@ Firewatch fetches PR activity via GitHub's GraphQL API. This doc captures API pa
 
 ### Auth Chain
 
-Firewatch uses adaptive auth (`src/core/auth.ts`):
+Firewatch uses adaptive auth (`packages/core/src/auth.ts`):
 
 1. **gh CLI** (preferred) — `gh auth token`
 2. **Environment** — `GITHUB_TOKEN` or `GH_TOKEN`
@@ -30,13 +30,15 @@ We fetch PR activity using the `pullRequests` connection with nested:
 - `reviews` — Review submissions (approved, changes_requested, etc.)
 - `comments` — Issue-style comments on the PR
 - `reviewThreads.comments` — Inline review comments on code
-- `commits.checkSuites.checkRuns` — CI status
+- `commits` — Commit activity (for staleness + provenance)
 
 ### Pagination Strategy
 
-- Use cursor-based pagination (`after: $cursor`)
-- Store last cursor in `~/.cache/firewatch/meta.jsonl` per repo
-- Incremental sync: only fetch new activity since last cursor
+- Fetch PRs ordered by `UPDATED_AT` (descending).
+- Use cursor-based pagination (`after: $cursor`) for page traversal.
+- Use `last_sync` from `~/.cache/firewatch/meta.jsonl` as the default "since" when `--since` isn't provided.
+- Stop paging once `updatedAt` is older than the effective since date and filter entries by `updated_at`/`created_at` to avoid re-emitting old activity.
+- Cursor is still stored for reference, but incremental sync relies on timestamps to avoid missing updates on older PRs.
 
 ### Rate Limiting
 
@@ -89,11 +91,11 @@ Proposed (see SCRATCHPAD.md):
 
 ### GitHub Format
 
-```markdown
+````markdown
 ```suggestion
 const x = newValue;
-` ` `
 ```
+````
 
 ### Parsing Strategy
 

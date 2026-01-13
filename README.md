@@ -48,7 +48,10 @@ fw sync
 fw sync owner/repo
 fw sync --since 7d
 fw sync --full
+fw sync --stack
 ```
+
+`--stack` is an alias for `--with-graphite` when you want stack metadata during sync.
 
 ### check
 
@@ -76,6 +79,8 @@ fw query --limit 50
 fw query --stack
 fw query --worklist
 ```
+
+Most commands emit JSONL by default; `--json` is accepted everywhere as an explicit alias.
 
 ### config
 
@@ -130,10 +135,10 @@ fw resolve comment-2001 comment-2002
 
 ## Configuration
 
-Firewatch loads configuration in this order (project overrides user):
+Firewatch loads configuration in this order (later sources override earlier):
 
-1. Project config: `.firewatch.toml` (repo root)
-2. User config: `~/.config/firewatch/config.toml`
+1. User config: `~/.config/firewatch/config.toml`
+2. Project config: `.firewatch.toml` (repo root)
 
 Example:
 
@@ -160,10 +165,10 @@ Stack metadata is designed to be compatible with GitHub's stacked PRs as they ro
 
 XDG-compliant cache and config locations:
 
-```
+```text
 ~/.cache/firewatch/
 ├── repos/
-│   └── owner--repo.jsonl
+│   └── b64~<encoded>.jsonl
 └── meta.jsonl
 
 ~/.config/firewatch/

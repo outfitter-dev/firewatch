@@ -7,6 +7,7 @@ import {
 import type { GraphiteStack } from "@outfitter/firewatch-core/plugins";
 
 import { ensureGraphiteMetadata } from "./stack";
+import { writeJsonLine } from "./utils/json";
 
 export interface StatusShortEntry {
   repo: string;
@@ -62,7 +63,7 @@ export async function outputStatusShort(
   }
 
   for (const item of items) {
-    console.log(JSON.stringify(item));
+    await writeJsonLine(item);
   }
 
   return true;

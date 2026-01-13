@@ -1,27 +1,19 @@
 import {
   type EntryType,
   type FirewatchConfig,
-  type FirewatchEntry,
-  type PrState,
+  detectRepo,
   loadConfig,
-  outputJsonl,
   parseSince,
   queryEntries,
 } from "@outfitter/firewatch-core";
 import { Command } from "commander";
 
-import { outputStackedEntries } from "../stack";
-import { outputWorklist } from "../worklist";
-
-/**
- * Parse comma-separated state values.
- */
-function parseStates(value: string): PrState[] {
-  return value.split(",").map((s) => s.trim() as PrState);
-}
+import { outputEntries } from "../utils/output";
+import { resolveStates } from "../utils/states";
 
 interface QueryCommandOptions {
   repo?: string;
+  all?: boolean;
   pr?: number;
   author?: string;
   type?: string;
@@ -35,28 +27,7 @@ interface QueryCommandOptions {
   offset?: number;
   stack?: boolean;
   worklist?: boolean;
-}
-
-function resolveStates(
-  options: QueryCommandOptions,
-  config: FirewatchConfig
-): PrState[] | undefined {
-  if (options.state) {
-    return parseStates(options.state);
-  }
-  if (options.active) {
-    return ["open", "draft"];
-  }
-  if (options.open && options.draft) {
-    return ["open", "draft"];
-  }
-  if (options.open) {
-    return ["open"];
-  }
-  if (options.draft) {
-    return ["draft"];
-  }
-  return config.default_states ?? ["open", "draft"];
+  json?: boolean;
 }
 
 function buildQueryOptions(
@@ -82,36 +53,10 @@ function buildQueryOptions(
   };
 }
 
-async function outputEntries(
-  entries: FirewatchEntry[],
-  options: QueryCommandOptions,
-  config: FirewatchConfig
-): Promise<void> {
-  if (options.worklist) {
-    const wrote = await outputWorklist(entries);
-    if (!wrote) {
-      console.error("No entries found for worklist.");
-    }
-    return;
-  }
-
-  const stackMode = options.stack || config.default_stack;
-  if (stackMode) {
-    const wrote = await outputStackedEntries(entries);
-    if (!wrote) {
-      console.error(
-        "No Graphite stack data found. Re-sync (graphite auto-detects) or enable graphite in config."
-      );
-    }
-    return;
-  }
-
-  outputJsonl(entries);
-}
-
 export const queryCommand = new Command("query")
   .description("Filter and output JSONL to stdout")
   .option("--repo <name>", "Filter by repository (partial match)")
+  .option("--all", "Query across all cached repos")
   .option("--pr <number>", "Filter by PR number", Number.parseInt)
   .option("--author <name>", "Filter by author")
   .option(
@@ -131,12 +76,28 @@ export const queryCommand = new Command("query")
   .option("--offset <count>", "Skip first N results", Number.parseInt)
   .option("--stack", "Show entries grouped by Graphite stack")
   .option("--worklist", "Aggregate entries into a per-PR worklist")
+  .option("--json", "Output JSONL (default)")
   .action(async (options: QueryCommandOptions) => {
     try {
+      let repoFilter = options.repo;
+      if (!repoFilter && !options.all) {
+        const detected = await detectRepo();
+        if (detected.repo) {
+          console.error(`Querying ${detected.repo} (from ${detected.source})`);
+          repoFilter = detected.repo;
+        }
+      }
+
       // Load config for defaults
       const config = await loadConfig();
 
-      const entries = await queryEntries(buildQueryOptions(options, config));
+      const resolvedOptions = repoFilter
+        ? { ...options, repo: repoFilter }
+        : options;
+
+      const entries = await queryEntries(
+        buildQueryOptions(resolvedOptions, config)
+      );
       await outputEntries(entries, options, config);
     } catch (error) {
       console.error(

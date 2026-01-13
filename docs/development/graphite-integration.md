@@ -12,26 +12,23 @@ Firewatch's Graphite plugin enriches PR activity entries with stack context. Thi
 
 | Command | Output | Useful For |
 |---------|--------|------------|
-| `gt log --stack` | Human-readable branch tree | Understanding stack structure |
+| `gt log --stack --no-interactive` | Human-readable branch tree | Understanding stack structure |
 | `gt branch info` | Branch details | Current branch context |
 | `gt branch info --stat` | Diffstat vs parent | File change summary (human-readable) |
 | `gt branch info --diff` | Full diff vs parent | Detailed changes (human-readable) |
-| `gt branch info --json` | JSON with `parent` field | Programmatic parent lookup |
 
 ### What gt Does NOT Expose
 
-- **File changes in JSON** — No `--json` flag for `--stat` or `--diff` output
-- **Stack-wide file mapping** — No command to get "which branch changed which files"
-- **PR numbers in JSON** — Must get from GitHub API or parse human-readable output
+- **JSON output** — Current gt versions do not expose JSON for stack structure.
+- **File changes in JSON** — No `--json` flag for `--stat` or `--diff` output.
+- **Stack-wide file mapping** — No command to get "which branch changed which files".
 
 ### JSON Output Availability
 
 ```bash
-# Works - gives parent branch
-gt branch info --json | jq -r '.parent'
-
-# Does NOT work - no JSON for file changes
-gt branch info --stat --json  # --json ignored, outputs human-readable
+# Not supported in current gt versions
+gt log --json      # unknown argument: json
+gt branch info --json
 ```
 
 ## Hybrid Approach: gt + git
@@ -139,11 +136,10 @@ async function buildFileProvenanceMap(): Promise<Map<string, FileProvenance>> {
 gt can detect this but requires local checkout:
 
 ```bash
-# Check if current branch needs restack
-gt branch restack --dry-run  # No actual --dry-run flag exists
-
-# Alternative: compare branch base with parent HEAD
-git merge-base ${branch} ${parent} != git rev-parse ${parent}
+# gt branch restack has no dry-run flag; use merge-base to detect drift
+if [ "$(git merge-base "${branch}" "${parent}")" != "$(git rev-parse "${parent}")" ]; then
+  echo "restack needed"
+fi
 ```
 
 ### Parent Merged

@@ -192,11 +192,12 @@ export async function syncRepo(
   // Load existing sync metadata
   const allMeta = await readJsonl<SyncMetadata>(PATHS.meta);
   const repoMeta = allMeta.find((m) => m.repo === repo);
-  const cursor = options.full ? null : (repoMeta?.cursor ?? null);
+  const lastSync = repoMeta?.last_sync ? new Date(repoMeta.last_sync) : undefined;
+  const effectiveSince = options.since ?? (options.full ? undefined : lastSync);
 
   let entriesAdded = 0;
   let prsProcessed = 0;
-  let currentCursor = cursor;
+  let currentCursor: string | null = null;
   let hasNextPage = true;
 
   while (hasNextPage) {
@@ -210,12 +211,19 @@ export async function syncRepo(
 
     for (const pr of nodes) {
       // Skip if updated before 'since' date
-      if (options.since && new Date(pr.updatedAt) < options.since) {
+      if (effectiveSince && new Date(pr.updatedAt) < effectiveSince) {
         hasNextPage = false;
         break;
       }
 
       let entries = prToEntries(repo, pr, capturedAt);
+
+      if (effectiveSince) {
+        entries = entries.filter((entry) => {
+          const timestamp = entry.updated_at ?? entry.created_at;
+          return new Date(timestamp) >= effectiveSince;
+        });
+      }
 
       // Run plugins
       if (options.plugins) {
@@ -239,10 +247,13 @@ export async function syncRepo(
     currentCursor = pageInfo.endCursor;
   }
 
-  // Update sync metadata
+  // Update sync metadata with end-of-sync timestamp to prevent duplicates
+  // If we used capturedAt (start time), activity occurring during sync would be
+  // refetched on the next sync. Using end time ensures the next sync starts fresh.
+  const syncCompletedAt = new Date().toISOString();
   const newMeta: SyncMetadata = {
     repo,
-    last_sync: capturedAt,
+    last_sync: syncCompletedAt,
     cursor: currentCursor ?? undefined,
     pr_count: prsProcessed,
   };

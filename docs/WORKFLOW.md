@@ -24,9 +24,13 @@ fw sync --since 7d
 
 # Full refresh (use occasionally)
 fw sync --full
+
+# Stack metadata (Graphite)
+fw sync --stack
 ```
 
 When running `fw` inside a repo with no cache yet, it auto-syncs first and then runs your query.
+Most commands emit JSONL by default; `--json` is accepted as an explicit alias.
 
 ## Check
 
@@ -115,10 +119,10 @@ For feedback that references a file/line, Firewatch can identify which PR in the
 
 ## Configuration
 
-Firewatch loads config in this order (project overrides user):
+Firewatch loads config in this order (later sources override earlier):
 
-1. `.firewatch.toml` (repo root)
-2. `~/.config/firewatch/config.toml`
+1. `~/.config/firewatch/config.toml`
+2. `.firewatch.toml` (repo root)
 
 Common defaults:
 

@@ -7,6 +7,7 @@ import {
 import { Command } from "commander";
 
 import { parseRepoInput } from "../repo";
+import { writeJsonLine } from "../utils/json";
 
 interface ResolveCommandOptions {
   repo?: string;
@@ -113,15 +114,13 @@ async function resolveTargets(
         resolvedThreads.add(threadId);
       }
 
-      console.log(
-        JSON.stringify({
-          ok: true,
-          repo,
-          pr,
-          comment_id: target.commentId,
-          thread_id: threadId,
-        })
-      );
+      await writeJsonLine({
+        ok: true,
+        repo,
+        pr,
+        comment_id: target.commentId,
+        thread_id: threadId,
+      });
     }
   }
 
@@ -133,6 +132,7 @@ export const resolveCommand = new Command("resolve")
   .argument("<commentIds...>", "Review comment IDs to resolve")
   .option("--repo <name>", "Repository (owner/repo format)")
   .option("--pr <number>", "PR number", Number.parseInt)
+  .option("--json", "Output JSON (default)")
   .action(async (commentIds: string[], options: ResolveCommandOptions) => {
     try {
       if (commentIds.length === 0) {

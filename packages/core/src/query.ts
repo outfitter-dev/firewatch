@@ -1,3 +1,4 @@
+import * as fs from "node:fs";
 import { readdir } from "node:fs/promises";
 
 import {
@@ -205,6 +206,7 @@ export async function queryEntries(
  */
 export function outputJsonl(entries: FirewatchEntry[]): void {
   for (const entry of entries) {
-    console.log(JSON.stringify(entry));
+    const line = `${JSON.stringify(entry)}\n`;
+    fs.writeSync(1, line);
   }
 }

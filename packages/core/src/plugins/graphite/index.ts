@@ -21,6 +21,77 @@ let stackPromise: Promise<GraphiteStack[] | null> | null = null;
 let cachedProvenance: FileProvenanceIndex | null | undefined;
 let provenancePromise: Promise<FileProvenanceIndex | null> | null = null;
 
+function stripAnsi(text: string): string {
+  let result = "";
+  let index = 0;
+
+  while (index < text.length) {
+    const code = text.codePointAt(index);
+    if (code === undefined) {
+      break;
+    }
+    if (code === 0x1B || code === 0x9B) {
+      index += 1;
+      if (code === 0x1B && text[index] === "[") {
+        index += 1;
+      }
+
+      while (index < text.length) {
+        const char = text[index]!;
+        if (
+          (char >= "A" && char <= "Z") ||
+          (char >= "a" && char <= "z")
+        ) {
+          index += 1;
+          break;
+        }
+        index += 1;
+      }
+
+      continue;
+    }
+
+    result += text[index]!;
+    index += 1;
+  }
+
+  return result;
+}
+
+export function parseGraphiteLog(output: string): GraphiteStack[] {
+  const branches: GraphiteStackBranch[] = [];
+  let current: GraphiteStackBranch | null = null;
+
+  const lines = stripAnsi(output).split("\n");
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      continue;
+    }
+
+    const branchMatch = trimmed.match(/^[◉◯]\s+(.+?)(?:\s+\(current\))?\s*$/);
+    if (branchMatch) {
+      current = { name: branchMatch[1]!.trim() };
+      branches.push(current);
+      continue;
+    }
+
+    const prMatch = trimmed.match(/PR\s+#(\d+)/);
+    if (prMatch && current) {
+      current.prNumber = Number.parseInt(prMatch[1]!, 10);
+    }
+  }
+
+  const prBranches = branches.filter((branch) => branch.prNumber);
+  if (prBranches.length === 0) {
+    return [];
+  }
+
+  const ordered = prBranches.toReversed();
+  const stackName = ordered[0]?.name ?? "stack";
+  return [{ name: stackName, branches: ordered }];
+}
+
 function loadStacks(): Promise<GraphiteStack[] | null> {
   if (cachedStacks !== undefined) {
     return Promise.resolve(cachedStacks);
@@ -28,20 +99,15 @@ function loadStacks(): Promise<GraphiteStack[] | null> {
 
   if (!stackPromise) {
     stackPromise = (async () => {
-      const result = await $`gt log --json`.nothrow().quiet();
+      const result = await $`gt log --stack --no-interactive`.nothrow().quiet();
       if (result.exitCode !== 0) {
         cachedStacks = null;
         return cachedStacks;
       }
 
-      try {
-        const stacks = JSON.parse(result.text()) as GraphiteStack[];
-        cachedStacks = stacks;
-        return stacks;
-      } catch {
-        cachedStacks = null;
-        return cachedStacks;
-      }
+      const stacks = parseGraphiteLog(result.text());
+      cachedStacks = stacks.length > 0 ? stacks : null;
+      return cachedStacks;
     })();
   }
 

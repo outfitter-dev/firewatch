@@ -20,6 +20,7 @@ export function printSchema(name: SchemaName): void {
 export const schemaCommand = new Command("schema")
   .description("Print schema information")
   .argument("[name]", "query | entry | worklist", "query")
+  .option("--json", "Output JSON (default)")
   .action((name: SchemaName) => {
     if (!schemaMap[name]) {
       console.error(`Unknown schema: ${name}`);

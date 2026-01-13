@@ -1,6 +1,6 @@
 import {
   type FirewatchConfig,
-  type PrState,
+  detectRepo,
   loadConfig,
   parseSince,
   queryEntries,
@@ -9,16 +9,11 @@ import { Command } from "commander";
 
 import { outputStatusShort } from "../status";
 import { outputWorklist } from "../worklist";
-
-/**
- * Parse comma-separated state values.
- */
-function parseStates(value: string): PrState[] {
-  return value.split(",").map((s) => s.trim() as PrState);
-}
+import { resolveStates } from "../utils/states";
 
 export interface StatusCommandOptions {
   repo?: string;
+  all?: boolean;
   pr?: number;
   state?: string;
   open?: boolean;
@@ -27,28 +22,7 @@ export interface StatusCommandOptions {
   label?: string;
   since?: string;
   short?: boolean;
-}
-
-function resolveStates(
-  options: StatusCommandOptions,
-  config: FirewatchConfig
-): PrState[] | undefined {
-  if (options.state) {
-    return parseStates(options.state);
-  }
-  if (options.active) {
-    return ["open", "draft"];
-  }
-  if (options.open && options.draft) {
-    return ["open", "draft"];
-  }
-  if (options.open) {
-    return ["open"];
-  }
-  if (options.draft) {
-    return ["draft"];
-  }
-  return config.default_states ?? ["open", "draft"];
+  json?: boolean;
 }
 
 export function buildStatusQueryOptions(
@@ -73,6 +47,7 @@ export function buildStatusQueryOptions(
 export const statusCommand = new Command("status")
   .description("Summarize PR activity")
   .option("--repo <name>", "Filter by repository (partial match)")
+  .option("--all", "Query across all cached repos")
   .option("--pr <number>", "Filter by PR number", Number.parseInt)
   .option(
     "--state <states>",
@@ -84,8 +59,19 @@ export const statusCommand = new Command("status")
   .option("--label <name>", "Filter by PR label (partial match)")
   .option("--since <duration>", "Filter by time (e.g., 24h, 7d)")
   .option("--short", "Tight per-PR summary output")
+  .option("--json", "Output JSONL (default)")
   .action(async (options: StatusCommandOptions) => {
     try {
+      if (!options.repo && !options.all) {
+        const detected = await detectRepo();
+        if (detected.repo) {
+          console.error(
+            `Querying ${detected.repo} (from ${detected.source})`
+          );
+          options.repo = detected.repo;
+        }
+      }
+
       const config = await loadConfig();
       const entries = await queryEntries(
         buildStatusQueryOptions(options, config)

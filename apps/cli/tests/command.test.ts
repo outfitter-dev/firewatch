@@ -12,6 +12,7 @@ import {
 } from "@outfitter/firewatch-core";
 import { program } from "../src";
 import { statusCommand } from "../src/commands/status";
+import { captureStdout } from "./helpers";
 
 const tempRoot = await mkdtemp(join(tmpdir(), "firewatch-cli-"));
 const originalPaths = { ...PATHS };
@@ -97,24 +98,8 @@ afterAll(async () => {
   await rm(tempRoot, { recursive: true, force: true });
 });
 
-async function captureLogs(fn: () => Promise<void>) {
-  const logs: string[] = [];
-  const originalLog = console.log;
-  console.log = (value?: unknown) => {
-    logs.push(String(value));
-  };
-
-  try {
-    await fn();
-  } finally {
-    console.log = originalLog;
-  }
-
-  return logs;
-}
-
 test("status command wiring outputs short summaries", async () => {
-  const logs = await captureLogs(() =>
+  const logs = await captureStdout(() =>
     statusCommand.parseAsync(["node", "status", "--short"])
   );
 
@@ -129,7 +114,7 @@ test("root command stack wiring groups entries", async () => {
   process.chdir(tempRoot);
 
   try {
-    const logs = await captureLogs(() =>
+    const logs = await captureStdout(() =>
       program.parseAsync(["node", "fw", repo, "--stack"])
     );
 
@@ -147,7 +132,7 @@ test("root command query outputs filtered entries", async () => {
   process.chdir(tempRoot);
 
   try {
-    const logs = await captureLogs(() =>
+    const logs = await captureStdout(() =>
       program.parseAsync(["node", "fw", repo, "--type", "review"])
     );
 
@@ -160,7 +145,7 @@ test("root command query outputs filtered entries", async () => {
 });
 
 test("query subcommand outputs filtered entries", async () => {
-  const logs = await captureLogs(() =>
+  const logs = await captureStdout(() =>
     program.parseAsync([
       "node",
       "fw",
