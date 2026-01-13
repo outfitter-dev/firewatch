@@ -23,10 +23,19 @@ import {
   ENTRY_SCHEMA_DOC,
   WORKLIST_SCHEMA_DOC,
 } from "@outfitter/firewatch-core/schema";
-import { getGraphiteStacks, graphitePlugin } from "@outfitter/firewatch-core/plugins";
+import {
+  getGraphiteStacks,
+  graphitePlugin,
+} from "@outfitter/firewatch-core/plugins";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
+import {
+  buildQueryContext,
+  buildQueryOptions,
+  resolveQueryOutput,
+  resolveRepoFilter,
+} from "./query";
 
 const ActionSchema = z.enum([
   "query",
@@ -155,6 +164,18 @@ async function ensureRepoCache(
   await syncRepo(client, repo, { plugins });
 }
 
+async function ensureRepoCacheIfNeeded(
+  repoFilter: string | undefined,
+  config: FirewatchConfig,
+  detectedRepo: string | null
+): Promise<void> {
+  if (!repoFilter || !isFullRepo(repoFilter)) {
+    return;
+  }
+
+  await ensureRepoCache(repoFilter, config, detectedRepo);
+}
+
 async function resolveCommitFilesFromGit(
   commitId: string
 ): Promise<string[] | null> {
@@ -189,26 +210,6 @@ async function enrichGraphite(
   return Promise.all(entries.map((entry) => graphitePlugin.enrich!(entry)));
 }
 
-function groupByStack(
-  entries: FirewatchEntry[]
-): { stack_id: string; entries: FirewatchEntry[] }[] {
-  const groups = new Map<string, FirewatchEntry[]>();
-  for (const entry of entries) {
-    const stackId = entry.graphite?.stack_id;
-    if (!stackId) {
-      continue;
-    }
-    const group = groups.get(stackId) ?? [];
-    group.push(entry);
-    groups.set(stackId, group);
-  }
-
-  return [...groups.entries()].map(([stack_id, groupedEntries]) => ({
-    stack_id,
-    entries: groupedEntries,
-  }));
-}
-
 function formatStatusShort(items: ReturnType<typeof buildWorklist>) {
   return items.map((item) => ({
     repo: item.repo,
@@ -230,50 +231,14 @@ async function handleQuery(params: FirewatchParams): Promise<McpToolResult> {
   const config = await loadConfig();
   const detected = await detectRepo();
 
-  const repoFilter = params.repo ?? detected.repo ?? undefined;
-  if (repoFilter && isFullRepo(repoFilter)) {
-    await ensureRepoCache(repoFilter, config, detected.repo);
-  }
+  const context = buildQueryContext(params, config, detected.repo);
 
-  const states = parseStates(params.states, config);
-  const since = params.since ?? config.default_since;
+  await ensureRepoCacheIfNeeded(context.repoFilter, config, detected.repo);
 
-  const entries = await queryEntries({
-    filters: {
-      ...(repoFilter && { repo: repoFilter }),
-      ...(params.pr !== undefined && { pr: params.pr }),
-      ...(params.author && { author: params.author }),
-      ...(params.type && { type: params.type }),
-      ...(states && { states }),
-      ...(params.label && { label: params.label }),
-      ...(since && { since: parseSince(since) }),
-    },
-    ...(params.limit !== undefined && { limit: params.limit }),
-    ...(params.offset !== undefined && { offset: params.offset }),
+  const entries = await queryEntries(buildQueryOptions(params, context));
+  const output = await resolveQueryOutput(params, entries, context, {
+    enrichGraphite,
   });
-
-  let output = entries;
-
-  if (
-    (params.stack_id || params.group_stack || params.worklist) &&
-    canUseGraphite(repoFilter, detected.repo)
-  ) {
-    output = await enrichGraphite(entries);
-  }
-
-  if (params.stack_id) {
-    output = output.filter((entry) => entry.graphite?.stack_id === params.stack_id);
-  }
-
-  if (params.worklist) {
-    const worklist = sortWorklist(buildWorklist(output));
-    return textResult(jsonLines(worklist));
-  }
-
-  if (params.group_stack) {
-    const groups = groupByStack(output);
-    return textResult(jsonLines(groups));
-  }
 
   return textResult(jsonLines(output));
 }
@@ -281,11 +246,9 @@ async function handleQuery(params: FirewatchParams): Promise<McpToolResult> {
 async function handleStatus(params: FirewatchParams): Promise<McpToolResult> {
   const config = await loadConfig();
   const detected = await detectRepo();
-  const repoFilter = params.repo ?? detected.repo ?? undefined;
+  const repoFilter = resolveRepoFilter(params.repo, detected.repo);
 
-  if (repoFilter && isFullRepo(repoFilter)) {
-    await ensureRepoCache(repoFilter, config, detected.repo);
-  }
+  await ensureRepoCacheIfNeeded(repoFilter, config, detected.repo);
 
   const states = parseStates(params.states, config);
   const since = params.since ?? config.default_since;
