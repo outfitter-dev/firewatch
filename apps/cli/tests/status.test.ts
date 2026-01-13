@@ -1,7 +1,8 @@
 import { expect, test } from "bun:test";
 
-import type { FirewatchEntry } from "@outfitter/firewatch-core";
+import type { FirewatchConfig, FirewatchEntry } from "@outfitter/firewatch-core";
 import { outputStatusShort } from "../src/status";
+import { buildStatusQueryOptions } from "../src/commands/status";
 
 test("outputStatusShort emits a tight per-PR summary", async () => {
   const entries: FirewatchEntry[] = [
@@ -89,4 +90,24 @@ test("outputStatusShort emits a tight per-PR summary", async () => {
   expect(second.comments).toBe(1);
   expect(second.changes_requested).toBe(0);
   expect(second.stack_position).toBe(2);
+});
+
+test("buildStatusQueryOptions uses default_since when since is omitted", () => {
+  const config: FirewatchConfig = {
+    repos: [],
+    graphite_enabled: false,
+    default_stack: false,
+    default_since: "24h",
+    max_prs_per_sync: 100,
+  };
+
+  const before = Date.now();
+  const options = buildStatusQueryOptions({}, config);
+  const after = Date.now();
+
+  const since = options.filters?.since as Date;
+  expect(since).toBeInstanceOf(Date);
+  const expected = 24 * 60 * 60 * 1000;
+  expect(since.getTime()).toBeGreaterThanOrEqual(before - expected);
+  expect(since.getTime()).toBeLessThanOrEqual(after - expected);
 });
