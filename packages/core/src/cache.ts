@@ -1,6 +1,7 @@
 import envPaths from "env-paths";
 import { existsSync } from "node:fs";
 import { appendFile, mkdir } from "node:fs/promises";
+import type { FirewatchEntry } from "./schema";
 
 const paths = envPaths("firewatch", { suffix: "" });
 
@@ -22,6 +23,9 @@ export const PATHS = {
 
   /** Sync metadata file */
   meta: `${paths.cache}/meta.jsonl`,
+
+  /** Lookout tracking file */
+  lookout: `${paths.cache}/lookout.jsonl`,
 
   /** Config file */
   configFile: `${paths.config}/config.toml`,
@@ -70,7 +74,8 @@ export function parseRepoCacheFilename(filename: string): string {
     const encoded = filename.slice(REPO_CACHE_PREFIX.length);
     try {
       const decoded = Buffer.from(encoded, "base64url").toString("utf8");
-      if (decoded.includes("/")) {
+      // Validate: must contain slash (owner/repo) and no null bytes (path safety)
+      if (decoded.includes("/") && !decoded.includes("\0")) {
         return decoded;
       }
     } catch {
@@ -117,4 +122,32 @@ export async function readJsonl<T>(path: string): Promise<T[]> {
 export async function writeJsonl<T>(path: string, data: T[]): Promise<void> {
   const content = `${data.map((item) => JSON.stringify(item)).join("\n")}\n`;
   await Bun.write(path, content);
+}
+
+/**
+ * Deduplicate entries by ID, keeping the entry with the latest captured_at timestamp.
+ * This handles the case where the same entry is appended multiple times during syncs.
+ * @param entries - Array of entries that may contain duplicates
+ * @returns Array of unique entries with the latest captured_at for each ID
+ */
+export function deduplicateEntries(entries: FirewatchEntry[]): FirewatchEntry[] {
+  const byId = new Map<string, FirewatchEntry>();
+  for (const entry of entries) {
+    const existing = byId.get(entry.id);
+    if (!existing || entry.captured_at > existing.captured_at) {
+      byId.set(entry.id, entry);
+    }
+  }
+  return [...byId.values()];
+}
+
+/**
+ * Read entries from a JSONL cache file, deduplicating by ID.
+ * Keeps entries with the latest captured_at timestamp when duplicates exist.
+ * @param path - File path to the cache
+ * @returns Array of unique entries
+ */
+export async function readEntriesJsonl(path: string): Promise<FirewatchEntry[]> {
+  const entries = await readJsonl<FirewatchEntry>(path);
+  return deduplicateEntries(entries);
 }

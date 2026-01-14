@@ -4,7 +4,7 @@ import {
   PATHS,
   getRepoCachePath,
   parseRepoCacheFilename,
-  readJsonl,
+  readEntriesJsonl,
 } from "./cache";
 import type { FirewatchPlugin } from "./plugins/types";
 import type { FirewatchEntry, PrState } from "./schema/entry";
@@ -176,7 +176,7 @@ export async function queryEntries(
 
   for (const repo of repos) {
     const cachePath = getRepoCachePath(repo);
-    const entries = await readJsonl<FirewatchEntry>(cachePath);
+    const entries = await readEntriesJsonl(cachePath);
 
     for (const entry of entries) {
       if (matchesFilters(entry, filters, plugins)) {
