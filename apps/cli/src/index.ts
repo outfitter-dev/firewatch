@@ -1,4 +1,5 @@
 import {
+  ENTRY_TYPES,
   type EntryType,
   type FirewatchConfig,
   type FirewatchEntry,
@@ -40,6 +41,21 @@ import { outputWorklist } from "./worklist";
  */
 function parseStates(value: string): PrState[] {
   return value.split(",").map((s) => s.trim() as PrState);
+}
+
+/**
+ * Parse and validate comma-separated type values.
+ */
+function parseTypes(value: string): EntryType[] {
+  const types = value.split(",").map((s) => s.trim().toLowerCase());
+  const invalid = types.filter((t) => !ENTRY_TYPES.includes(t as EntryType));
+  if (invalid.length > 0) {
+    console.error(
+      `Invalid type(s): ${invalid.join(", ")}. Valid types: ${ENTRY_TYPES.join(", ")}`
+    );
+    process.exit(1);
+  }
+  return types as EntryType[];
 }
 
 interface RootCommandOptions {
@@ -142,7 +158,8 @@ async function ensureRepoCache(
 function buildQueryOptions(
   options: RootCommandOptions,
   config: FirewatchConfig,
-  repoFilter: string
+  repoFilter: string,
+  types?: EntryType[]
 ) {
   const states = resolveStates(options, config);
   const since = options.since ?? config.default_since;
@@ -152,7 +169,7 @@ function buildQueryOptions(
       repo: repoFilter,
       ...(options.pr !== undefined && { pr: options.pr }),
       ...(options.author && { author: options.author }),
-      ...(options.type && { type: options.type as EntryType }),
+      ...(types && types.length > 0 && { type: types }),
       ...(states && { states }),
       ...(options.label && { label: options.label }),
       ...(since && { since: parseSince(since) }),
@@ -222,6 +239,9 @@ program
   .option("--worklist", "Aggregate entries into a per-PR worklist")
   .option("--schema", "Print the query result schema (JSON)")
   .action(async (repo: string | undefined, options: RootCommandOptions) => {
+    // Parse and validate --type option (handles comma-separated values)
+    const types = options.type ? parseTypes(options.type) : undefined;
+
     try {
       if (options.schema) {
         printSchema("query");
@@ -244,7 +264,7 @@ program
       await ensureRepoCache(repoFilter, config, detected.repo);
 
       const entries = await queryEntries(
-        buildQueryOptions(options, config, repoFilter)
+        buildQueryOptions(options, config, repoFilter, types)
       );
       await outputEntries(entries, options, config);
     } catch (error) {

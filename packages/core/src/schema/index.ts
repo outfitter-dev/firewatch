@@ -5,6 +5,7 @@ export {
 } from "./config";
 
 export {
+  ENTRY_TYPES,
   EntryTypeSchema,
   FirewatchEntrySchema,
   GraphiteMetadataSchema,

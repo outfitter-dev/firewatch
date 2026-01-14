@@ -25,8 +25,8 @@ export interface QueryFilters {
   /** Filter by author (exact match) */
   author?: string;
 
-  /** Filter by entry type */
-  type?: FirewatchEntry["type"];
+  /** Filter by entry type (single type or array of types) */
+  type?: FirewatchEntry["type"] | FirewatchEntry["type"][];
 
   /** Filter by PR states (e.g., ["open", "draft"]) */
   states?: PrState[];
@@ -135,8 +135,11 @@ function matchesFilters(
     return false;
   }
 
-  if (filters.type && entry.type !== filters.type) {
-    return false;
+  if (filters.type) {
+    const types = Array.isArray(filters.type) ? filters.type : [filters.type];
+    if (!types.includes(entry.type)) {
+      return false;
+    }
   }
 
   if (!matchesStates(entry, filters.states)) {
