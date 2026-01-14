@@ -1,7 +1,11 @@
 export {
   DEFAULT_CONFIG,
+  FiltersConfigSchema,
   FirewatchConfigSchema,
+  UserConfigSchema,
+  type FiltersConfig,
   type FirewatchConfig,
+  type UserConfig,
 } from "./config";
 
 export {

@@ -10,6 +10,7 @@ import {
   ensureDirectories,
   getRepoCachePath,
   loadConfig,
+  mergeExcludeAuthors,
   outputJsonl,
   parseSince,
   queryEntries,
@@ -72,6 +73,9 @@ interface RootCommandOptions {
   stack?: boolean;
   worklist?: boolean;
   schema?: boolean;
+  excludeBots?: boolean;
+  humans?: boolean;
+  excludeAuthor?: string;
 }
 
 function resolveRepo(
@@ -155,6 +159,43 @@ async function ensureRepoCache(
   }
 }
 
+function resolveAuthorFilters(
+  options: RootCommandOptions,
+  config: FirewatchConfig
+): { excludeAuthors?: string[]; excludeBots?: boolean; botPatterns?: RegExp[] } {
+  // --humans is an alias for --exclude-bots
+  const excludeBots =
+    options.excludeBots || options.humans || config.filters?.exclude_bots;
+
+  // Merge explicit exclusions with config exclusions
+  const cliExclusions = options.excludeAuthor
+    ? options.excludeAuthor.split(",").map((a) => a.trim())
+    : [];
+  const configExclusions = config.filters?.exclude_authors ?? [];
+
+  // When excluding bots, also include the default known bot list
+  const excludeAuthors =
+    excludeBots || cliExclusions.length > 0 || configExclusions.length > 0
+      ? mergeExcludeAuthors(
+          [...configExclusions, ...cliExclusions],
+          excludeBots ?? false
+        )
+      : undefined;
+
+  // Convert config bot_patterns strings to RegExp
+  const configBotPatterns = config.filters?.bot_patterns ?? [];
+  const botPatterns =
+    configBotPatterns.length > 0
+      ? configBotPatterns.map((p) => new RegExp(p, "i"))
+      : undefined;
+
+  return {
+    ...(excludeAuthors && { excludeAuthors }),
+    ...(excludeBots && { excludeBots }),
+    ...(botPatterns && { botPatterns }),
+  };
+}
+
 function buildQueryOptions(
   options: RootCommandOptions,
   config: FirewatchConfig,
@@ -163,6 +204,7 @@ function buildQueryOptions(
 ) {
   const states = resolveStates(options, config);
   const since = options.since ?? config.default_since;
+  const authorFilters = resolveAuthorFilters(options, config);
 
   return {
     filters: {
@@ -173,6 +215,7 @@ function buildQueryOptions(
       ...(states && { states }),
       ...(options.label && { label: options.label }),
       ...(since && { since: parseSince(since) }),
+      ...authorFilters,
     },
     ...(options.limit !== undefined && { limit: options.limit }),
     plugins: [],
@@ -218,6 +261,12 @@ program
   .argument("[repo]", "Repository to query (owner/repo format, or auto-detect)")
   .option("--pr <number>", "Filter by PR number", Number.parseInt)
   .option("--author <name>", "Filter by author")
+  .option("--exclude-bots", "Exclude bot activity")
+  .option("--humans", "Alias for --exclude-bots")
+  .option(
+    "--exclude-author <authors>",
+    "Exclude specific authors (comma-separated)"
+  )
   .option(
     "--type <type>",
     "Filter by type (comment, review, commit, ci, event)"
