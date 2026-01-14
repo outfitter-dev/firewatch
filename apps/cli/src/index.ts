@@ -253,7 +253,6 @@ program.addCommand(syncCommand);
 program.addCommand(checkCommand);
 program.addCommand(queryCommand);
 program.addCommand(statusCommand);
-program.addCommand(lookoutCommand);
 program.addCommand(commentCommand);
 program.addCommand(resolveCommand);
 program.addCommand(configCommand);
