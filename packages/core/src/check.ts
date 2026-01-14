@@ -14,22 +14,46 @@ export interface CheckResult {
   entries_updated: number;
 }
 
-function buildCommitIndex(
-  entries: FirewatchEntry[]
-): Map<number, CommitActivity[]> {
+export interface CheckOptions {
+  /**
+   * Resolve the list of files changed in a commit.
+   * Called for each commit entry to enrich staleness detection.
+   * Return null if file info unavailable (e.g., API error).
+   */
+  resolveCommitFiles?: (commitId: string) => Promise<string[] | null>;
+}
+
+async function buildCommitIndex(
+  entries: FirewatchEntry[],
+  options: CheckOptions
+): Promise<Map<number, CommitActivity[]>> {
   const index = new Map<number, CommitActivity[]>();
+  const commitFiles = new Map<string, string[]>();
 
   for (const entry of entries) {
     if (entry.type !== "commit") {
       continue;
     }
 
+    // Resolve files for this commit if resolver provided and not already cached
+    if (options.resolveCommitFiles && !commitFiles.has(entry.id)) {
+      const files = await options.resolveCommitFiles(entry.id);
+      if (files && files.length > 0) {
+        commitFiles.set(entry.id, files);
+      }
+    }
+
     const list = index.get(entry.pr) ?? [];
-    list.push({
+    const activity: CommitActivity = {
       id: entry.id,
       created_at: entry.created_at,
       timestamp: new Date(entry.created_at).getTime(),
-    });
+    };
+    const files = commitFiles.get(entry.id);
+    if (files) {
+      activity.files = files;
+    }
+    list.push(activity);
     index.set(entry.pr, list);
   }
 
@@ -47,6 +71,16 @@ function computeActivityAfter(
   const commentTime = new Date(entry.created_at).getTime();
   const hasFile = Boolean(entry.file);
 
+  // If entry has a file path, check if we have complete file data for all commits
+  const commitsWithFiles = commits.filter(
+    (commit) => commit.files && commit.files.length > 0
+  );
+  const hasCompleteFileData =
+    commits.length > 0 && commitsWithFiles.length === commits.length;
+
+  // Only do file-specific filtering if we have complete file data
+  const canFilterByFile = hasFile && hasCompleteFileData;
+
   let count = 0;
   let latest: CommitActivity | undefined;
 
@@ -54,8 +88,9 @@ function computeActivityAfter(
     if (commit.timestamp <= commentTime) {
       continue;
     }
+    // Skip commits that don't touch the file (only if we have complete file data)
     if (
-      hasFile &&
+      canFilterByFile &&
       commit.files &&
       entry.file &&
       !commit.files.includes(entry.file)
@@ -97,14 +132,17 @@ function activityEqual(
   );
 }
 
-export async function checkRepo(repo: string): Promise<CheckResult> {
+export async function checkRepo(
+  repo: string,
+  options: CheckOptions = {}
+): Promise<CheckResult> {
   const cachePath = getRepoCachePath(repo);
   const entries = await readJsonl<FirewatchEntry>(cachePath);
   if (entries.length === 0) {
     return { repo, comments_checked: 0, entries_updated: 0 };
   }
 
-  const commitIndex = buildCommitIndex(entries);
+  const commitIndex = await buildCommitIndex(entries, options);
   let commentsChecked = 0;
   let entriesUpdated = 0;
 

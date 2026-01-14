@@ -1,8 +1,11 @@
 import {
   checkRepo,
+  detectAuth,
   detectRepo,
   ensureDirectories,
+  GitHubClient,
   loadConfig,
+  type CheckOptions,
 } from "@outfitter/firewatch-core";
 import { Command } from "commander";
 
@@ -28,6 +31,7 @@ function resolveRepos(
 export const checkCommand = new Command("check")
   .description("Refresh staleness hints in the local cache")
   .argument("[repo]", "Repository to check (owner/repo format, or auto-detect)")
+  .option("--json", "Output JSONL (default)")
   .action(async (repo: string | undefined) => {
     try {
       await ensureDirectories();
@@ -49,8 +53,30 @@ export const checkCommand = new Command("check")
         process.exit(1);
       }
 
+      // Authenticate with GitHub to fetch commit files
+      const auth = await detectAuth(config.github_token);
+      if (!auth.token) {
+        console.error(auth.error ?? "No GitHub authentication found");
+        process.exit(1);
+      }
+
+      const client = new GitHubClient(auth.token);
+
       for (const r of repos) {
-        const result = await checkRepo(r);
+        const parts = r.split("/");
+        if (parts.length !== 2 || !parts[0] || !parts[1]) {
+          console.error(`Invalid repo format: ${r} (expected owner/repo)`);
+          continue;
+        }
+        const owner = parts[0];
+        const repoName = parts[1];
+
+        // Create resolver that fetches commit files from GitHub API
+        const resolveCommitFiles: CheckOptions["resolveCommitFiles"] = (
+          commitId
+        ) => client.getCommitFiles(owner, repoName, commitId);
+
+        const result = await checkRepo(r, { resolveCommitFiles });
         console.log(JSON.stringify(result));
       }
     } catch (error) {
