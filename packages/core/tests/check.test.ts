@@ -231,6 +231,7 @@ test("checkRepo falls back to all commits when file lists are partial", async ()
   const updated = await readJsonl<FirewatchEntry>(getRepoCachePath(repo));
   const comment = updated.find((entry) => entry.id === "comment-1");
   expect(comment?.file_activity_after?.modified).toBe(true);
-  expect(comment?.file_activity_after?.commits_touching_file).toBe(1);
+  // When file data is partial (commit-2 returns null), falls back to counting all commits
+  expect(comment?.file_activity_after?.commits_touching_file).toBe(2);
   expect(comment?.file_activity_after?.latest_commit).toBe("commit-2");
 });
