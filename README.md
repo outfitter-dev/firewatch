@@ -1,35 +1,39 @@
 # Firewatch
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 Firewatch is a CLI for fetching, caching, and querying GitHub PR activity. It outputs clean JSONL so agents and humans can focus on the actionable parts of review feedback without dragging a full GitHub context window into every step.
 
 ## Why Firewatch
 
 PR feedback is scattered across reviews, comments, commits, and CI events. If you want the core signal, you usually end up making a lot of API calls and carrying around a lot of extra context. Firewatch keeps a local, denormalized activity cache so you can query just what you need.
 
+## Installation
+
+```bash
+# Clone and install
+git clone https://github.com/outfitter-dev/firewatch.git
+cd firewatch
+bun install
+
+# Symlink the CLI
+./scripts/symlink-dev.sh fw
+```
+
 ## Quick Start
 
 ```bash
-# Tight per-PR summary (auto-syncs if no cache yet)
+# Per-PR summary (auto-syncs if no cache)
 fw --worklist
 
 # Query recent activity
-fw query --since 24h
-
-# Filter by type or author
-fw query --type review --author galligan
+fw query --since 24h --type review
 
 # Stack view (Graphite-aware)
 fw --stack
 
-# Worklist (per-PR summary)
-fw --worklist
-
-# Schema for query output
-fw --schema
-
 # Tight status snapshot
 fw status --short
-```
 
 Tip: running `fw` in a repo auto-syncs if there's no cache yet, then runs your query. For a fresh session, `fw --worklist` keeps the output minimal.
 
@@ -120,13 +124,26 @@ fw comment 42 "Addressed feedback"
 fw comment 42 "Fixed in abc123" --reply-to comment-2001 --resolve
 ```
 
-### resolve
+Running `fw` in a repo auto-syncs if there's no cache yet, then runs your query.
 
-Resolve review comment threads by comment ID.
+## Documentation
 
-```bash
-fw resolve comment-2001 comment-2002
-```
+| Document | Description |
+|----------|-------------|
+| [CLI Commands](docs/commands/README.md) | Complete command reference |
+| [Configuration](docs/configuration.md) | Config files and options |
+| [Schema Reference](docs/schema.md) | JSONL entry structure |
+| [jq Cookbook](docs/jq-cookbook.md) | Practical query patterns |
+| [MCP Server](docs/mcp.md) | AI agent integration |
+| [Workflow Guide](docs/WORKFLOW.md) | Usage patterns and tips |
+
+## Community
+
+| Document | Description |
+|----------|-------------|
+| [Contributing](CONTRIBUTING.md) | Development setup and guidelines |
+| [Changelog](CHANGELOG.md) | Release history |
+| [Security](SECURITY.md) | Security policy and token handling |
 
 ## Configuration
 
@@ -142,12 +159,13 @@ repos = ["outfitter-dev/firewatch"]
 graphite_enabled = true
 default_stack = true
 default_since = "7d"
-default_states = ["open", "draft"]
 ```
+
+See [Configuration](docs/configuration.md) for all options.
 
 ## Graphite Integration
 
-If the repo uses Graphite, Firewatch can enrich entries with stack metadata. Stack output groups entries by stack and annotates each entry with `stack_id`, `stack_position`, and related fields.
+If the repo uses Graphite, Firewatch enriches entries with stack metadata:
 
 - Auto-detected when running inside a Graphite repo.
 - Enable by default in config with `graphite_enabled = true`.
@@ -213,45 +231,13 @@ fw resolve comment-2001 comment-2002
 
 ## Development
 
-Install dependencies:
-
 ```bash
-bun install
+bun run dev       # Run CLI in watch mode
+bun run check     # Lint + type check
+bun run test      # Run tests
 ```
 
-Run the CLI in watch mode:
-
-```bash
-bun run --filter @outfitter/firewatch-cli dev
-```
-
-Build the CLI binary:
-
-```bash
-bun run --filter @outfitter/firewatch-cli build
-```
-
-Symlink a dev alias (default `fw-dev`):
-
-```bash
-./scripts/symlink-dev.sh
-```
-
-Custom alias example:
-
-```bash
-./scripts/symlink-dev.sh fw-waymark
-```
-
-## MCP Server
-
-Run the MCP server over stdio:
-
-```bash
-bun run --filter @outfitter/firewatch-mcp dev
-```
-
-The server exposes a single tool, `firewatch`, with an `action` parameter (e.g. `query`, `sync`, `status`, `comment`, `resolve`, `check`).
+See [Contributing](CONTRIBUTING.md) for full setup instructions.
 
 ## License
 
