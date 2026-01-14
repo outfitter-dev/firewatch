@@ -20,6 +20,28 @@ Configuration is loaded in order (later sources override earlier):
 3. Project config (`.firewatch.toml`)
 4. Command-line options (highest priority)
 
+## Duration Formats
+
+Several configuration options and CLI flags accept duration strings for time-based filtering.
+
+| Format | Example | Description |
+|--------|---------|-------------|
+| `Nh`   | `1h`, `24h` | Hours |
+| `Nd`   | `7d`, `14d` | Days |
+| `Nw`   | `1w`, `2w`  | Weeks (N * 7 days) |
+| `Nm`   | `1m`, `3m`  | Months (N calendar months) |
+
+Duration is calculated backwards from now. For example, `--since 7d` means "activity from the last 7 days".
+
+**Examples:**
+- `1h` - Last hour
+- `24h` - Last 24 hours
+- `7d` - Last 7 days
+- `2w` - Last 2 weeks
+- `1m` - Last month
+
+Used in: `--since`, `default_since`, `lookout_stale_after`
+
 ## Configuration Options
 
 ### repos
@@ -127,6 +149,22 @@ Maximum PRs to fetch per sync operation.
 max_prs_per_sync = 50
 ```
 
+### lookout_stale_after
+
+Staleness threshold for auto-sync before lookout.
+
+| Property | Value |
+|----------|-------|
+| Type | `string` (duration) |
+| Default | (none) |
+| Example | `"1h"`, `"30m"` |
+
+```toml
+lookout_stale_after = "1h"
+```
+
+When set, `fw lookout` will auto-sync if the cache is older than this threshold.
+
 ## Environment Variables
 
 ### GITHUB_TOKEN / GH_TOKEN
@@ -218,6 +256,9 @@ default_states = ["open", "draft"]
 
 # Sync limits
 max_prs_per_sync = 100
+
+# Auto-sync for lookout
+lookout_stale_after = "1h"
 ```
 
 ### Project Config

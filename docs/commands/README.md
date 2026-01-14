@@ -45,12 +45,23 @@ fw [repo] [options]
 | `--draft` | Shorthand for `--state draft` |
 | `--active` | Shorthand for `--state open,draft` |
 | `--label <name>` | Filter by PR label (partial match) |
-| `--since <duration>` | Filter by time (e.g., `24h`, `7d`) |
+| `--since <duration>` | Filter by time window (see [Duration Formats](../configuration.md#duration-formats)) |
 | `--limit <count>` | Limit number of results |
 | `--stack` | Show entries grouped by Graphite stack |
 | `--worklist` | Aggregate entries into per-PR summary |
 | `--schema` | Print the query result schema (JSON) |
 | `--json` | Output JSONL (default) |
+
+#### Duration Formats
+
+The `--since` option accepts duration strings:
+
+| Format | Example | Description |
+|--------|---------|-------------|
+| `Nh`   | `24h`   | Hours |
+| `Nd`   | `7d`    | Days |
+| `Nw`   | `2w`    | Weeks |
+| `Nm`   | `1m`    | Months |
 
 ### Examples
 
@@ -69,6 +80,10 @@ fw --type review --author galligan --since 24h
 
 # Open PRs with a label
 fw --label bug --active
+
+# Filter by time window
+fw --since 7d   # Last 7 days
+fw --since 2w   # Last 2 weeks
 ```
 
 ## Global Behavior

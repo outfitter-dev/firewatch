@@ -126,7 +126,10 @@ export const queryCommand = new Command("query")
   .option("--draft", "Shorthand for --state draft")
   .option("--active", "Shorthand for --state open,draft")
   .option("--label <name>", "Filter by PR label (partial match)")
-  .option("--since <duration>", "Filter by time (e.g., 24h, 7d)")
+  .option(
+    "--since <duration>",
+    "Filter by time window. Formats: Nh (hours), Nd (days), Nw (weeks), Nm (months). Examples: 1h, 24h, 7d, 2w, 1m"
+  )
   .option("--limit <count>", "Limit number of results", Number.parseInt)
   .option("--offset <count>", "Skip first N results", Number.parseInt)
   .option("--stack", "Show entries grouped by Graphite stack")

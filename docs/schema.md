@@ -2,6 +2,23 @@
 
 Firewatch outputs denormalized JSONL where each line is a self-contained record. This design makes entries directly queryable with `jq` without needing joins.
 
+## Schema Commands
+
+Firewatch provides two distinct schema types. Use `fw schema` to inspect them:
+
+| Command | Output | Use Case |
+|---------|--------|----------|
+| `fw schema entry` | FirewatchEntry schema | Individual activity records (comments, reviews, commits, etc.) |
+| `fw schema worklist` | WorklistEntry schema | Per-PR summaries with aggregated counts |
+| `fw schema` | Entry schema (default) | Same as `fw schema entry` |
+| `fw schema query` | Entry schema (deprecated) | Legacy alias, use `entry` instead |
+
+### When to Use Each
+
+- **Entry schema** (`fw schema entry`): Understanding the structure of individual records from `fw query`. Each entry represents a single event: a comment, review, commit, CI status, or PR event.
+
+- **Worklist schema** (`fw schema worklist`): Understanding the structure of `fw status` output or `fw query --worklist`. Each worklist entry is a per-PR summary with activity counts and review states.
+
 ## Entry Types
 
 | Type | Description |

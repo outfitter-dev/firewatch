@@ -91,6 +91,9 @@ fw query | jq 'select(.author | endswith("[bot]") | not)'
 
 # PR authored by someone else (external feedback)
 fw query | jq 'select(.author != .pr_author)'
+
+# Exclude common bots using regex
+fw query | jq 'select(.author | test("dependabot|renovate|github-actions") | not)'
 ```
 
 ### By Time

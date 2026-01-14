@@ -1,6 +1,6 @@
 # fw schema
 
-Print schema information for Firewatch data structures.
+Print JSON schema for Firewatch data types.
 
 ## Synopsis
 
@@ -12,7 +12,7 @@ fw schema [name] [--json]
 
 | Argument | Description |
 |----------|-------------|
-| `name` | Schema to display: `query`, `entry`, or `worklist`. Defaults to `query`. |
+| `name` | Schema to display: `entry` or `worklist`. Defaults to `entry`. |
 
 ## Options
 
@@ -23,23 +23,36 @@ fw schema [name] [--json]
 ## Examples
 
 ```bash
-# Default (entry schema)
+# Entry schema (default)
 fw schema
-
-# Entry schema (same as query)
 fw schema entry
 
-# Worklist schema
+# Worklist schema (per-PR summaries)
 fw schema worklist
+
+# Deprecated - use 'entry' instead
+fw schema query
 ```
 
-## Schema Names
+## Schema Variants
 
 | Name | Description |
 |------|-------------|
-| `query` | Entry schema (alias for `entry`) |
-| `entry` | FirewatchEntry - individual activity records |
-| `worklist` | WorklistEntry - aggregated per-PR summaries |
+| `entry` | FirewatchEntry - individual activity records (comments, reviews, commits, etc.) |
+| `worklist` | WorklistEntry - aggregated per-PR summaries with counts and review states |
+| `query` | **Deprecated** - alias for `entry`, use `entry` instead |
+
+### When to Use Each
+
+**Entry schema** (`fw schema entry`):
+- Understanding the structure of individual records from `fw query`
+- Each entry represents a single event: a comment, review, commit, CI status, or PR event
+- Use this when working with raw activity data
+
+**Worklist schema** (`fw schema worklist`):
+- Understanding the structure of `fw status` output or `fw query --worklist`
+- Each worklist entry is a per-PR summary with activity counts and review states
+- Use this when building dashboards or summaries
 
 ## Output
 
