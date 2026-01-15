@@ -19,7 +19,6 @@ import { shouldOutputJson } from "../utils/tty";
 
 interface DoctorCommandOptions {
   json?: boolean;
-  noJson?: boolean;
   fix?: boolean;
 }
 

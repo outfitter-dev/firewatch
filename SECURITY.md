@@ -44,7 +44,7 @@ For read operations:
 - `repo` (for private repositories)
 - `public_repo` (for public repositories only)
 
-For write operations (`comment`, `resolve`):
+For write operations (`add`, `close`, `edit`, `rm`):
 - `repo` scope is required
 
 ### Cache Security
@@ -86,7 +86,7 @@ When running as an MCP server:
 - Communicates via stdio (local only)
 - Inherits authentication from CLI configuration
 - Has full read/write access to cached repositories
-- Can post comments and resolve threads on your behalf
+- Can post comments/reviews, resolve threads, and update PR metadata on your behalf
 
 Ensure MCP clients are trusted before granting access.
 
@@ -98,9 +98,9 @@ Ensure MCP clients are trusted before granting access.
 # List repos to sync (no secrets here)
 repos = ["org/repo1", "org/repo2"]
 
-# Enable features
-graphite_enabled = true
-default_stack = true
+# Output defaults
+[output]
+default_format = "human"
 
 # DO NOT store tokens here if avoidable
 # Prefer: gh auth login

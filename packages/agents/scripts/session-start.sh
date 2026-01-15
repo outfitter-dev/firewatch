@@ -14,11 +14,11 @@ fi
 [[ -z "$FW_BIN" || ! -x "$FW_BIN" ]] && exit 0
 
 # Quick summary from existing cache (before sync)
-SUMMARY=$("$FW_BIN" status --short 2>/dev/null | jq -rs '
+SUMMARY=$("$FW_BIN" --summary 2>/dev/null | jq -rs '
   if length == 0 then "No cached PR data"
   else
     (map(select(.pr_state == "open" or .pr_state == "draft")) | length) as $open |
-    (map(.comments) | add // 0) as $comments |
+    (map(.counts.comments) | add // 0) as $comments |
     (map(.last_activity_at) | max // null) as $last |
     if $last then
       ($last | fromdateiso8601 | now - . | . / 3600 | floor) as $hours |
@@ -29,9 +29,9 @@ SUMMARY=$("$FW_BIN" status --short 2>/dev/null | jq -rs '
   end
 ' 2>/dev/null)
 
-# Run sync in background
-nohup "$FW_BIN" sync >/dev/null 2>&1 &
+# Run refresh in background
+nohup "$FW_BIN" --refresh --summary >/dev/null 2>&1 &
 
 echo "${SUMMARY:-Sync started in background...}"
-echo "Run \`fw recap\` for full summary"
+echo "Run \`fw --summary\` for full summary"
 exit 0

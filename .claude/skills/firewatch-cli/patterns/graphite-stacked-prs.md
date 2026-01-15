@@ -120,12 +120,12 @@ fw query --type comment | jq -s '
 
 3. **Start with base PR**
    ```bash
-   fw query --pr BASE_PR_NUMBER --type review
+   fw query --prsBASE_PR_NUMBER --type review
    ```
 
 4. **Check for unresolved comments**
    ```bash
-   fw query --pr BASE_PR_NUMBER --type comment | jq 'select(.subtype == "review_comment")'
+   fw query --prsBASE_PR_NUMBER --type comment | jq 'select(.subtype == "review_comment")'
    ```
 
 5. **Proceed upstack after approval**

@@ -24,7 +24,6 @@ import { formatRelativeTime, shouldOutputJson } from "../utils/tty";
 interface StatusCommandOptions {
   short?: boolean;
   json?: boolean;
-  noJson?: boolean;
 }
 
 interface CacheSummary {

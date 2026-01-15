@@ -5,7 +5,7 @@ import {
 } from "@outfitter/firewatch-core";
 import { Command } from "commander";
 
-import { parseRepoInput, resolveRepoOrThrow } from "../repo";
+import { parseRepoInput, parsePrNumber, resolveRepoOrThrow } from "../repo";
 import { writeJsonLine } from "../utils/json";
 import { shouldOutputJson } from "../utils/tty";
 
@@ -18,12 +18,11 @@ interface EditCommandOptions {
   draft?: boolean;
   ready?: boolean;
   json?: boolean;
-  noJson?: boolean;
 }
 
 export const editCommand = new Command("edit")
   .description("Edit PR fields or state")
-  .argument("<pr>", "PR number", Number.parseInt)
+  .argument("<pr>", "PR number", parsePrNumber)
   .option("--repo <name>", "Repository (owner/repo format)")
   .option("--title <text>", "Change PR title")
   .option("--body <text>", "Change PR description")

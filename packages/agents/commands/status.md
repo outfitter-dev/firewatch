@@ -1,12 +1,12 @@
 ---
-description: Show PR activity summary and worklist
+description: Show PR activity summary
 allowed-tools: Bash(fw *)
 ---
 
 # Firewatch Status
 
-## PR Worklist
-!`fw status --short 2>&1`
+## PR Summary
+!`fw --summary 2>&1`
 
 ## Summary
 
@@ -16,4 +16,4 @@ Provide a quick assessment of the PR activity:
 - Ready: PRs approved and ready to merge
 - Blocked: PRs with changes requested
 
-Suggest next actions based on the worklist state.
+Suggest next actions based on the summary state.

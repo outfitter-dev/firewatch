@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **CLI tool (`fw`)** for fetching, caching, and querying GitHub PR activity
-- **Core commands**: `sync`, `query`, `status`, `check`, `comment`, `resolve`, `config`, `schema`
+- **Core commands**: `fw`, `add`, `close`, `edit`, `rm`, `status`, `config`, `doctor`, `schema`, `mcp`
 - **JSONL output** designed for `jq` composition and agent workflows
 - **Denormalized entries** with full PR context in each record for easy filtering
 - **Incremental sync** with cursor tracking for efficient updates
@@ -23,7 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Stack ID, position, size, and parent PR tracking
   - File provenance for identifying which stack PR modified a file
 - **Worklist aggregation** for per-PR summaries with activity counts
-- **Staleness hints** via `fw check` to track post-feedback commits
+- **Staleness hints** in cached comment metadata to track post-feedback commits
 - **Write operations** for posting comments and resolving review threads
 - **MCP server** for AI agent integration via stdio
 - **Configuration system** with user (`~/.config/firewatch/config.toml`) and project (`.firewatch.toml`) files

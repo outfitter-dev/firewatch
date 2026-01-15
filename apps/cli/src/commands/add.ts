@@ -5,7 +5,7 @@ import {
 } from "@outfitter/firewatch-core";
 import { Command } from "commander";
 
-import { parseRepoInput, resolveRepoOrThrow } from "../repo";
+import { parseRepoInput, parsePrNumber, resolveRepoOrThrow } from "../repo";
 import { writeJsonLine } from "../utils/json";
 import { shouldOutputJson } from "../utils/tty";
 
@@ -20,7 +20,6 @@ interface AddCommandOptions {
   reviewer?: string[];
   assignee?: string[];
   json?: boolean;
-  noJson?: boolean;
 }
 
 function collect(value: string, previous: string[] = []): string[] {
@@ -43,7 +42,7 @@ function normalizeReviewEvent(value: string): ReviewEvent {
 
 export const addCommand = new Command("add")
   .description("Add comments, reviews, or metadata to PRs")
-  .argument("<pr>", "PR number", Number.parseInt)
+  .argument("<pr>", "PR number", parsePrNumber)
   .argument("[body]", "Comment or review body")
   .option("--repo <name>", "Repository (owner/repo format)")
   .option("--reply <commentId>", "Reply to a review thread comment")

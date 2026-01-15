@@ -34,8 +34,8 @@ Thank you for considering contributing to Firewatch! This document outlines how 
 4. Or run directly:
 
    ```bash
-   bun apps/cli/bin/fw.ts sync
-   bun apps/cli/bin/fw.ts query --since 24h
+   bun apps/cli/bin/fw.ts --summary
+   bun apps/cli/bin/fw.ts --since 24h --type review
    ```
 
 ### Development Commands

@@ -107,10 +107,10 @@ const x = newValue;
 ### Check Runs vs Commit Status
 
 GitHub has two CI systems:
-- **Check Runs** (newer) — GitHub Actions, most modern CI
-- **Commit Status** (legacy) — Older integrations
+- **Check Runs** — GitHub Actions, most modern CI
+- **Commit Status** — Older integrations
 
-We primarily use Check Runs. Consider adding Commit Status fallback for repos using legacy CI.
+We primarily use Check Runs. Consider adding Commit Status fallback for repos that still emit commit status events.
 
 ### Relevant Fields
 

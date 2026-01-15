@@ -11,7 +11,7 @@
   },
   "scripts": {
     "dev": "bun --watch bin/fw-mcp.ts",
-    "build": "bun build ./bin/fw-mcp.ts --outfile dist/fw-mcp.js",
+    "build": "bun build ./bin/fw-mcp.ts --outfile dist/fw-mcp.js --target bun",
     "check": "bunx tsc -b"
   },
   "dependencies": {

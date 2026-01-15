@@ -23,108 +23,23 @@ bun install
 ## Quick Start
 
 ```bash
-# Per-PR summary (auto-syncs if no cache)
-fw --worklist
+# Actionable items (default)
+fw
 
-# Query recent activity
-fw query --since 24h --type review
+# Per-PR summary
+fw --summary
 
-# Stack view (Graphite-aware)
-fw --stack
+# Recent review activity
+fw --since 24h --type review
 
 # Tight status snapshot
 fw status --short
 
-Tip: running `fw` in a repo auto-syncs if there's no cache yet, then runs your query. For a fresh session, `fw --worklist` keeps the output minimal.
-
-## Docs
-
-- Workflow guide: `docs/WORKFLOW.md`
-
-## CLI Reference
-
-### sync
-
-Fetch and update PR activity.
-
-```bash
-fw sync
-fw sync owner/repo
-fw sync --since 7d
-fw sync --full
+# Post a reply and resolve thread
+fw add 42 --reply comment-2001 "Fixed in abc123" --resolve
 ```
 
-### check
-
-Refresh staleness hints in the local cache.
-
-```bash
-fw check
-fw check owner/repo
-```
-
-When running inside a repo, Firewatch will use local git history to match commits to comment file paths for more accurate staleness hints.
-
-### query
-
-Filter cached activity and print JSONL to stdout.
-
-```bash
-fw query
-fw query --repo ranger
-fw query --pr 42
-fw query --type review
-fw query --label bug
-fw query --since 24h
-fw query --limit 50
-fw query --stack
-fw query --worklist
-```
-
-### config
-
-Inspect or set configuration.
-
-```bash
-fw config show
-fw config set repos "org/repo1,org/repo2"
-fw config set github-token <token>
-fw config set default-stack true
-fw config set --local default-stack true
-```
-
-### schema
-
-Print JSON schema hints for query outputs.
-
-```bash
-fw schema
-fw schema entry
-fw schema worklist
-```
-
-### status
-
-Summarize PR activity.
-
-```bash
-fw status
-fw status --short
-```
-
-### comment
-
-Post a PR comment or reply to a review thread.
-
-```bash
-# Top-level PR comment
-fw comment 42 "Addressed feedback"
-
-# Reply and resolve
-fw comment 42 "Fixed in abc123" --reply-to comment-2001 --resolve
-```
-
-Running `fw` in a repo auto-syncs if there's no cache yet, then runs your query.
+Running `fw` in a repo auto-syncs if the cache is stale, then runs your query.
 
 ## Documentation
 
@@ -147,87 +62,36 @@ Running `fw` in a repo auto-syncs if there's no cache yet, then runs your query.
 
 ## Configuration
 
-Firewatch loads configuration in this order (project overrides user):
-
-1. Project config: `.firewatch.toml` (repo root)
-2. User config: `~/.config/firewatch/config.toml`
-
-Example:
+Firewatch loads config from `~/.config/firewatch/config.toml` and `.firewatch.toml` (repo root).
 
 ```toml
 repos = ["outfitter-dev/firewatch"]
-graphite_enabled = true
-default_stack = true
-default_since = "7d"
+max_prs_per_sync = 100
+
+[user]
+github_username = "galligan"
+
+[sync]
+auto_sync = true
+stale_threshold = "5m"
+
+[filters]
+exclude_bots = true
+exclude_authors = ["dependabot", "renovate"]
+
+[output]
+default_format = "human"
 ```
 
 See [Configuration](docs/configuration.md) for all options.
 
 ## Graphite Integration
 
-If the repo uses Graphite, Firewatch enriches entries with stack metadata:
+If the repo uses Graphite, Firewatch enriches entries with stack metadata automatically:
 
-- Auto-detected when running inside a Graphite repo.
-- Enable by default in config with `graphite_enabled = true`.
-- Show grouped output with `--stack` (or `default_stack = true`).
-- Review comments can include `file_provenance` to show which PR in a stack last modified a file.
-
-Stack metadata is designed to be compatible with GitHub's stacked PRs as they roll out.
-
-## Cache Layout
-
-XDG-compliant cache and config locations:
-
-```
-~/.cache/firewatch/
-├── repos/
-│   └── owner--repo.jsonl
-└── meta.jsonl
-
-~/.config/firewatch/
-└── config.toml
-
-./.firewatch.toml
-```
-
-## Schema Quick Reference
-
-The schema is defined in `packages/core/src/schema/entry.ts`. For quick inspection:
-
-```bash
-fw query --limit 1 | jq 'keys'
-```
-
-For TypeScript usage:
-
-```ts
-import type { FirewatchEntry } from "@outfitter/firewatch-core/schema";
-```
-
-For the aggregated worklist schema:
-
-```bash
-fw schema worklist
-```
-
-## Short Status Snapshot
-
-`fw status --short` is a tight, per-PR snapshot:
-
-```bash
-fw status --short
-```
-
-After running `fw check`, comment entries may include `file_activity_after` staleness hints. When commit file lists are available, the hints are scoped to the comment's file; otherwise they fall back to PR-level activity.
-
-## Write Ops
-
-Firewatch can post replies and resolve review threads so agents can close the loop:
-
-```bash
-fw comment 42 "Fixed in abc123" --reply-to comment-2001 --resolve
-fw resolve comment-2001 comment-2002
-```
+- Auto-detected when running inside a Graphite repo
+- Stack metadata is included on entries and summaries
+- No flags or config required
 
 ## Development
 

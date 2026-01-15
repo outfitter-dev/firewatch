@@ -122,7 +122,7 @@ async function buildFileProvenanceMap(): Promise<Map<string, FileProvenance>> {
 ### Caching Strategy
 
 - **Location**: `~/.cache/firewatch/stacks/{repo}/{stack_id}.json`
-- **Compute**: During `fw sync` when Graphite plugin detects a stack
+- **Compute**: During sync when Graphite plugin detects a stack
 - **Invalidate**: On restack, new commits, or stack structure changes
 
 ### Edge Cases

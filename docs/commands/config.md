@@ -1,168 +1,67 @@
 # fw config
 
-Manage Firewatch configuration.
+View and edit Firewatch configuration.
 
 ## Synopsis
 
 ```bash
-fw config <command> [options]
+fw config                    # Show merged config
+fw config <key>              # Show a specific key
+fw config <key> <value>      # Set a value
+fw config --edit             # Open config in $EDITOR
+fw config --path             # Show config file paths
 ```
 
-## Subcommands
-
-### show
-
-Display current configuration.
-
-```bash
-fw config show [--json]
-```
-
-Shows both user config (`~/.config/firewatch/config.toml`) and project config (`.firewatch.toml`) if they exist.
-
-### set
-
-Set a configuration value.
-
-```bash
-fw config set <key> <value> [--local] [--json]
-```
+## Options
 
 | Option | Description |
 |--------|-------------|
-| `--local` | Write to project config (`.firewatch.toml`) instead of user config |
-| `--json` | Output JSON confirmation |
+| `--edit` | Open config in `$EDITOR` |
+| `--path` | Show config file paths |
+| `--local` | Target project config (`.firewatch.toml`) |
+| `--json` | Force JSON output |
+| `--no-json` | Force human-readable output |
 
-### path
+## Key Format
 
-Show configuration file paths.
+Keys are dot-separated paths (matching the TOML structure):
 
-```bash
-fw config path [--json]
-```
+- `repos`
+- `sync.auto_sync`
+- `sync.stale_threshold`
+- `filters.exclude_authors`
+- `filters.bot_patterns`
+- `filters.exclude_bots`
+- `output.default_format`
+- `user.github_username`
 
-Displays paths for config files, cache, and data directories.
+Values are parsed as TOML where possible. Arrays can be set with TOML literals or comma-separated strings for common list keys.
 
 ## Examples
 
 ```bash
-# Show all configuration
-fw config show
+# Show all config
+fw config
 
-# Show as JSON
-fw config show --json
+# Show specific value
+fw config user.github_username
 
-# Set repositories to sync
-fw config set repos "org/repo1,org/repo2"
+# Set username
+fw config user.github_username galligan
 
-# Set a GitHub token
-fw config set github-token ghp_xxxx
+# Set list values
+fw config repos "[\"org/repo1\", \"org/repo2\"]"
+fw config filters.exclude_authors "dependabot,renovate"
 
-# Enable Graphite by default
-fw config set graphite-enabled true
+# Set sync threshold
+fw config sync.stale_threshold "5m"
 
-# Enable stack output by default
-fw config set default-stack true
+# Open in editor
+fw config --edit
 
-# Set default time filter
-fw config set default-since "7d"
+# Show config paths
+fw config --path
 
-# Set default PR states
-fw config set default-states "open,draft"
-
-# Set in project config (repo-local)
-fw config set --local default-stack true
-
-# Show file paths
-fw config path
+# Write to project config
+fw config --local filters.exclude_bots true
 ```
-
-## Configuration Keys
-
-| Key | Type | Description |
-|-----|------|-------------|
-| `repos` | array | Repositories to sync (`owner/repo` format) |
-| `github-token` | string | GitHub personal access token |
-| `graphite-enabled` | boolean | Enable Graphite integration |
-| `default-stack` | boolean | Default to stack-grouped output |
-| `default-since` | string | Default time filter (e.g., `7d`) |
-| `default-states` | array | Default PR states filter |
-
-Note: Keys use kebab-case in CLI but snake_case in config files.
-
-## Output
-
-### fw config show
-
-```
-# User config (~/.config/firewatch/config.toml)
-repos = ["outfitter-dev/firewatch"]
-graphite_enabled = true
-default_stack = true
-default_since = "7d"
-
-# Project config (.firewatch.toml)
-default_states = ["open", "draft"]
-```
-
-### fw config show --json
-
-```json
-{
-  "user": {
-    "path": "/Users/you/.config/firewatch/config.toml",
-    "exists": true,
-    "content": "repos = [\"outfitter-dev/firewatch\"]\n..."
-  },
-  "project": {
-    "path": "/path/to/repo/.firewatch.toml",
-    "exists": true,
-    "content": "default_states = [\"open\", \"draft\"]\n"
-  }
-}
-```
-
-### fw config path
-
-```
-Config:  /Users/you/.config/firewatch/config.toml
-Project: /path/to/repo/.firewatch.toml
-Cache:   /Users/you/.cache/firewatch
-Data:    /Users/you/.local/share/firewatch
-Repos:   /Users/you/.cache/firewatch/repos
-Meta:    /Users/you/.cache/firewatch/meta.jsonl
-```
-
-### fw config set (success)
-
-```
-Set repos = org/repo1,org/repo2
-```
-
-With `--json`:
-
-```json
-{"ok":true,"path":"/Users/you/.config/firewatch/config.toml","key":"repos","value":["org/repo1","org/repo2"]}
-```
-
-## File Locations
-
-| File | Purpose |
-|------|---------|
-| `~/.config/firewatch/config.toml` | User configuration (global) |
-| `.firewatch.toml` | Project configuration (repo root) |
-
-Project config is auto-detected from the git root when running inside a repository.
-
-## Precedence
-
-Configuration is loaded in order (later overrides earlier):
-
-1. Built-in defaults
-2. User config (`~/.config/firewatch/config.toml`)
-3. Project config (`.firewatch.toml`)
-
-## See Also
-
-- [Configuration Reference](../configuration.md) - Full documentation
-- [Security](../../SECURITY.md) - Token handling

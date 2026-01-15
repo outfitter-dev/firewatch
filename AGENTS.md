@@ -69,14 +69,14 @@ packages/
 
 | Command | Description |
 |---------|-------------|
-| `sync` | Fetch PR activity from GitHub and update cache |
-| `query` | Filter and output cached entries as JSONL |
-| `status` | Summarize PR activity (`--short` for compact view) |
-| `check` | Refresh staleness hints in cache (file activity tracking) |
-| `recap` | Generate activity summaries for time periods |
-| `comment` | Post PR comments and reply to threads |
-| `resolve` | Resolve review comment threads by ID |
+| `fw` | Query cached activity (auto-syncs; `--summary` for per-PR rollup) |
+| `add` | Add comments, reviews, or metadata |
+| `close` | Resolve review comment threads by ID |
+| `edit` | Update PR fields or draft/ready |
+| `rm` | Remove labels/reviewers/assignees/milestone |
+| `status` | Firewatch state info (`--short` for compact view) |
 | `config` | View/edit configuration |
+| `doctor` | Diagnose auth/cache/repo issues |
 | `schema` | Print JSON schema for output formats |
 | `mcp` | Start MCP server for AI tool integration |
 
@@ -97,13 +97,16 @@ packages/
 ### Data Flow
 
 **Read operations:**
-1. `fw sync` → `detectAuth()` → `GitHubClient.fetchPRActivity()` (GraphQL) → plugin enrichment → `appendJsonl()`
-2. `fw query` → `readJsonl()` → filter → `outputJsonl()` (stdout, pipe to jq)
-3. `fw status` → `readJsonl()` → `buildWorklist()` → formatted output
+1. `fw` (auto-sync if stale) → `detectAuth()` → `GitHubClient.fetchPRActivity()` (GraphQL) → plugin enrichment → `appendJsonl()`
+2. `fw` → `readJsonl()` → filter → `outputJsonl()` (stdout, pipe to jq)
+3. `fw --summary` → `readJsonl()` → `buildWorklist()` → formatted output
+4. `fw status` → cache/auth/config diagnostics
 
 **Write operations:**
-1. `fw comment <pr> "text"` → `GitHubClient.addComment()` → GitHub API
-2. `fw resolve <comment-id>` → `GitHubClient.resolveThread()` → GitHub API
+1. `fw add <pr> "text"` → `GitHubClient.addComment()` → GitHub API
+2. `fw close <comment-id>` → `GitHubClient.resolveThread()` → GitHub API
+3. `fw edit <pr> --title ...` → `GitHubClient.editPullRequest()` → GitHub API
+4. `fw rm <pr> --label ...` → `GitHubClient.removeLabels()` → GitHub API
 
 ### Cache Structure
 
@@ -122,21 +125,23 @@ The MCP server (`apps/mcp/`) exposes a single `firewatch` tool with an `action` 
 
 | Action | Description |
 |--------|-------------|
-| `query` | Filter entries (supports all CLI query options) |
-| `sync` | Fetch from GitHub (auto-runs on first query if cache empty) |
-| `check` | Refresh staleness hints |
-| `status` | Worklist summary (`status_short: true` for compact) |
-| `comment` | Post comments or reply to threads |
-| `resolve` | Resolve review comment threads |
-| `schema` | Output JSON schema for entries/worklist |
+| `query` | Filter entries (supports CLI query options; `summary` for worklist) |
+| `add` | Post comments/reviews or add metadata |
+| `close` | Resolve review comment threads |
+| `edit` | Update PR fields or draft/ready |
+| `rm` | Remove labels/reviewers/assignees/milestone |
+| `status` | Firewatch state info (`status_short: true` for compact) |
+| `config` | Read config (read-only) |
+| `doctor` | Diagnose auth/cache/repo |
+| `schema` | Output JSON schema for entries/worklist/config |
 | `help` | Usage documentation |
 
 **Example calls:**
 ```json
 {"action": "schema"}
 {"action": "query", "since": "24h", "type": "review"}
-{"action": "status", "status_short": true}
-{"action": "comment", "pr": 42, "body": "LGTM", "reply_to": "IC_...", "resolve": true}
+{"action": "query", "summary": true, "summary_short": true}
+{"action": "add", "pr": 42, "body": "LGTM", "reply_to": "IC_...", "resolve": true}
 ```
 
 Start via `fw mcp` or directly with `bun apps/mcp/bin/fw-mcp.ts`.

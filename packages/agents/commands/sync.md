@@ -1,14 +1,14 @@
 ---
-description: Sync PR activity from GitHub
+description: Force a refresh of PR activity
 allowed-tools: Bash(fw *)
 ---
 
-# Firewatch Sync
+# Firewatch Refresh
 
-## Syncing PR Data
-!`fw sync 2>&1`
+## Refresh PR Data
+!`fw --refresh --summary 2>&1`
 
-## Post-Sync Status
-!`fw status --short 2>&1`
+## Post-Refresh Status
+!`fw --summary 2>&1`
 
-Summarize what was synced and highlight any PRs needing attention.
+Summarize what changed and highlight any PRs needing attention.
