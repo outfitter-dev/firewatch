@@ -1,7 +1,5 @@
 import { z } from "zod";
 
-import { PrStateSchema } from "./entry";
-
 /**
  * Filter configuration for excluding authors/bots.
  */
@@ -27,6 +25,28 @@ export const UserConfigSchema = z.object({
 export type UserConfig = z.infer<typeof UserConfigSchema>;
 
 /**
+ * Sync behavior configuration.
+ */
+export const SyncConfigSchema = z.object({
+  /** Auto-sync before queries */
+  auto_sync: z.boolean().default(true),
+  /** Re-sync if cache older than this threshold (e.g., "5m", "1h") */
+  stale_threshold: z.string().optional(),
+});
+
+export type SyncConfig = z.infer<typeof SyncConfigSchema>;
+
+/**
+ * Output defaults.
+ */
+export const OutputConfigSchema = z.object({
+  /** Default output format for CLI (human or json) */
+  default_format: z.enum(["human", "json"]).optional(),
+});
+
+export type OutputConfig = z.infer<typeof OutputConfigSchema>;
+
+/**
  * Firewatch configuration schema.
  * Stored in ~/.config/firewatch/config.toml (user) and .firewatch.toml (project)
  */
@@ -37,27 +57,14 @@ export const FirewatchConfigSchema = z.object({
   /** GitHub personal access token (optional if gh CLI is authenticated) */
   github_token: z.string().optional(),
 
-  /** Enable Graphite integration */
-  graphite_enabled: z.boolean().default(false),
-
-  /** Default to Graphite stack output */
-  default_stack: z.boolean().default(false),
-
-  /** Default time range for queries (e.g., "7d", "24h") */
-  default_since: z.string().optional(),
-
-  /** Default PR states for queries (e.g., ["open", "draft"]) */
-  default_states: z.array(PrStateSchema).optional(),
-
   /** Maximum number of PRs to fetch per sync */
   max_prs_per_sync: z.number().int().positive().default(100),
-
-  /** Staleness threshold for auto-sync before lookout (e.g., "1h", "30m") */
-  lookout_stale_after: z.string().optional(),
-
+  /** Sync defaults */
+  sync: SyncConfigSchema.optional(),
   /** Filter configuration for excluding authors/bots */
   filters: FiltersConfigSchema.optional(),
-
+  /** Output defaults */
+  output: OutputConfigSchema.optional(),
   /** User-specific configuration */
   user: UserConfigSchema.optional(),
 });
@@ -69,7 +76,5 @@ export type FirewatchConfig = z.infer<typeof FirewatchConfigSchema>;
  */
 export const DEFAULT_CONFIG: FirewatchConfig = {
   repos: [],
-  graphite_enabled: false,
-  default_stack: false,
   max_prs_per_sync: 100,
 };

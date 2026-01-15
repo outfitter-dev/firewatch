@@ -2,9 +2,13 @@ export {
   DEFAULT_CONFIG,
   FiltersConfigSchema,
   FirewatchConfigSchema,
+  OutputConfigSchema,
+  SyncConfigSchema,
   UserConfigSchema,
   type FiltersConfig,
   type FirewatchConfig,
+  type OutputConfig,
+  type SyncConfig,
   type UserConfig,
 } from "./config";
 
@@ -31,4 +35,4 @@ export {
   type WorklistReviewStates,
 } from "./worklist";
 
-export { ENTRY_SCHEMA_DOC, WORKLIST_SCHEMA_DOC } from "./docs";
+export { CONFIG_SCHEMA_DOC, ENTRY_SCHEMA_DOC, WORKLIST_SCHEMA_DOC } from "./docs";

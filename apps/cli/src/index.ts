@@ -1,20 +1,24 @@
+import { existsSync, readdirSync } from "node:fs";
+
 import {
   ENTRY_TYPES,
-  type EntryType,
-  type FirewatchConfig,
-  type FirewatchEntry,
-  type PrState,
   GitHubClient,
+  PATHS,
   detectAuth,
   detectRepo,
   ensureDirectories,
   getRepoCachePath,
   loadConfig,
   mergeExcludeAuthors,
-  outputJsonl,
+  parseDurationMs,
   parseSince,
+  parseRepoCacheFilename,
   queryEntries,
+  readJsonl,
   syncRepo,
+  type FirewatchConfig,
+  type FirewatchEntry,
+  type SyncMetadata,
 } from "@outfitter/firewatch-core";
 import {
   getGraphiteStacks,
@@ -23,230 +27,349 @@ import {
 import { Command } from "commander";
 import ora from "ora";
 
-import { cacheCommand } from "./commands/cache";
-import { checkCommand } from "./commands/check";
-import { commentCommand } from "./commands/comment";
+import { version } from "../package.json";
+import {
+  buildActionableSummary,
+  printActionableSummary,
+} from "./actionable";
+import { addCommand } from "./commands/add";
+import { closeCommand } from "./commands/close";
 import { configCommand } from "./commands/config";
+import { doctorCommand } from "./commands/doctor";
+import { editCommand } from "./commands/edit";
 import { mcpCommand } from "./commands/mcp";
-import { queryCommand } from "./commands/query";
-import { recapCommand } from "./commands/recap";
-import { resolveCommand } from "./commands/resolve";
-import { printSchema, schemaCommand } from "./commands/schema";
+import { rmCommand } from "./commands/rm";
+import { schemaCommand } from "./commands/schema";
 import { statusCommand } from "./commands/status";
-import { syncCommand } from "./commands/sync";
-import { outputStackedEntries } from "./stack";
 import { outputWorklist } from "./worklist";
-
-/**
- * Parse comma-separated state values.
- */
-function parseStates(value: string): PrState[] {
-  return value.split(",").map((s) => s.trim() as PrState);
-}
-
-/**
- * Parse and validate comma-separated type values.
- */
-function parseTypes(value: string): EntryType[] {
-  const types = value.split(",").map((s) => s.trim().toLowerCase());
-  const invalid = types.filter((t) => !ENTRY_TYPES.includes(t as EntryType));
-  if (invalid.length > 0) {
-    console.error(
-      `Invalid type(s): ${invalid.join(", ")}. Valid types: ${ENTRY_TYPES.join(", ")}`
-    );
-    process.exit(1);
-  }
-  return types as EntryType[];
-}
+import { ensureGraphiteMetadata } from "./stack";
+import { writeJsonLine } from "./utils/json";
+import { resolveStates } from "./utils/states";
+import { shouldOutputJson } from "./utils/tty";
 
 interface RootCommandOptions {
-  pr?: number;
-  author?: string;
-  type?: string;
-  state?: string;
+  prs?: string | boolean;
+  repo?: string;
+  all?: boolean;
+  mine?: boolean;
+  reviews?: boolean;
   open?: boolean;
+  closed?: boolean;
   draft?: boolean;
   active?: boolean;
+  state?: string;
+  type?: string;
   label?: string;
+  author?: string;
+  noBots?: boolean;
   since?: string;
+  offline?: boolean;
+  refresh?: boolean | "full";
   limit?: number;
-  stack?: boolean;
-  worklist?: boolean;
-  schema?: boolean;
-  excludeBots?: boolean;
-  humans?: boolean;
-  excludeAuthor?: string;
+  offset?: number;
+  summary?: boolean;
+  json?: boolean;
+  noJson?: boolean;
+  debug?: boolean;
+  noColor?: boolean;
 }
 
-function resolveRepo(
-  repo: string | undefined,
-  detected: Awaited<ReturnType<typeof detectRepo>>
-): string | null {
-  if (repo) {
-    return repo;
+const DEFAULT_STALE_THRESHOLD = "5m";
+
+function applyGlobalOptions(options: RootCommandOptions): void {
+  if (options.noColor) {
+    process.env.NO_COLOR = "1";
   }
-  if (detected.repo) {
-    console.error(`Querying ${detected.repo} (from ${detected.source})`);
-    return detected.repo;
+  if (options.debug) {
+    process.env.FIREWATCH_DEBUG = "1";
   }
-  return null;
 }
 
-function resolveStates(
-  options: RootCommandOptions,
-  config: FirewatchConfig
-): PrState[] {
-  if (options.state) {
-    return parseStates(options.state);
-  }
-  if (options.active) {
-    return ["open", "draft"];
-  }
-  if (options.open && options.draft) {
-    return ["open", "draft"];
-  }
-  if (options.open) {
-    return ["open"];
-  }
-  if (options.draft) {
-    return ["draft"];
-  }
-  return config.default_states ?? ["open", "draft"];
+function isFullRepo(value: string): boolean {
+  return /^[^/]+\/[^/]+$/.test(value);
 }
 
-async function ensureRepoCache(
-  repoFilter: string,
-  config: FirewatchConfig,
-  detectedRepo: string | null
-): Promise<void> {
-  const cachePath = getRepoCachePath(repoFilter);
-  const cacheFile = Bun.file(cachePath);
-  const hasCache = (await cacheFile.exists())
-    ? cacheFile.size > 0
-    : false;
-
-  if (hasCache) {
-    return;
+function parseCsvList(value?: string): string[] {
+  if (!value) {
+    return [];
   }
+  return value
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
 
-  await ensureDirectories();
-
-  const auth = await detectAuth(config.github_token);
-  if (!auth.token) {
-    console.error(auth.error);
-    process.exit(1);
+function parsePrs(value: string | boolean | undefined): number[] {
+  if (!value || value === true) {
+    return [];
   }
+  return value
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => {
+      const parsed = Number.parseInt(part, 10);
+      if (Number.isNaN(parsed)) {
+        throw new TypeError(`Invalid PR number: ${part}`);
+      }
+      return parsed;
+    });
+}
 
-  const spinner = ora(`Syncing ${repoFilter}...`).start();
-  try {
-    const client = new GitHubClient(auth.token);
-    let graphiteAvailable = false;
-    if (!config.graphite_enabled && detectedRepo === repoFilter) {
-      graphiteAvailable = (await getGraphiteStacks()) !== null;
-    }
-
-    const graphiteEnabled = config.graphite_enabled || graphiteAvailable;
-    const plugins =
-      graphiteEnabled && detectedRepo === repoFilter ? [graphitePlugin] : [];
-
-    const result = await syncRepo(client, repoFilter, { plugins });
-    spinner.succeed(`Synced ${repoFilter} (${result.entriesAdded} entries)`);
-  } catch (error) {
-    spinner.fail(
-      `Sync failed: ${error instanceof Error ? error.message : error}`
+function parseTypes(value?: string): FirewatchEntry["type"][] {
+  const types = parseCsvList(value).map((type) => type.toLowerCase());
+  if (types.length === 0) {
+    return [];
+  }
+  const invalid = types.filter((t) => !ENTRY_TYPES.includes(t as never));
+  if (invalid.length > 0) {
+    throw new Error(
+      `Invalid type(s): ${invalid.join(", ")}. Valid types: ${ENTRY_TYPES.join(", ")}`
     );
-    process.exit(1);
   }
+  return types as FirewatchEntry["type"][];
+}
+
+function parseAuthorFilters(value?: string): {
+  include: string[];
+  exclude: string[];
+} {
+  const items = parseCsvList(value);
+  const include: string[] = [];
+  const exclude: string[] = [];
+
+  for (const item of items) {
+    if (item.startsWith("!")) {
+      const trimmed = item.slice(1).trim();
+      if (trimmed) {
+        exclude.push(trimmed);
+      }
+    } else {
+      include.push(item);
+    }
+  }
+
+  return { include, exclude };
+}
+
+function resolveBotPatterns(config: FirewatchConfig): RegExp[] | undefined {
+  const patterns = config.filters?.bot_patterns ?? [];
+  if (patterns.length === 0) {
+    return undefined;
+  }
+  const compiled: RegExp[] = [];
+  for (const pattern of patterns) {
+    try {
+      compiled.push(new RegExp(pattern, "i"));
+    } catch {
+      // Ignore invalid regex patterns
+    }
+  }
+  return compiled.length > 0 ? compiled : undefined;
 }
 
 function resolveAuthorFilters(
   options: RootCommandOptions,
   config: FirewatchConfig
-): { excludeAuthors?: string[]; excludeBots?: boolean; botPatterns?: RegExp[] } {
-  // --humans is an alias for --exclude-bots
-  const excludeBots =
-    options.excludeBots || options.humans || config.filters?.exclude_bots;
+): {
+  includeAuthors: string[];
+  excludeAuthors?: string[];
+  excludeBots?: boolean;
+  botPatterns?: RegExp[];
+} {
+  const { include, exclude } = parseAuthorFilters(options.author);
+  const excludeBots = options.noBots || config.filters?.exclude_bots;
+  const botPatterns = resolveBotPatterns(config);
 
-  // Merge explicit exclusions with config exclusions
-  const cliExclusions = options.excludeAuthor
-    ? options.excludeAuthor.split(",").map((a) => a.trim())
-    : [];
   const configExclusions = config.filters?.exclude_authors ?? [];
-
-  // When excluding bots, also include the default known bot list
-  const excludeAuthors =
-    excludeBots || cliExclusions.length > 0 || configExclusions.length > 0
+  const mergedExclusions =
+    excludeBots || exclude.length > 0 || configExclusions.length > 0
       ? mergeExcludeAuthors(
-          [...configExclusions, ...cliExclusions],
+          [...configExclusions, ...exclude],
           excludeBots ?? false
         )
       : undefined;
 
-  // Convert config bot_patterns strings to RegExp
-  const configBotPatterns = config.filters?.bot_patterns ?? [];
-  const botPatterns =
-    configBotPatterns.length > 0
-      ? configBotPatterns.map((p) => new RegExp(p, "i"))
-      : undefined;
-
   return {
-    ...(excludeAuthors && { excludeAuthors }),
+    includeAuthors: include,
+    ...(mergedExclusions && { excludeAuthors: mergedExclusions }),
     ...(excludeBots && { excludeBots }),
     ...(botPatterns && { botPatterns }),
   };
 }
 
-function buildQueryOptions(
-  options: RootCommandOptions,
-  config: FirewatchConfig,
-  repoFilter: string,
-  types?: EntryType[]
-) {
-  const states = resolveStates(options, config);
-  const since = options.since ?? config.default_since;
-  const authorFilters = resolveAuthorFilters(options, config);
-
-  return {
-    filters: {
-      repo: repoFilter,
-      ...(options.pr !== undefined && { pr: options.pr }),
-      ...(options.author && { author: options.author }),
-      ...(types && types.length > 0 && { type: types }),
-      ...(states && { states }),
-      ...(options.label && { label: options.label }),
-      ...(since && { since: parseSince(since) }),
-      ...authorFilters,
-    },
-    ...(options.limit !== undefined && { limit: options.limit }),
-    plugins: [],
-  };
+function listCachedRepos(): string[] {
+  if (!existsSync(PATHS.repos)) {
+    return [];
+  }
+  const files = readdirSync(PATHS.repos).filter((f) => f.endsWith(".jsonl"));
+  return files
+    .map((file) => parseRepoCacheFilename(file.replace(".jsonl", "")))
+    .filter((repo): repo is string => repo !== null);
 }
 
-async function outputEntries(
-  entries: FirewatchEntry[],
+function resolveRepoFilter(
   options: RootCommandOptions,
-  config: FirewatchConfig
+  detectedRepo: string | null
+): string | undefined {
+  if (options.repo) {
+    return options.repo;
+  }
+  if (options.all) {
+    return undefined;
+  }
+  return detectedRepo ?? undefined;
+}
+
+function resolveReposToSync(
+  options: RootCommandOptions,
+  config: FirewatchConfig,
+  detectedRepo: string | null
+): string[] {
+  if (options.repo && isFullRepo(options.repo)) {
+    return [options.repo];
+  }
+
+  if (options.all) {
+    if (config.repos.length > 0) {
+      return config.repos;
+    }
+    const cached = listCachedRepos();
+    if (cached.length > 0) {
+      return cached;
+    }
+  }
+
+  if (detectedRepo) {
+    return [detectedRepo];
+  }
+
+  return [];
+}
+
+async function readSyncMeta(): Promise<Map<string, SyncMetadata>> {
+  const meta = await readJsonl<SyncMetadata>(PATHS.meta);
+  const map = new Map<string, SyncMetadata>();
+  for (const entry of meta) {
+    map.set(entry.repo, entry);
+  }
+  return map;
+}
+
+async function ensureRepoCache(
+  repo: string,
+  config: FirewatchConfig,
+  detectedRepo: string | null,
+  options: { full?: boolean } = {}
+): Promise<{ synced: boolean }> {
+  const auth = await detectAuth(config.github_token);
+  if (!auth.token) {
+    throw new Error(auth.error);
+  }
+
+  const client = new GitHubClient(auth.token);
+  const useGraphite =
+    detectedRepo === repo && (await getGraphiteStacks()) !== null;
+  const plugins = useGraphite ? [graphitePlugin] : [];
+
+  const spinner = ora({
+    text: `Syncing ${repo}...`,
+    stream: process.stderr,
+    isEnabled: process.stderr.isTTY,
+  }).start();
+
+  try {
+    const result = await syncRepo(client, repo, {
+      ...(options.full && { full: true }),
+      plugins,
+    });
+    spinner.succeed(
+      `Synced ${repo} (${result.entriesAdded} entries)`
+    );
+  } catch (error) {
+    spinner.fail(
+      `Sync failed: ${error instanceof Error ? error.message : error}`
+    );
+    throw error;
+  }
+
+  return { synced: true };
+}
+
+function isStale(lastSync: string | undefined, threshold: string): boolean {
+  if (!lastSync) {
+    return true;
+  }
+
+  let thresholdMs = 0;
+  try {
+    thresholdMs = parseDurationMs(threshold);
+  } catch {
+    thresholdMs = parseDurationMs(DEFAULT_STALE_THRESHOLD);
+  }
+
+  const last = new Date(lastSync).getTime();
+  return Date.now() - last > thresholdMs;
+}
+
+async function ensureFreshRepos(
+  repos: string[],
+  options: RootCommandOptions,
+  config: FirewatchConfig,
+  detectedRepo: string | null
 ): Promise<void> {
-  if (options.worklist) {
-    const wrote = await outputWorklist(entries);
-    if (!wrote) {
-      console.error("No entries found for worklist.");
+  if (repos.length === 0) {
+    return;
+  }
+
+  if (options.offline) {
+    for (const repo of repos) {
+      const cachePath = getRepoCachePath(repo);
+      const cacheFile = Bun.file(cachePath);
+      const hasCache = (await cacheFile.exists())
+        ? cacheFile.size > 0
+        : false;
+      if (!hasCache) {
+        throw new Error(`Offline mode: no cache for ${repo}.`);
+      }
     }
     return;
   }
 
-  const stackMode = options.stack || config.default_stack;
-  if (stackMode) {
-    const wrote = await outputStackedEntries(entries);
-    if (!wrote) {
-      console.error(
-        "No Graphite stack data found. Re-sync (graphite auto-detects) or enable graphite in config."
-      );
-    }
+  const refresh = options.refresh;
+  const forceRefresh = Boolean(refresh);
+  const fullRefresh = refresh === "full";
+  const autoSync = config.sync?.auto_sync ?? true;
+
+  if (!autoSync && !forceRefresh) {
     return;
   }
 
-  outputJsonl(entries);
+  const meta = await readSyncMeta();
+  const threshold = config.sync?.stale_threshold ?? DEFAULT_STALE_THRESHOLD;
+
+  for (const repo of repos) {
+    if (!isFullRepo(repo)) {
+      continue;
+    }
+
+    const cachePath = getRepoCachePath(repo);
+    const cacheFile = Bun.file(cachePath);
+    const hasCache = (await cacheFile.exists())
+      ? cacheFile.size > 0
+      : false;
+    const lastSync = meta.get(repo)?.last_sync;
+    const needsSync =
+      forceRefresh || !hasCache || isStale(lastSync, threshold);
+
+    if (!needsSync) {
+      continue;
+    }
+
+    await ensureRepoCache(repo, config, detectedRepo, {
+      ...(fullRefresh && { full: true }),
+    });
+  }
 }
 
 const program = new Command();
@@ -257,65 +380,207 @@ program
   .description(
     "GitHub PR activity logger with pure JSONL output for jq-based workflows"
   )
-  .version("0.1.0")
-  .argument("[repo]", "Repository to query (owner/repo format, or auto-detect)")
-  .option("--pr <number>", "Filter by PR number", Number.parseInt)
-  .option("--author <name>", "Filter by author")
-  .option("--exclude-bots", "Exclude bot activity")
-  .option("--humans", "Alias for --exclude-bots")
+  .version(version)
+  .option("--prs [numbers]", "Filter to PR domain, optionally specific PRs")
+  .option("--repo <name>", "Filter to specific repository")
+  .option("-a, --all", "Include all cached repos")
+  .option("--mine", "Items on PRs assigned to me")
+  .option("--reviews", "PRs I need to review")
+  .option("--open", "Filter to open PRs")
+  .option("--closed", "Include merged and closed PRs")
+  .option("--draft", "Filter to draft PRs")
+  .option("--active", "Alias for --open --draft")
+  .option("--state <states>", "Explicit comma-separated PR states")
   .option(
-    "--exclude-author <authors>",
-    "Exclude specific authors (comma-separated)"
+    "--type <types>",
+    "Filter by entry type (comment, review, commit, ci, event)"
   )
-  .option(
-    "--type <type>",
-    "Filter by type (comment, review, commit, ci, event)"
-  )
-  .option(
-    "--state <states>",
-    "Filter by PR state (comma-separated: open,closed,merged,draft)"
-  )
-  .option("--open", "Shorthand for --state open")
-  .option("--draft", "Shorthand for --state draft")
-  .option("--active", "Shorthand for --state open,draft")
   .option("--label <name>", "Filter by PR label (partial match)")
+  .option("--author <list>", "Filter by author(s), prefix with ! to exclude")
+  .option("--no-bots", "Exclude bot activity")
   .option(
-    "--since <duration>",
-    "Filter by time window. Formats: Nh (hours), Nd (days), Nw (weeks), Nm (months). Examples: 1h, 24h, 7d, 2w, 1m"
+    "-s, --since <duration>",
+    "Filter by time window. Formats: Nh, Nd, Nw, Nm (months). Examples: 24h, 7d"
   )
-  .option("--limit <count>", "Limit number of results", Number.parseInt)
-  .option("--stack", "Show entries grouped by Graphite stack")
-  .option("--worklist", "Aggregate entries into a per-PR worklist")
-  .option("--schema", "Print the query result schema (JSON)")
-  .action(async (repo: string | undefined, options: RootCommandOptions) => {
-    // Parse and validate --type option (handles comma-separated values)
-    const types = options.type ? parseTypes(options.type) : undefined;
+  .option("--offline", "Use cache only, no network")
+  .option("--refresh [full]", "Force sync before query")
+  .option("-n, --limit <count>", "Limit number of results", Number.parseInt)
+  .option("--offset <count>", "Skip first N results", Number.parseInt)
+  .option("--summary", "Aggregate entries into per-PR summary")
+  .option("-j, --json", "Force JSON output")
+  .option("--no-json", "Force human-readable output")
+  .option("--debug", "Enable debug logging")
+  .option("--no-color", "Disable color output")
+  .action(async (options: RootCommandOptions) => {
+    applyGlobalOptions(options);
 
     try {
-      if (options.schema) {
-        printSchema("query");
-        return;
+      if (
+        typeof options.refresh === "string" &&
+        options.refresh !== "full"
+      ) {
+        console.error("Invalid --refresh value. Use --refresh or --refresh full.");
+        process.exit(1);
       }
 
-      const detected = await detectRepo();
-      const repoFilter = resolveRepo(repo, detected);
+      if (options.offline && options.refresh) {
+        console.error("--offline cannot be used with --refresh.");
+        process.exit(1);
+      }
 
-      if (!repoFilter) {
+      if (options.mine && options.reviews) {
+        console.error("Cannot use both --mine and --reviews together.");
+        process.exit(1);
+      }
+
+      let types: FirewatchEntry["type"][] = [];
+      try {
+        types = parseTypes(options.type);
+      } catch (error) {
+        console.error(error instanceof Error ? error.message : error);
+        process.exit(1);
+      }
+
+      let prs: number[] = [];
+      try {
+        prs = parsePrs(options.prs);
+      } catch (error) {
+        console.error(error instanceof Error ? error.message : error);
+        process.exit(1);
+      }
+
+      const config = await loadConfig();
+      const outputJson = options.summary
+        ? true
+        : shouldOutputJson(options, config.output?.default_format);
+
+      const detected = await detectRepo();
+      const repoFilter = resolveRepoFilter(options, detected.repo ?? null);
+
+      if (!repoFilter && !options.all) {
         console.error(
-          "No repository detected. Use: fw org/repo\n" +
-            "Or run from within a git repo with a GitHub remote."
+          "No repository detected. Use --repo owner/repo or run inside a git repo."
         );
         process.exit(1);
       }
 
-      // Load config for defaults
-      const config = await loadConfig();
-      await ensureRepoCache(repoFilter, config, detected.repo);
+      await ensureDirectories();
 
-      const entries = await queryEntries(
-        buildQueryOptions(options, config, repoFilter, types)
+      const reposToSync = resolveReposToSync(
+        options,
+        config,
+        detected.repo ?? null
       );
-      await outputEntries(entries, options, config);
+      await ensureFreshRepos(reposToSync, options, config, detected.repo ?? null);
+
+      const states = resolveStates({
+        ...(options.state && { state: options.state }),
+        ...(options.open && { open: true }),
+        ...(options.closed && { closed: true }),
+        ...(options.draft && { draft: true }),
+        ...(options.active && { active: true }),
+      });
+
+      const authorFilters = resolveAuthorFilters(options, config);
+      const includeAuthors = authorFilters.includeAuthors;
+
+      const entries = await queryEntries({
+        filters: {
+          ...(repoFilter && { repo: repoFilter }),
+          ...(prs.length > 0 && { prs }),
+          ...(types.length > 0 && { type: types }),
+          ...(states && { states }),
+          ...(options.label && { label: options.label }),
+          ...(options.since && { since: parseSince(options.since) }),
+          ...(authorFilters.excludeAuthors && {
+            excludeAuthors: authorFilters.excludeAuthors,
+          }),
+          ...(authorFilters.excludeBots && { excludeBots: true }),
+          ...(authorFilters.botPatterns && {
+            botPatterns: authorFilters.botPatterns,
+          }),
+        },
+        ...(options.limit !== undefined && { limit: options.limit }),
+        ...(options.offset !== undefined && { offset: options.offset }),
+      });
+
+      let filtered = entries;
+
+      if (includeAuthors.length > 0) {
+        const includeSet = new Set(includeAuthors.map((a) => a.toLowerCase()));
+        filtered = filtered.filter((entry) =>
+          includeSet.has(entry.author.toLowerCase())
+        );
+      }
+
+      if (options.mine || options.reviews) {
+        const username = config.user?.github_username;
+        if (!username) {
+          console.error("Set user.github_username in config for --mine/--reviews.");
+          process.exit(1);
+        }
+
+        filtered = filtered.filter((entry) =>
+          options.mine
+            ? entry.pr_author === username
+            : entry.pr_author !== username
+        );
+      }
+
+      if (options.summary) {
+        const wrote = await outputWorklist(filtered);
+        if (!wrote && process.stderr.isTTY) {
+          console.error("No entries found for summary.");
+        }
+        return;
+      }
+
+      if (outputJson) {
+        for (const entry of filtered) {
+          await writeJsonLine(entry);
+        }
+        return;
+      }
+
+      const repoLabel = repoFilter ?? (options.all ? "all" : "unknown");
+      const username = config.user?.github_username;
+      const actionableEntries = await ensureGraphiteMetadata(filtered);
+
+      if (options.mine || options.reviews) {
+        const perspective = options.mine ? "mine" : "reviews";
+        const summary = buildActionableSummary(
+          repoLabel,
+          actionableEntries,
+          perspective,
+          username
+        );
+        printActionableSummary(summary);
+        return;
+      }
+
+      if (username) {
+        const mineSummary = buildActionableSummary(
+          repoLabel,
+          actionableEntries,
+          "mine",
+          username
+        );
+        printActionableSummary(mineSummary);
+
+        const reviewSummary = buildActionableSummary(
+          repoLabel,
+          actionableEntries,
+          "reviews",
+          username
+        );
+        printActionableSummary(reviewSummary);
+      } else {
+        const summary = buildActionableSummary(
+          repoLabel,
+          actionableEntries
+        );
+        printActionableSummary(summary);
+      }
     } catch (error) {
       console.error(
         "Query failed:",
@@ -325,15 +590,13 @@ program
     }
   });
 
-program.addCommand(syncCommand);
-program.addCommand(checkCommand);
-program.addCommand(queryCommand);
+program.addCommand(addCommand);
+program.addCommand(closeCommand);
+program.addCommand(editCommand);
+program.addCommand(rmCommand);
 program.addCommand(statusCommand);
-program.addCommand(recapCommand);
-program.addCommand(cacheCommand);
-program.addCommand(commentCommand);
-program.addCommand(resolveCommand);
 program.addCommand(configCommand);
+program.addCommand(doctorCommand);
 program.addCommand(schemaCommand);
 program.addCommand(mcpCommand);
 

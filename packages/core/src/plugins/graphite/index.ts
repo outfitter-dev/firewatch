@@ -167,7 +167,7 @@ export function getFileProvenanceIndex(): Promise<FileProvenanceIndex | null> {
  * Graphite plugin for stack-aware PR activity tracking.
  *
  * Enriches entries with Graphite stack context, enabling queries like:
- * fw query --type review | jq 'select(.graphite.stack_id == "feat-auth")'
+ * fw --type review | jq 'select(.graphite.stack_id == "feat-auth")'
  */
 export const graphitePlugin: FirewatchPlugin = {
   name: "graphite",

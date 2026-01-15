@@ -5,6 +5,7 @@
  */
 
 const GITHUB_GRAPHQL_ENDPOINT = "https://api.github.com/graphql";
+const GITHUB_REST_ENDPOINT = "https://api.github.com";
 
 /**
  * GraphQL query for fetching PRs with all activity.
@@ -187,6 +188,36 @@ mutation ResolveReviewThread($threadId: ID!) {
 }
 `;
 
+const VIEWER_QUERY = `
+query Viewer {
+  viewer {
+    login
+  }
+}
+`;
+
+const CONVERT_PR_TO_DRAFT_MUTATION = `
+mutation ConvertPullRequestToDraft($pullRequestId: ID!) {
+  convertPullRequestToDraft(input: { pullRequestId: $pullRequestId }) {
+    pullRequest {
+      id
+      isDraft
+    }
+  }
+}
+`;
+
+const MARK_PR_READY_MUTATION = `
+mutation MarkPullRequestReadyForReview($pullRequestId: ID!) {
+  markPullRequestReadyForReview(input: { pullRequestId: $pullRequestId }) {
+    pullRequest {
+      id
+      isDraft
+    }
+  }
+}
+`;
+
 /**
  * GraphQL response types.
  */
@@ -283,6 +314,30 @@ interface ResolveReviewThreadData {
     thread: {
       id: string;
       isResolved: boolean;
+    } | null;
+  } | null;
+}
+
+interface ViewerData {
+  viewer: {
+    login: string;
+  } | null;
+}
+
+interface ConvertPullRequestToDraftData {
+  convertPullRequestToDraft: {
+    pullRequest: {
+      id: string;
+      isDraft: boolean;
+    } | null;
+  } | null;
+}
+
+interface MarkPullRequestReadyData {
+  markPullRequestReadyForReview: {
+    pullRequest: {
+      id: string;
+      isDraft: boolean;
     } | null;
   } | null;
 }
@@ -396,6 +451,41 @@ export class GitHubClient {
     }
 
     return (await response.json()) as GraphQLResponse<T>;
+  }
+
+  private async rest<T>(
+    path: string,
+    options: {
+      method: string;
+      body?: unknown;
+      headers?: Record<string, string>;
+    }
+  ): Promise<T | undefined> {
+    const response = await fetch(`${GITHUB_REST_ENDPOINT}${path}`, {
+      method: options.method,
+      headers: {
+        Authorization: `Bearer ${this.token}`,
+        Accept: "application/vnd.github+json",
+        "Content-Type": "application/json",
+        "User-Agent": "firewatch-cli",
+        ...options.headers,
+      },
+      ...(options.body !== undefined && {
+        body: JSON.stringify(options.body),
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `GitHub API error: ${response.status} ${response.statusText}`
+      );
+    }
+
+    if (response.status === 204) {
+      return undefined;
+    }
+
+    return (await response.json()) as T;
   }
 
   /**
@@ -559,6 +649,237 @@ export class GitHubClient {
     }
   }
 
+  async fetchViewerLogin(): Promise<string> {
+    const response = await this.query<ViewerData>(VIEWER_QUERY, {});
+    const data = GitHubClient.unwrap(response);
+    const login = data.viewer?.login;
+    if (!login) {
+      throw new Error("No viewer returned from GitHub API");
+    }
+    return login;
+  }
+
+  async convertPullRequestToDraft(pullRequestId: string): Promise<void> {
+    const response = await this.query<ConvertPullRequestToDraftData>(
+      CONVERT_PR_TO_DRAFT_MUTATION,
+      { pullRequestId }
+    );
+
+    const data = GitHubClient.unwrap(response);
+    if (!data.convertPullRequestToDraft?.pullRequest?.id) {
+      throw new Error("Failed to convert PR to draft");
+    }
+  }
+
+  async markPullRequestReady(pullRequestId: string): Promise<void> {
+    const response = await this.query<MarkPullRequestReadyData>(
+      MARK_PR_READY_MUTATION,
+      { pullRequestId }
+    );
+
+    const data = GitHubClient.unwrap(response);
+    if (!data.markPullRequestReadyForReview?.pullRequest?.id) {
+      throw new Error("Failed to mark PR ready");
+    }
+  }
+
+  async addLabels(
+    owner: string,
+    repo: string,
+    prNumber: number,
+    labels: string[]
+  ): Promise<void> {
+    await this.rest(
+      `/repos/${owner}/${repo}/issues/${prNumber}/labels`,
+      {
+        method: "POST",
+        body: { labels },
+      }
+    );
+  }
+
+  async removeLabels(
+    owner: string,
+    repo: string,
+    prNumber: number,
+    labels: string[]
+  ): Promise<void> {
+    for (const label of labels) {
+      await this.rest(
+        `/repos/${owner}/${repo}/issues/${prNumber}/labels/${encodeURIComponent(label)}`,
+        { method: "DELETE" }
+      );
+    }
+  }
+
+  async addAssignees(
+    owner: string,
+    repo: string,
+    prNumber: number,
+    assignees: string[]
+  ): Promise<void> {
+    await this.rest(
+      `/repos/${owner}/${repo}/issues/${prNumber}/assignees`,
+      {
+        method: "POST",
+        body: { assignees },
+      }
+    );
+  }
+
+  async removeAssignees(
+    owner: string,
+    repo: string,
+    prNumber: number,
+    assignees: string[]
+  ): Promise<void> {
+    await this.rest(
+      `/repos/${owner}/${repo}/issues/${prNumber}/assignees`,
+      {
+        method: "DELETE",
+        body: { assignees },
+      }
+    );
+  }
+
+  async requestReviewers(
+    owner: string,
+    repo: string,
+    prNumber: number,
+    reviewers: string[]
+  ): Promise<void> {
+    await this.rest(
+      `/repos/${owner}/${repo}/pulls/${prNumber}/requested_reviewers`,
+      {
+        method: "POST",
+        body: { reviewers },
+      }
+    );
+  }
+
+  async removeReviewers(
+    owner: string,
+    repo: string,
+    prNumber: number,
+    reviewers: string[]
+  ): Promise<void> {
+    await this.rest(
+      `/repos/${owner}/${repo}/pulls/${prNumber}/requested_reviewers`,
+      {
+        method: "DELETE",
+        body: { reviewers },
+      }
+    );
+  }
+
+  async addReview(
+    owner: string,
+    repo: string,
+    prNumber: number,
+    event: "approve" | "request-changes" | "comment",
+    body?: string
+  ): Promise<{ id: string; url?: string } | null> {
+    const eventMap: Record<typeof event, string> = {
+      approve: "APPROVE",
+      "request-changes": "REQUEST_CHANGES",
+      comment: "COMMENT",
+    };
+    const response = await this.rest<{
+      id: number;
+      html_url?: string;
+    }>(
+      `/repos/${owner}/${repo}/pulls/${prNumber}/reviews`,
+      {
+        method: "POST",
+        body: {
+          event: eventMap[event],
+          ...(body && { body }),
+        },
+      }
+    );
+
+    if (!response) {
+      return null;
+    }
+
+    return {
+      id: String(response.id),
+      ...(response.html_url && { url: response.html_url }),
+    };
+  }
+
+  async editPullRequest(
+    owner: string,
+    repo: string,
+    prNumber: number,
+    updates: { title?: string; body?: string; base?: string }
+  ): Promise<void> {
+    await this.rest(
+      `/repos/${owner}/${repo}/pulls/${prNumber}`,
+      {
+        method: "PATCH",
+        body: updates,
+      }
+    );
+  }
+
+  private async resolveMilestoneNumber(
+    owner: string,
+    repo: string,
+    name: string
+  ): Promise<number> {
+    let page = 1;
+    while (page <= 5) {
+      const milestones = await this.rest<
+        { number: number; title: string }[]
+      >(
+        `/repos/${owner}/${repo}/milestones?state=all&per_page=100&page=${page}`,
+        { method: "GET" }
+      );
+      if (!milestones || milestones.length === 0) {
+        break;
+      }
+      const match = milestones.find(
+        (milestone) => milestone.title.toLowerCase() === name.toLowerCase()
+      );
+      if (match) {
+        return match.number;
+      }
+      page += 1;
+    }
+    throw new Error(`Milestone "${name}" not found`);
+  }
+
+  async setMilestone(
+    owner: string,
+    repo: string,
+    prNumber: number,
+    name: string
+  ): Promise<void> {
+    const milestone = await this.resolveMilestoneNumber(owner, repo, name);
+    await this.rest(
+      `/repos/${owner}/${repo}/issues/${prNumber}`,
+      {
+        method: "PATCH",
+        body: { milestone },
+      }
+    );
+  }
+
+  async clearMilestone(
+    owner: string,
+    repo: string,
+    prNumber: number
+  ): Promise<void> {
+    await this.rest(
+      `/repos/${owner}/${repo}/issues/${prNumber}`,
+      {
+        method: "PATCH",
+        body: { milestone: null },
+      }
+    );
+  }
+
   /**
    * Fetch the list of files changed in a specific commit.
    * Uses the REST API since GraphQL doesn't expose individual commit files easily.
@@ -570,27 +891,20 @@ export class GitHubClient {
     repo: string,
     commitSha: string
   ): Promise<string[]> {
-    const response = await fetch(
-      `https://api.github.com/repos/${owner}/${repo}/commits/${commitSha}`,
-      {
+    try {
+      const data = await this.rest<{
+        files?: { filename: string }[];
+      }>(`/repos/${owner}/${repo}/commits/${commitSha}`, {
         method: "GET",
-        headers: {
-          Authorization: `Bearer ${this.token}`,
-          Accept: "application/vnd.github.v3+json",
-          "User-Agent": "firewatch-cli",
-        },
+        headers: { Accept: "application/vnd.github.v3+json" },
+      });
+      if (!data) {
+        return [];
       }
-    );
-
-    if (!response.ok) {
+      return (data.files ?? []).map((f) => f.filename);
+    } catch {
       // Return empty array on error - caller will treat as "no file data"
       return [];
     }
-
-    const data = (await response.json()) as {
-      files?: { filename: string }[];
-    };
-
-    return (data.files ?? []).map((f) => f.filename);
   }
 }

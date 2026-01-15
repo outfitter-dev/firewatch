@@ -1,5 +1,4 @@
 import envPaths from "env-paths";
-import { existsSync } from "node:fs";
 import { appendFile, mkdir } from "node:fs/promises";
 import type { FirewatchEntry } from "./schema";
 
@@ -24,9 +23,6 @@ export const PATHS = {
   /** Sync metadata file */
   meta: `${paths.cache}/meta.jsonl`,
 
-  /** Lookout tracking file */
-  lookout: `${paths.cache}/lookout.jsonl`,
-
   /** Config file */
   configFile: `${paths.config}/config.toml`,
 } as const;
@@ -43,10 +39,6 @@ export async function ensureDirectories(): Promise<void> {
   ]);
 }
 
-/**
- * Legacy separator used in cache filenames.
- */
-export const REPO_SEPARATOR = "--";
 const REPO_CACHE_PREFIX = "b64~";
 
 /**
@@ -54,12 +46,6 @@ const REPO_CACHE_PREFIX = "b64~";
  * @param repo - Repository in owner/repo format
  */
 export function getRepoCachePath(repo: string): string {
-  const legacyName = repo.replace("/", REPO_SEPARATOR);
-  const legacyPath = `${PATHS.repos}/${legacyName}.jsonl`;
-  if (existsSync(legacyPath)) {
-    return legacyPath;
-  }
-
   const encoded = Buffer.from(repo, "utf8").toString("base64url");
   const safeName = `${REPO_CACHE_PREFIX}${encoded}`;
   return `${PATHS.repos}/${safeName}.jsonl`;
@@ -69,20 +55,19 @@ export function getRepoCachePath(repo: string): string {
  * Parse a cache filename back to owner/repo format.
  * @param filename - Cache filename (without .jsonl extension)
  */
-export function parseRepoCacheFilename(filename: string): string {
-  if (filename.startsWith(REPO_CACHE_PREFIX)) {
-    const encoded = filename.slice(REPO_CACHE_PREFIX.length);
-    try {
-      const decoded = Buffer.from(encoded, "base64url").toString("utf8");
-      // Validate: must contain slash (owner/repo) and no null bytes (path safety)
-      if (decoded.includes("/") && !decoded.includes("\0")) {
-        return decoded;
-      }
-    } catch {
-      // fall through to legacy format
-    }
+export function parseRepoCacheFilename(filename: string): string | null {
+  if (!filename.startsWith(REPO_CACHE_PREFIX)) {
+    return null;
   }
-  return filename.replace(REPO_SEPARATOR, "/");
+
+  const encoded = filename.slice(REPO_CACHE_PREFIX.length);
+  try {
+    const decoded = Buffer.from(encoded, "base64url").toString("utf8");
+    // Validate: must contain slash (owner/repo) and no null bytes (path safety)
+    return decoded.includes("/") && !decoded.includes("\0") ? decoded : null;
+  } catch {
+    return null;
+  }
 }
 
 /**

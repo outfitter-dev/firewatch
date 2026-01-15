@@ -27,10 +27,13 @@ export interface QueryFilters {
   /** Filter by PR number */
   pr?: number;
 
+  /** Filter by multiple PR numbers */
+  prs?: number[];
+
   /** Filter by author (exact match) */
   author?: string;
 
-  /** Filter by entry type (single type or array of types) */
+  /** Filter by entry type(s) */
   type?: FirewatchEntry["type"] | FirewatchEntry["type"][];
 
   /** Filter by PR states (e.g., ["open", "draft"]) */
@@ -80,7 +83,8 @@ async function getCachedRepos(): Promise<string[]> {
     const files = await readdir(PATHS.repos);
     return files
       .filter((f) => f.endsWith(".jsonl"))
-      .map((f) => parseRepoCacheFilename(f.replace(".jsonl", "")));
+      .map((f) => parseRepoCacheFilename(f.replace(".jsonl", "")))
+      .filter((repo): repo is string => repo !== null);
   } catch {
     return [];
   }
@@ -166,6 +170,10 @@ function matchesFilters(
   }
 
   if (filters.pr !== undefined && entry.pr !== filters.pr) {
+    return false;
+  }
+
+  if (filters.prs?.length && !filters.prs.includes(entry.pr)) {
     return false;
   }
 

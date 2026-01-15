@@ -18,7 +18,10 @@ export interface OutputModeOptions {
  * 2. FIREWATCH_JSON env var
  * 3. TTY detection (non-TTY defaults to JSON)
  */
-export function shouldOutputJson(options: OutputModeOptions): boolean {
+export function shouldOutputJson(
+  options: OutputModeOptions,
+  defaultFormat?: "human" | "json"
+): boolean {
   // Explicit flag takes precedence
   if (options.json === true) {
     return true;
@@ -32,6 +35,13 @@ export function shouldOutputJson(options: OutputModeOptions): boolean {
     return true;
   }
   if (process.env.FIREWATCH_JSON === "0") {
+    return false;
+  }
+
+  if (defaultFormat === "json") {
+    return true;
+  }
+  if (defaultFormat === "human") {
     return false;
   }
 

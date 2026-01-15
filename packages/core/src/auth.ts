@@ -78,6 +78,6 @@ export async function detectAuth(configToken?: string): Promise<AuthResult> {
     source: "none",
     error:
       "No GitHub authentication found. Please authenticate with `gh auth login`, " +
-      "set GITHUB_TOKEN environment variable, or configure a token with `fw config set github-token <token>`.",
+      "set GITHUB_TOKEN environment variable, or configure a token with `fw config github_token <token>`.",
   };
 }
