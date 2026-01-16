@@ -43,22 +43,22 @@ Running `fw` in a repo auto-syncs if the cache is stale, then runs your query.
 
 ## Documentation
 
-| Document | Description |
-|----------|-------------|
+| Document                                | Description                |
+| --------------------------------------- | -------------------------- |
 | [CLI Commands](docs/commands/README.md) | Complete command reference |
-| [Configuration](docs/configuration.md) | Config files and options |
-| [Schema Reference](docs/schema.md) | JSONL entry structure |
-| [jq Cookbook](docs/jq-cookbook.md) | Practical query patterns |
-| [MCP Server](docs/mcp.md) | AI agent integration |
-| [Workflow Guide](docs/WORKFLOW.md) | Usage patterns and tips |
+| [Configuration](docs/configuration.md)  | Config files and options   |
+| [Schema Reference](docs/schema.md)      | JSONL entry structure      |
+| [jq Cookbook](docs/jq-cookbook.md)      | Practical query patterns   |
+| [MCP Server](docs/mcp.md)               | AI agent integration       |
+| [Workflow Guide](docs/WORKFLOW.md)      | Usage patterns and tips    |
 
 ## Community
 
-| Document | Description |
-|----------|-------------|
-| [Contributing](CONTRIBUTING.md) | Development setup and guidelines |
-| [Changelog](CHANGELOG.md) | Release history |
-| [Security](SECURITY.md) | Security policy and token handling |
+| Document                        | Description                        |
+| ------------------------------- | ---------------------------------- |
+| [Contributing](CONTRIBUTING.md) | Development setup and guidelines   |
+| [Changelog](CHANGELOG.md)       | Release history                    |
+| [Security](SECURITY.md)         | Security policy and token handling |
 
 ## Configuration
 

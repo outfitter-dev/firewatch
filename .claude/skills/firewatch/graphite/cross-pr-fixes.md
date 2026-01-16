@@ -1,6 +1,6 @@
-# Cross-PR Fixes Pattern
+# Cross-PR Fixes in Graphite Stacks
 
-Handling file provenance when a fix belongs in a different PR than where the comment appears.
+How to handle file provenance when a fix belongs in a different PR than where the comment appears.
 
 ## The Problem
 
@@ -71,22 +71,18 @@ fw --type comment --prs PR_NUMBER | jq '
 gt checkout <origin-branch>
 ```
 
-Or by PR number:
-```bash
-gt checkout pr-<origin_pr>
-```
-
 ### Step 3: Make the Fix
 
 Edit the file in the origin branch. The fix will propagate up the stack after restack.
 
 ### Step 4: Commit
 
+See [commit-workflow.md](commit-workflow.md) for commit guidance.
+
+For single-branch fixes:
 ```bash
 gt modify -m "address review: <summary>"
 ```
-
-Use `gt modify` to amend the PR's commit rather than creating a new one.
 
 ### Step 5: Restack
 
@@ -171,7 +167,7 @@ If your fix conflicts with changes in higher PRs:
 1. `gt restack` will pause on conflict
 2. Resolve the conflict manually
 3. `git add` the resolved file
-4. `gt restack --continue`
+4. `gt continue`
 
 ### Missing Provenance Data
 
@@ -202,7 +198,7 @@ For each cross-PR comment:
 1. [ ] Check `file_provenance.origin_pr`
 2. [ ] If different from comment PR, switch to origin branch
 3. [ ] Make the fix in origin
-4. [ ] Commit with `gt modify`
+4. [ ] Commit (see [commit-workflow.md](commit-workflow.md))
 5. [ ] Run `gt restack` to propagate
 6. [ ] Handle any conflicts
 7. [ ] Run `gt submit --stack`

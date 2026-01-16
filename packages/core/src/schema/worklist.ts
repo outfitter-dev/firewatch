@@ -1,6 +1,10 @@
 import { z } from "zod";
 
-import { EntryTypeSchema, GraphiteMetadataSchema, PrStateSchema } from "./entry";
+import {
+  EntryTypeSchema,
+  GraphiteMetadataSchema,
+  PrStateSchema,
+} from "./entry";
 
 export const WorklistCountsSchema = z.object({
   comments: z.number().int().nonnegative(),

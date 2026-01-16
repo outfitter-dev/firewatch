@@ -1,4 +1,8 @@
-import { buildWorklist, sortWorklist, type FirewatchEntry } from "@outfitter/firewatch-core";
+import {
+  buildWorklist,
+  sortWorklist,
+  type FirewatchEntry,
+} from "@outfitter/firewatch-core";
 
 import { ensureGraphiteMetadata } from "./stack";
 

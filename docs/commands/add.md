@@ -10,17 +10,17 @@ fw add <pr> [body] [options]
 
 ## Options
 
-| Option | Description |
-|--------|-------------|
-| `--reply <id>` | Reply to a specific review thread comment |
-| `--resolve` | Resolve the thread after replying (requires `--reply`) |
-| `--review <type>` | Add review: `approve`, `request-changes`, `comment` |
-| `--label <name>` | Add label (repeatable) |
-| `--reviewer <user>` | Request reviewer (repeatable) |
-| `--assignee <user>` | Add assignee (repeatable) |
-| `--repo <name>` | Target repository (`owner/repo`) |
-| `--json` | Force JSON output |
-| `--no-json` | Force human-readable output |
+| Option              | Description                                            |
+| ------------------- | ------------------------------------------------------ |
+| `--reply <id>`      | Reply to a specific review thread comment              |
+| `--resolve`         | Resolve the thread after replying (requires `--reply`) |
+| `--review <type>`   | Add review: `approve`, `request-changes`, `comment`    |
+| `--label <name>`    | Add label (repeatable)                                 |
+| `--reviewer <user>` | Request reviewer (repeatable)                          |
+| `--assignee <user>` | Add assignee (repeatable)                              |
+| `--repo <name>`     | Target repository (`owner/repo`)                       |
+| `--json`            | Force JSON output                                      |
+| `--no-json`         | Force human-readable output                            |
 
 ## Examples
 

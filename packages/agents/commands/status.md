@@ -6,11 +6,13 @@ allowed-tools: Bash(fw *)
 # Firewatch Status
 
 ## PR Summary
+
 !`fw --summary 2>&1`
 
 ## Summary
 
 Provide a quick assessment of the PR activity:
+
 - Review needed: PRs with unaddressed review comments
 - Stale: PRs with no recent activity
 - Ready: PRs approved and ready to merge

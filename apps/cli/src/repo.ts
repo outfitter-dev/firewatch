@@ -12,7 +12,9 @@ const REPO_FORMAT_REGEX = /^[^/]+\/[^/]+$/;
 export function parsePrNumber(value: string): number {
   const num = Number.parseInt(value, 10);
   if (Number.isNaN(num) || num <= 0) {
-    throw new InvalidArgumentError(`PR number must be a positive integer, got '${value}'`);
+    throw new InvalidArgumentError(
+      `PR number must be a positive integer, got '${value}'`
+    );
   }
   return num;
 }
@@ -23,7 +25,9 @@ export function parsePrNumber(value: string): number {
  */
 export function validateRepoFormat(repo: string): void {
   if (!REPO_FORMAT_REGEX.test(repo)) {
-    throw new Error(`Invalid repo format: '${repo}'. Expected format: owner/repo`);
+    throw new Error(
+      `Invalid repo format: '${repo}'. Expected format: owner/repo`
+    );
   }
 }
 

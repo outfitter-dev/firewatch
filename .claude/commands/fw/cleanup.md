@@ -12,6 +12,14 @@ Systematically verify and resolve comment threads that have been addressed.
 
 !`bun apps/cli/bin/fw.ts --type comment --open --json 2>/dev/null | jq -c 'select(.subtype == "review_comment") | {pr, file, line, author, body: .body[0:60], id}' | head -20`
 
+## Skill Context
+
+```
+Load skill: firewatch
+```
+
+Reference: `.claude/skills/firewatch/patterns/resolving-threads.md`
+
 ## Task
 
 This is an orchestrated cleanup workflow using subagents.
@@ -84,5 +92,4 @@ End with: `<promise>flow:fw:cleanup complete</promise>`
 ## Related
 
 - `/fw:sitrep` — Get full status first
-- `/fw:check PR` — Focus on specific PR
 - `/fw:yolo` — Fix and resolve everything

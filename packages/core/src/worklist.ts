@@ -1,5 +1,9 @@
 import type { FirewatchEntry } from "./schema/entry";
-import type { WorklistCounts, WorklistEntry, WorklistReviewStates } from "./schema/worklist";
+import type {
+  WorklistCounts,
+  WorklistEntry,
+  WorklistReviewStates,
+} from "./schema/worklist";
 
 function initCounts(): WorklistCounts {
   return {
@@ -137,7 +141,9 @@ export function buildWorklist(entries: FirewatchEntry[]): WorklistEntry[] {
 
 export function sortWorklist(items: WorklistEntry[]): WorklistEntry[] {
   const withStack = items.filter(
-    (item): item is WorklistEntry & {
+    (
+      item
+    ): item is WorklistEntry & {
       graphite: NonNullable<WorklistEntry["graphite"]> & { stack_id: string };
     } => Boolean(item.graphite?.stack_id)
   );

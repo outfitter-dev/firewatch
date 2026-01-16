@@ -6,12 +6,12 @@ Firewatch outputs denormalized JSONL where each line is a self-contained record.
 
 Firewatch provides multiple schema types. Use `fw schema` to inspect them:
 
-| Command | Output | Use Case |
-|---------|--------|----------|
-| `fw schema entry` | FirewatchEntry schema | Individual activity records (comments, reviews, commits, etc.) |
-| `fw schema worklist` | WorklistEntry schema | Per-PR summaries with aggregated counts |
-| `fw schema config` | Config schema | Configuration file format |
-| `fw schema` | Entry schema (default) | Same as `fw schema entry` |
+| Command              | Output                 | Use Case                                                       |
+| -------------------- | ---------------------- | -------------------------------------------------------------- |
+| `fw schema entry`    | FirewatchEntry schema  | Individual activity records (comments, reviews, commits, etc.) |
+| `fw schema worklist` | WorklistEntry schema   | Per-PR summaries with aggregated counts                        |
+| `fw schema config`   | Config schema          | Configuration file format                                      |
+| `fw schema`          | Entry schema (default) | Same as `fw schema entry`                                      |
 
 ### When to Use Each
 
@@ -21,13 +21,13 @@ Firewatch provides multiple schema types. Use `fw schema` to inspect them:
 
 ## Entry Types
 
-| Type | Description |
-|------|-------------|
-| `comment` | PR comments (top-level and review comments) |
-| `review` | Review submissions (approve, request changes, comment) |
-| `commit` | Commits pushed to the PR branch |
-| `ci` | CI/CD status events |
-| `event` | PR lifecycle events (opened, closed, merged, etc.) |
+| Type      | Description                                            |
+| --------- | ------------------------------------------------------ |
+| `comment` | PR comments (top-level and review comments)            |
+| `review`  | Review submissions (approve, request changes, comment) |
+| `commit`  | Commits pushed to the PR branch                        |
+| `ci`      | CI/CD status events                                    |
+| `event`   | PR lifecycle events (opened, closed, merged, etc.)     |
 
 ## FirewatchEntry
 
@@ -35,53 +35,53 @@ The primary data structure for individual activity records.
 
 ### Core Fields
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `id` | string | Yes | Unique entry identifier |
-| `repo` | string | Yes | Repository in `owner/repo` format |
-| `pr` | number | Yes | Pull request number |
+| Field  | Type   | Required | Description                       |
+| ------ | ------ | -------- | --------------------------------- |
+| `id`   | string | Yes      | Unique entry identifier           |
+| `repo` | string | Yes      | Repository in `owner/repo` format |
+| `pr`   | number | Yes      | Pull request number               |
 
 ### PR Context (Denormalized)
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `pr_title` | string | Yes | PR title |
-| `pr_state` | string | Yes | One of: `open`, `closed`, `merged`, `draft` |
-| `pr_author` | string | Yes | PR author username |
-| `pr_branch` | string | Yes | Head branch name |
-| `pr_labels` | string[] | No | Array of label names |
+| Field       | Type     | Required | Description                                 |
+| ----------- | -------- | -------- | ------------------------------------------- |
+| `pr_title`  | string   | Yes      | PR title                                    |
+| `pr_state`  | string   | Yes      | One of: `open`, `closed`, `merged`, `draft` |
+| `pr_author` | string   | Yes      | PR author username                          |
+| `pr_branch` | string   | Yes      | Head branch name                            |
+| `pr_labels` | string[] | No       | Array of label names                        |
 
 ### Entry Data
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `type` | string | Yes | Entry type: `comment`, `review`, `commit`, `ci`, `event` |
-| `subtype` | string | No | Type-specific subtype (see below) |
-| `author` | string | Yes | Author of this activity |
-| `body` | string | No | Content body (comment text, commit message, etc.) |
-| `state` | string | No | State for reviews/CI (e.g., `approved`, `changes_requested`) |
+| Field     | Type   | Required | Description                                                  |
+| --------- | ------ | -------- | ------------------------------------------------------------ |
+| `type`    | string | Yes      | Entry type: `comment`, `review`, `commit`, `ci`, `event`     |
+| `subtype` | string | No       | Type-specific subtype (see below)                            |
+| `author`  | string | Yes      | Author of this activity                                      |
+| `body`    | string | No       | Content body (comment text, commit message, etc.)            |
+| `state`   | string | No       | State for reviews/CI (e.g., `approved`, `changes_requested`) |
 
 ### Timestamps
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `created_at` | string | Yes | ISO 8601 datetime when activity occurred |
-| `updated_at` | string | No | ISO 8601 datetime when last updated |
-| `captured_at` | string | Yes | ISO 8601 datetime when synced to cache |
+| Field         | Type   | Required | Description                              |
+| ------------- | ------ | -------- | ---------------------------------------- |
+| `created_at`  | string | Yes      | ISO 8601 datetime when activity occurred |
+| `updated_at`  | string | No       | ISO 8601 datetime when last updated      |
+| `captured_at` | string | Yes      | ISO 8601 datetime when synced to cache   |
 
 ### Metadata
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `url` | string | No | GitHub URL for this activity |
-| `file` | string | No | File path for review comments |
-| `line` | number | No | Line number for review comments |
+| Field  | Type   | Required | Description                     |
+| ------ | ------ | -------- | ------------------------------- |
+| `url`  | string | No       | GitHub URL for this activity    |
+| `file` | string | No       | File path for review comments   |
+| `line` | number | No       | Line number for review comments |
 
 ### Staleness Hints
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `file_activity_after` | object | No | Post-comment activity info (see below) |
+| Field                 | Type   | Required | Description                            |
+| --------------------- | ------ | -------- | -------------------------------------- |
+| `file_activity_after` | object | No       | Post-comment activity info (see below) |
 
 #### file_activity_after
 
@@ -96,18 +96,18 @@ Populated when staleness hints are available on comment entries:
 }
 ```
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `modified` | boolean | Whether file was modified after comment |
-| `commits_touching_file` | number | Commits touching the file (or PR-wide if unavailable) |
-| `latest_commit` | string | SHA of most recent relevant commit |
-| `latest_commit_at` | string | Timestamp of latest commit |
+| Field                   | Type    | Description                                           |
+| ----------------------- | ------- | ----------------------------------------------------- |
+| `modified`              | boolean | Whether file was modified after comment               |
+| `commits_touching_file` | number  | Commits touching the file (or PR-wide if unavailable) |
+| `latest_commit`         | string  | SHA of most recent relevant commit                    |
+| `latest_commit_at`      | string  | Timestamp of latest commit                            |
 
 ### File Provenance (Graphite)
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `file_provenance` | object | No | Which stack PR last modified the file |
+| Field             | Type   | Required | Description                           |
+| ----------------- | ------ | -------- | ------------------------------------- |
+| `file_provenance` | object | No       | Which stack PR last modified the file |
 
 ```json
 {
@@ -120,9 +120,9 @@ Populated when staleness hints are available on comment entries:
 
 ### Graphite Metadata
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `graphite` | object | No | Stack metadata for Graphite-managed PRs |
+| Field      | Type   | Required | Description                             |
+| ---------- | ------ | -------- | --------------------------------------- |
+| `graphite` | object | No       | Stack metadata for Graphite-managed PRs |
 
 ```json
 {
@@ -133,40 +133,40 @@ Populated when staleness hints are available on comment entries:
 }
 ```
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `stack_id` | string | Unique identifier for the stack |
-| `stack_position` | number | Position in stack (1 = bottom) |
-| `stack_size` | number | Total PRs in the stack |
-| `parent_pr` | number | Parent PR number (if not at bottom) |
+| Field            | Type   | Description                         |
+| ---------------- | ------ | ----------------------------------- |
+| `stack_id`       | string | Unique identifier for the stack     |
+| `stack_position` | number | Position in stack (1 = bottom)      |
+| `stack_size`     | number | Total PRs in the stack              |
+| `parent_pr`      | number | Parent PR number (if not at bottom) |
 
 ## Entry Subtypes
 
 ### Comment Subtypes
 
-| Subtype | Description |
-|---------|-------------|
-| `issue_comment` | Top-level PR comment |
+| Subtype          | Description                   |
+| ---------------- | ----------------------------- |
+| `issue_comment`  | Top-level PR comment          |
 | `review_comment` | Inline review comment on code |
 
 ### Review States
 
-| State | Description |
-|-------|-------------|
-| `approved` | PR approved |
-| `changes_requested` | Changes requested |
-| `commented` | Review with comments only |
-| `dismissed` | Review dismissed |
+| State               | Description               |
+| ------------------- | ------------------------- |
+| `approved`          | PR approved               |
+| `changes_requested` | Changes requested         |
+| `commented`         | Review with comments only |
+| `dismissed`         | Review dismissed          |
 
 ### CI States
 
-| State | Description |
-|-------|-------------|
+| State     | Description       |
+| --------- | ----------------- |
 | `pending` | Check in progress |
-| `success` | Check passed |
-| `failure` | Check failed |
-| `neutral` | Neutral result |
-| `skipped` | Check skipped |
+| `success` | Check passed      |
+| `failure` | Check failed      |
+| `neutral` | Neutral result    |
+| `skipped` | Check skipped     |
 
 ## WorklistEntry
 
@@ -174,21 +174,21 @@ Aggregated per-PR summary, output by `fw --summary`.
 
 ### Fields
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `repo` | string | Yes | Repository |
-| `pr` | number | Yes | PR number |
-| `pr_title` | string | Yes | PR title |
-| `pr_state` | string | Yes | PR state |
-| `pr_author` | string | Yes | PR author |
-| `pr_branch` | string | Yes | Head branch |
-| `pr_labels` | string[] | No | Labels |
-| `last_activity_at` | string | Yes | Most recent activity timestamp |
-| `latest_activity_type` | string | Yes | Type of most recent activity |
-| `latest_activity_author` | string | Yes | Author of most recent activity |
-| `counts` | object | Yes | Activity counts by type |
-| `review_states` | object | No | Review state counts |
-| `graphite` | object | No | Stack metadata |
+| Field                    | Type     | Required | Description                    |
+| ------------------------ | -------- | -------- | ------------------------------ |
+| `repo`                   | string   | Yes      | Repository                     |
+| `pr`                     | number   | Yes      | PR number                      |
+| `pr_title`               | string   | Yes      | PR title                       |
+| `pr_state`               | string   | Yes      | PR state                       |
+| `pr_author`              | string   | Yes      | PR author                      |
+| `pr_branch`              | string   | Yes      | Head branch                    |
+| `pr_labels`              | string[] | No       | Labels                         |
+| `last_activity_at`       | string   | Yes      | Most recent activity timestamp |
+| `latest_activity_type`   | string   | Yes      | Type of most recent activity   |
+| `latest_activity_author` | string   | Yes      | Author of most recent activity |
+| `counts`                 | object   | Yes      | Activity counts by type        |
+| `review_states`          | object   | No       | Review state counts            |
+| `graphite`               | object   | No       | Stack metadata                 |
 
 ### counts
 
@@ -353,7 +353,10 @@ Aggregated per-PR summary, output by `fw --summary`.
 ## TypeScript Types
 
 ```typescript
-import type { FirewatchEntry, WorklistEntry } from "@outfitter/firewatch-core/schema";
+import type {
+  FirewatchEntry,
+  WorklistEntry,
+} from "@outfitter/firewatch-core/schema";
 import type { EntryType, PrState } from "@outfitter/firewatch-core/schema";
 ```
 

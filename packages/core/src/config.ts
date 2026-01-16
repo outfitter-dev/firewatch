@@ -103,7 +103,9 @@ function parseTOML(text: string): Record<string, unknown> {
   return result;
 }
 
-async function readConfigFile(path: string): Promise<Record<string, unknown> | null> {
+async function readConfigFile(
+  path: string
+): Promise<Record<string, unknown> | null> {
   const file = Bun.file(path);
   if (!(await file.exists())) {
     return null;
@@ -278,7 +280,9 @@ function parseValue(value: string): unknown {
     if (inner === "") {
       return [];
     }
-    const items = splitArrayValues(inner).map((item) => parseValue(item.trim()));
+    const items = splitArrayValues(inner).map((item) =>
+      parseValue(item.trim())
+    );
     return items;
   }
 
@@ -324,11 +328,7 @@ function stripInlineComment(value: string): string {
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    !Array.isArray(value)
-  );
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function ensureNestedObject(
@@ -417,9 +417,7 @@ function serializeObject(
   const lines: string[] = [];
   const entries = Object.entries(section);
 
-  const scalarEntries = entries.filter(
-    ([, value]) => !isPlainObject(value)
-  );
+  const scalarEntries = entries.filter(([, value]) => !isPlainObject(value));
   const objectEntries = entries.filter(([, value]) => isPlainObject(value));
 
   for (const [key, value] of scalarEntries) {

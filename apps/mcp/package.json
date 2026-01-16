@@ -2,12 +2,12 @@
   "name": "@outfitter/firewatch-mcp",
   "version": "0.1.0",
   "description": "MCP server for Firewatch",
+  "bin": {
+    "fw-mcp": "./bin/fw-mcp.ts"
+  },
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
-  },
-  "bin": {
-    "fw-mcp": "./bin/fw-mcp.ts"
   },
   "scripts": {
     "dev": "bun --watch bin/fw-mcp.ts",

@@ -10,10 +10,10 @@ fw status [options]
 
 ## Options
 
-| Option | Description |
-|--------|-------------|
-| `--short` | Compact single-line output |
-| `--json` | Force JSON output |
+| Option      | Description                 |
+| ----------- | --------------------------- |
+| `--short`   | Compact single-line output  |
+| `--json`    | Force JSON output           |
 | `--no-json` | Force human-readable output |
 
 ## Example Output (Human)
@@ -36,5 +36,26 @@ Cache:
 ## Example Output (JSON)
 
 ```json
-{"version":"1.2.0","auth":{"ok":true,"source":"gh","username":"galligan"},"config":{"user":{"path":"/Users/mg/.config/firewatch/config.toml","exists":true},"project":{"path":"/Users/mg/Developer/outfitter/firewatch/.firewatch.toml","exists":true}},"repo":{"name":"outfitter-dev/firewatch","source":"git"},"graphite":{"available":true},"cache":{"repos":3,"entries":247,"size_bytes":1234567,"last_sync":"2026-01-14T18:10:00Z"}}
+{
+  "version": "1.2.0",
+  "auth": { "ok": true, "source": "gh", "username": "galligan" },
+  "config": {
+    "user": {
+      "path": "/Users/mg/.config/firewatch/config.toml",
+      "exists": true
+    },
+    "project": {
+      "path": "/Users/mg/Developer/outfitter/firewatch/.firewatch.toml",
+      "exists": true
+    }
+  },
+  "repo": { "name": "outfitter-dev/firewatch", "source": "git" },
+  "graphite": { "available": true },
+  "cache": {
+    "repos": 3,
+    "entries": 247,
+    "size_bytes": 1234567,
+    "last_sync": "2026-01-14T18:10:00Z"
+  }
+}
 ```

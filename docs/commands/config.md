@@ -14,13 +14,13 @@ fw config --path             # Show config file paths
 
 ## Options
 
-| Option | Description |
-|--------|-------------|
-| `--edit` | Open config in `$EDITOR` |
-| `--path` | Show config file paths |
-| `--local` | Target project config (`.firewatch.toml`) |
-| `--json` | Force JSON output |
-| `--no-json` | Force human-readable output |
+| Option      | Description                               |
+| ----------- | ----------------------------------------- |
+| `--edit`    | Open config in `$EDITOR`                  |
+| `--path`    | Show config file paths                    |
+| `--local`   | Target project config (`.firewatch.toml`) |
+| `--json`    | Force JSON output                         |
+| `--no-json` | Force human-readable output               |
 
 ## Key Format
 
