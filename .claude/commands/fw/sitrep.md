@@ -30,6 +30,7 @@ Parse the summary above. Group by Graphite stack (if any) or list standalone PRs
 ### 2. Actionable Feedback
 
 Query for unaddressed external comments:
+
 ```bash
 bun apps/cli/bin/fw.ts --type comment --open --json | jq -c 'select(.author != .pr_author) | select(.subtype == "review_comment") | {pr, file, author, body: .body[0:100], id}'
 ```
@@ -37,6 +38,7 @@ bun apps/cli/bin/fw.ts --type comment --open --json | jq -c 'select(.author != .
 Group by PR and categorize:
 
 **PR #102 — API layer** (3 comments)
+
 - `auth.ts:42` — @reviewer: "Add error handling for token refresh" (🔴 Logic)
 - `auth.ts:58` — @reviewer: "Consider rate limiting" (🟡 Style)
 - `types.ts:12` — @other: "Typo in type name" (🟢 Nit)
@@ -44,11 +46,13 @@ Group by PR and categorize:
 ### 3. Review Status
 
 Query for review states:
+
 ```bash
 bun apps/cli/bin/fw.ts --type review --open --json | jq -c '{pr, author, state, body: .body[0:80]}'
 ```
 
 Summarize:
+
 - **Approved**: PR #101 (@reviewer)
 - **Changes Requested**: PR #103 (@reviewer) — "Need to address auth concerns"
 - **Awaiting Review**: PR #102

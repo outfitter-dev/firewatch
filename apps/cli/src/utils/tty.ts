@@ -95,9 +95,7 @@ export const colors = {
 /**
  * State color mapping for PR states
  */
-export function getStateColor(
-  state: string
-): (text: string) => string {
+export function getStateColor(state: string): (text: string) => string {
   switch (state.toLowerCase()) {
     case "open":
       return colors.green;
@@ -115,9 +113,7 @@ export function getStateColor(
 /**
  * Status color mapping for CI status
  */
-export function getStatusColor(
-  status: string
-): (text: string) => string {
+export function getStatusColor(status: string): (text: string) => string {
   switch (status.toLowerCase()) {
     case "success":
       return colors.green;

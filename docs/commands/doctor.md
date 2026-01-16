@@ -10,11 +10,11 @@ fw doctor [options]
 
 ## Options
 
-| Option | Description |
-|--------|-------------|
-| `--json` | Force JSON output |
-| `--no-json` | Force human-readable output |
-| `--fix` | Attempt to fix issues automatically |
+| Option      | Description                         |
+| ----------- | ----------------------------------- |
+| `--json`    | Force JSON output                   |
+| `--no-json` | Force human-readable output         |
+| `--fix`     | Attempt to fix issues automatically |
 
 ## Example Output
 

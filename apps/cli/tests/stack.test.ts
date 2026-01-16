@@ -1,6 +1,6 @@
+import type { FirewatchEntry } from "@outfitter/firewatch-core";
 import { expect, test } from "bun:test";
 
-import type { FirewatchEntry } from "@outfitter/firewatch-core";
 import { ensureGraphiteMetadata, outputStackedEntries } from "../src/stack";
 
 test("outputStackedEntries groups by stack and injects metadata", async () => {

@@ -30,15 +30,15 @@ Use the `file` and `line` fields to navigate:
 
 Common feedback patterns and how to interpret them:
 
-| Prefix | Meaning | Action |
-|--------|---------|--------|
-| "Consider..." | Suggestion | Use judgment, implement if reasonable |
-| "This should..." | Direct request | Implement as stated |
-| "Why..." | Question | May need explanation, not code change |
-| "Bug:" or "Issue:" | Problem found | Must fix |
-| "Nit:" | Minor issue | Optional, low priority |
-| "LGTM" | Approval | No action needed |
-| "Blocking:" | Critical | Must address before merge |
+| Prefix             | Meaning        | Action                                |
+| ------------------ | -------------- | ------------------------------------- |
+| "Consider..."      | Suggestion     | Use judgment, implement if reasonable |
+| "This should..."   | Direct request | Implement as stated                   |
+| "Why..."           | Question       | May need explanation, not code change |
+| "Bug:" or "Issue:" | Problem found  | Must fix                              |
+| "Nit:"             | Minor issue    | Optional, low priority                |
+| "LGTM"             | Approval       | No action needed                      |
+| "Blocking:"        | Critical       | Must address before merge             |
 
 ### Check Dependencies
 
@@ -70,6 +70,7 @@ If `origin_pr` differs from the current PR, make the fix in the origin PR instea
 When `file_provenance.origin_pr` differs from comment PR:
 
 1. Check out the origin branch:
+
    ```bash
    gt checkout <origin-branch>
    ```
@@ -77,11 +78,13 @@ When `file_provenance.origin_pr` differs from comment PR:
 2. Make the fix there
 
 3. Commit with gt modify:
+
    ```bash
    gt modify -m "address review: <summary>"
    ```
 
 4. Restack to propagate:
+
    ```bash
    gt restack
    ```
@@ -94,29 +97,34 @@ When `file_provenance.origin_pr` differs from comment PR:
 ### Common Fix Patterns
 
 **Add error handling:**
+
 ```typescript
 // Before
-const result = await fetch(url)
+const result = await fetch(url);
 
 // After
-const result = await fetch(url)
+const result = await fetch(url);
 if (!result.ok) {
-  throw new Error(`Fetch failed: ${result.status}`)
+  throw new Error(`Fetch failed: ${result.status}`);
 }
 ```
+
 Reply: "Added error handling for non-ok responses"
 
 **Rename for clarity:**
+
 ```typescript
 // Before
-const d = getData()
+const d = getData();
 
 // After
-const userData = getUserData()
+const userData = getUserData();
 ```
+
 Reply: "Renamed to `userData`/`getUserData` for clarity"
 
 **Extract to function:**
+
 ```typescript
 // Before: inline logic in main function
 
@@ -125,9 +133,11 @@ function validateInput(input: string): boolean {
   // ...validation logic
 }
 ```
+
 Reply: "Extracted to `validateInput` helper"
 
 **Add types:**
+
 ```typescript
 // Before
 function process(data) { ... }
@@ -135,16 +145,19 @@ function process(data) { ... }
 // After
 function process(data: UserInput): ProcessedResult { ... }
 ```
+
 Reply: "Added explicit types for input and return"
 
 **Add null check:**
+
 ```typescript
 // Before
-const name = user.name
+const name = user.name;
 
 // After
-const name = user?.name ?? 'Unknown'
+const name = user?.name ?? "Unknown";
 ```
+
 Reply: "Added null safety for user.name"
 
 ## Phase 3: Verify Changes
@@ -183,6 +196,7 @@ npm run lint
 After implementing, acknowledge and resolve. See [resolving-threads.md](resolving-threads.md) for detailed patterns.
 
 Quick resolution:
+
 ```bash
 fw add PR_NUMBER "Fixed -- <brief description>" --reply COMMENT_ID --resolve
 ```

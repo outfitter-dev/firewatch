@@ -21,15 +21,16 @@ Based on the argument provided:
 1. **Parse the summary above** — Identify PRs in the current Graphite stack (those with `stack_pos`)
 
 2. **Query for external feedback on stack PRs**:
+
    ```bash
    bun apps/cli/bin/fw.ts --type comment --open --json | jq -c 'select(.graphite.stack_position != null) | select(.author != .pr_author) | select(.subtype == "review_comment") | {pr, stack_pos: .graphite.stack_position, file, author, body: .body[0:80]}'
    ```
 
 3. **Summarize by stack position**:
 
-   | Pos | PR | Title | Comments | Status |
-   |-----|----|----|----------|--------|
-   | 1 | #N | ... | count | needs attention / clear |
+   | Pos | PR  | Title | Comments | Status                  |
+   | --- | --- | ----- | -------- | ----------------------- |
+   | 1   | #N  | ...   | count    | needs attention / clear |
 
 4. **For PRs with feedback**, briefly note:
    - Who commented and on what file
@@ -38,6 +39,7 @@ Based on the argument provided:
 ### If `$1` is a PR number
 
 1. **Query for that specific PR**:
+
    ```bash
    bun apps/cli/bin/fw.ts --type comment --prs $1 --json | jq -c 'select(.subtype == "review_comment") | {file, line, author, body: .body[0:150], id}'
    ```
@@ -52,15 +54,16 @@ Based on the argument provided:
 
    ### file.ts
 
-   | Line | Author | Category | Summary |
-   |------|--------|----------|---------|
-   | 42 | reviewer | 🔴 Logic | Description... |
+   | Line | Author   | Category | Summary        |
+   | ---- | -------- | -------- | -------------- |
+   | 42   | reviewer | 🔴 Logic | Description... |
 
 4. **Ask user** which to address or if they want file context
 
 ## After Check
 
 If user wants to address feedback:
+
 - Read the relevant file(s) to understand context
 - Propose fix approach
 - After fixing, remind about `/fw:cleanup` to resolve threads

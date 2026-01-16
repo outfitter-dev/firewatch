@@ -41,10 +41,12 @@ Firewatch tries authentication sources in this order:
 #### Required Token Scopes
 
 For read operations:
+
 - `repo` (for private repositories)
 - `public_repo` (for public repositories only)
 
 For write operations (`add`, `close`, `edit`, `rm`):
+
 - `repo` scope is required
 
 ### Cache Security

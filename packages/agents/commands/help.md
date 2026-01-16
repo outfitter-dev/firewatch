@@ -6,6 +6,7 @@ allowed-tools: Bash(fw *)
 # Firewatch Help
 
 ## CLI Usage
+
 !`fw --help 2>&1`
 
 ## Available Plugin Commands

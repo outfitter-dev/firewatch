@@ -1,6 +1,3 @@
-import { constants as fsConstants } from "node:fs";
-import { access } from "node:fs/promises";
-
 import {
   GitHubClient,
   PATHS,
@@ -13,6 +10,8 @@ import {
 } from "@outfitter/firewatch-core";
 import { getGraphiteStacks } from "@outfitter/firewatch-core/plugins";
 import { Command } from "commander";
+import { constants as fsConstants } from "node:fs";
+import { access } from "node:fs/promises";
 
 import { writeJsonLine } from "../utils/json";
 import { shouldOutputJson } from "../utils/tty";

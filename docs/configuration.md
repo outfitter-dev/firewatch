@@ -4,10 +4,10 @@ Firewatch uses TOML configuration files with XDG-compliant paths.
 
 ## Configuration Files
 
-| File | Purpose |
-|------|---------|
-| `~/.config/firewatch/config.toml` | User configuration (global) |
-| `.firewatch.toml` | Project configuration (repo root) |
+| File                              | Purpose                           |
+| --------------------------------- | --------------------------------- |
+| `~/.config/firewatch/config.toml` | User configuration (global)       |
+| `.firewatch.toml`                 | Project configuration (repo root) |
 
 Project config is auto-detected from the git root when running inside a repository.
 
@@ -24,13 +24,13 @@ Configuration is loaded in order (later sources override earlier):
 
 Several configuration options and CLI flags accept duration strings:
 
-| Format | Example | Description |
-|--------|---------|-------------|
-| `Ns`   | `30s`   | Seconds |
-| `Nm`   | `15m`   | Minutes |
-| `Nh`   | `24h`   | Hours |
-| `Nd`   | `7d`    | Days |
-| `Nw`   | `2w`    | Weeks (N * 7 days) |
+| Format | Example | Description         |
+| ------ | ------- | ------------------- |
+| `Ns`   | `30s`   | Seconds             |
+| `Nm`   | `15m`   | Minutes             |
+| `Nh`   | `24h`   | Hours               |
+| `Nd`   | `7d`    | Days                |
+| `Nw`   | `2w`    | Weeks (N \* 7 days) |
 
 Duration is calculated backwards from now. For example, `--since 7d` means "activity from the last 7 days".
 
@@ -40,11 +40,11 @@ Duration is calculated backwards from now. For example, `--since 7d` means "acti
 
 List of repositories to sync.
 
-| Property | Value |
-|----------|-------|
-| Type | `string[]` |
-| Default | `[]` |
-| Example | `["org/repo1", "org/repo2"]` |
+| Property | Value                        |
+| -------- | ---------------------------- |
+| Type     | `string[]`                   |
+| Default  | `[]`                         |
+| Example  | `["org/repo1", "org/repo2"]` |
 
 ```toml
 repos = ["outfitter-dev/firewatch", "outfitter-dev/baselayer"]
@@ -54,10 +54,10 @@ repos = ["outfitter-dev/firewatch", "outfitter-dev/baselayer"]
 
 GitHub personal access token.
 
-| Property | Value |
-|----------|-------|
-| Type | `string` |
-| Default | (none) |
+| Property | Value                |
+| -------- | -------------------- |
+| Type     | `string`             |
+| Default  | (none)               |
 | Required | No (if using gh CLI) |
 
 ```toml
@@ -70,10 +70,10 @@ github_token = "ghp_xxxxxxxxxxxx"
 
 Maximum PRs to fetch per sync operation.
 
-| Property | Value |
-|----------|-------|
-| Type | `number` |
-| Default | `100` |
+| Property | Value    |
+| -------- | -------- |
+| Type     | `number` |
+| Default  | `100`    |
 
 ```toml
 max_prs_per_sync = 100
@@ -83,10 +83,10 @@ max_prs_per_sync = 100
 
 Sync behavior.
 
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `auto_sync` | `boolean` | `true` | Auto-sync before queries |
-| `stale_threshold` | `string` | `"5m"` | Re-sync if cache older than this |
+| Key               | Type      | Default | Description                      |
+| ----------------- | --------- | ------- | -------------------------------- |
+| `auto_sync`       | `boolean` | `true`  | Auto-sync before queries         |
+| `stale_threshold` | `string`  | `"5m"`  | Re-sync if cache older than this |
 
 ```toml
 [sync]
@@ -98,11 +98,11 @@ stale_threshold = "5m"
 
 Default filters applied to queries.
 
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `exclude_authors` | `string[]` | `[]` | Authors to exclude (case-insensitive) |
-| `bot_patterns` | `string[]` | `[]` | Regex patterns to treat as bots |
-| `exclude_bots` | `boolean` | `false` | Exclude bots by default |
+| Key               | Type       | Default | Description                           |
+| ----------------- | ---------- | ------- | ------------------------------------- |
+| `exclude_authors` | `string[]` | `[]`    | Authors to exclude (case-insensitive) |
+| `bot_patterns`    | `string[]` | `[]`    | Regex patterns to treat as bots       |
+| `exclude_bots`    | `boolean`  | `false` | Exclude bots by default               |
 
 ```toml
 [filters]
@@ -115,9 +115,9 @@ bot_patterns = ["^github-actions\\[bot\\]$"]
 
 Default output format.
 
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `default_format` | `string` | (none) | `human` or `json` |
+| Key              | Type     | Default | Description       |
+| ---------------- | -------- | ------- | ----------------- |
+| `default_format` | `string` | (none)  | `human` or `json` |
 
 ```toml
 [output]
@@ -128,9 +128,9 @@ default_format = "human"
 
 User context for perspective filters.
 
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `github_username` | `string` | (none) | Used for `--mine` / `--reviews` |
+| Key               | Type     | Default | Description                     |
+| ----------------- | -------- | ------- | ------------------------------- |
+| `github_username` | `string` | (none)  | Used for `--mine` / `--reviews` |
 
 ```toml
 [user]
@@ -151,22 +151,24 @@ export GITHUB_TOKEN="ghp_xxxxxxxxxxxx"
 
 Firewatch respects XDG Base Directory Specification:
 
-| Variable | Default | Usage |
-|----------|---------|-------|
-| `XDG_CONFIG_HOME` | `~/.config` | Config file location |
-| `XDG_CACHE_HOME` | `~/.cache` | Cache file location |
-| `XDG_DATA_HOME` | `~/.local/share` | Data file location |
+| Variable          | Default          | Usage                |
+| ----------------- | ---------------- | -------------------- |
+| `XDG_CONFIG_HOME` | `~/.config`      | Config file location |
+| `XDG_CACHE_HOME`  | `~/.cache`       | Cache file location  |
+| `XDG_DATA_HOME`   | `~/.local/share` | Data file location   |
 
 ## Authentication
 
 Firewatch tries authentication sources in order:
 
 1. **gh CLI** (recommended)
+
    ```bash
    gh auth login
    ```
 
 2. **Environment variable**
+
    ```bash
    export GITHUB_TOKEN="ghp_xxxx"
    ```
@@ -178,10 +180,10 @@ Firewatch tries authentication sources in order:
 
 ### Required Scopes
 
-| Operation | Scope |
-|-----------|-------|
-| Read (query/sync) | `repo` or `public_repo` |
-| Write (add/close/edit/rm) | `repo` |
+| Operation                 | Scope                   |
+| ------------------------- | ----------------------- |
+| Read (query/sync)         | `repo` or `public_repo` |
+| Write (add/close/edit/rm) | `repo`                  |
 
 ## Cache Layout
 

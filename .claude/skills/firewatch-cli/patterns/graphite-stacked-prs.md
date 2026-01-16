@@ -11,6 +11,7 @@ fw sync --with-graphite
 ```
 
 This populates:
+
 - `graphite.stack_id` — Unique identifier for the stack
 - `graphite.stack_position` — Position (1 = bottom/base)
 - `graphite.stack_size` — Total PRs in stack
@@ -109,21 +110,25 @@ fw query --type comment | jq -s '
 ## Workflow: Review a Stack
 
 1. **Sync with Graphite metadata**
+
    ```bash
    fw sync --with-graphite
    ```
 
 2. **List the stack in order**
+
    ```bash
    fw status | jq -s 'map(select(.graphite.stack_id == "STACK_ID")) | sort_by(.graphite.stack_position)'
    ```
 
 3. **Start with base PR**
+
    ```bash
    fw query --prsBASE_PR_NUMBER --type review
    ```
 
 4. **Check for unresolved comments**
+
    ```bash
    fw query --prsBASE_PR_NUMBER --type comment | jq 'select(.subtype == "review_comment")'
    ```
@@ -135,6 +140,7 @@ fw query --type comment | jq -s '
 When implementing feedback across a stack:
 
 1. **Get all unaddressed comments**
+
    ```bash
    fw query --type comment | jq -s '
      map(select(
@@ -147,6 +153,7 @@ When implementing feedback across a stack:
    ```
 
 2. **Identify fix locations** (check file provenance)
+
    ```bash
    fw query --type comment | jq 'select(.file_provenance.origin_pr != .pr) | {
      comment_on_pr: .pr,

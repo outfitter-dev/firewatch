@@ -34,6 +34,7 @@ fw --prs 123 --type comment | jq 'select(.file_activity_after.modified == false)
 ## Comment Categories
 
 ### Code Changes Required
+
 - Bugs or logic errors identified
 - Missing error handling
 - Performance concerns
@@ -42,6 +43,7 @@ fw --prs 123 --type comment | jq 'select(.file_activity_after.modified == false)
 **Action**: Fix the code, then reply explaining the fix.
 
 ### Style/Preference
+
 - Naming suggestions
 - Code organization
 - Documentation requests
@@ -49,6 +51,7 @@ fw --prs 123 --type comment | jq 'select(.file_activity_after.modified == false)
 **Action**: Apply if reasonable, or discuss tradeoffs.
 
 ### Questions/Clarifications
+
 - "Why did you do X?"
 - "What happens if Y?"
 - "Have you considered Z?"
@@ -56,6 +59,7 @@ fw --prs 123 --type comment | jq 'select(.file_activity_after.modified == false)
 **Action**: Reply with explanation, no code change needed.
 
 ### Nitpicks
+
 - Minor formatting
 - Typos
 - Optional improvements
@@ -78,6 +82,7 @@ fw close COMMENT_ID1 COMMENT_ID2 COMMENT_ID3
 ## Workflow Integration
 
 ### With Graphite
+
 ```bash
 # After addressing feedback
 gt modify -m "Address review feedback"
@@ -85,6 +90,7 @@ gt submit --stack
 ```
 
 ### With Standard Git
+
 ```bash
 git add -A
 git commit -m "Address review feedback"
@@ -94,20 +100,25 @@ git push
 ## Response Templates
 
 ### Code Fixed
+
 > Fixed in [commit]. [Brief explanation of the fix].
 
 ### Clarification
+
 > Good question! [Explanation]. I chose this approach because [reasoning].
 
 ### Acknowledged
+
 > Good point, I'll address this in a follow-up PR to keep this one focused.
 
 ### Disagreement
+
 > I considered that, but [reasoning]. Happy to discuss further if you see issues with this approach.
 
 ## Checklist
 
 Before marking review complete:
+
 - [ ] All comments addressed or responded to
 - [ ] Code changes committed and pushed
 - [ ] Threads resolved where appropriate

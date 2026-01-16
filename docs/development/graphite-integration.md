@@ -10,13 +10,13 @@ Firewatch's Graphite plugin enriches PR activity entries with stack context. Thi
 
 ### What gt Exposes
 
-| Command | Output | Useful For |
-|---------|--------|------------|
-| `gt log --stack` | Human-readable branch tree | Understanding stack structure |
-| `gt branch info` | Branch details | Current branch context |
-| `gt branch info --stat` | Diffstat vs parent | File change summary (human-readable) |
-| `gt branch info --diff` | Full diff vs parent | Detailed changes (human-readable) |
-| `gt branch info --json` | JSON with `parent` field | Programmatic parent lookup |
+| Command                 | Output                     | Useful For                           |
+| ----------------------- | -------------------------- | ------------------------------------ |
+| `gt log --stack`        | Human-readable branch tree | Understanding stack structure        |
+| `gt branch info`        | Branch details             | Current branch context               |
+| `gt branch info --stat` | Diffstat vs parent         | File change summary (human-readable) |
+| `gt branch info --diff` | Full diff vs parent        | Detailed changes (human-readable)    |
+| `gt branch info --json` | JSON with `parent` field   | Programmatic parent lookup           |
 
 ### What gt Does NOT Expose
 
@@ -79,10 +79,10 @@ When a comment references a file (e.g., "bug in src/auth/service.ts:45"), agents
 
 ```typescript
 interface FileProvenance {
-  origin_pr: number;        // PR where file was changed
-  origin_branch: string;    // Branch name
-  origin_commit: string;    // SHA (short)
-  stack_position: number;   // 1 = bottom of stack
+  origin_pr: number; // PR where file was changed
+  origin_branch: string; // Branch name
+  origin_commit: string; // SHA (short)
+  stack_position: number; // 1 = bottom of stack
 }
 ```
 
@@ -104,13 +104,13 @@ async function buildFileProvenanceMap(): Promise<Map<string, FileProvenance>> {
     const commit = await $`git rev-parse --short ${branch}`.text();
     const prNumber = await getPrForBranch(branch);
 
-    for (const file of files.trim().split('\n').filter(Boolean)) {
+    for (const file of files.trim().split("\n").filter(Boolean)) {
       // Later branches overwrite earlier — most recent modifier wins
       fileMap.set(file, {
         origin_pr: prNumber,
         origin_branch: branch,
         origin_commit: commit.trim(),
-        stack_position: i + 1
+        stack_position: i + 1,
       });
     }
   }
@@ -174,6 +174,7 @@ echo "top" > top.txt && git add . && git commit -m "top"
 ### Without Graphite Auth
 
 Some gt commands require auth. For CI/testing:
+
 - Mock the stack structure
 - Use git directly for file diffs
 - Skip PR number lookups or mock them

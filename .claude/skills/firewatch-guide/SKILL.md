@@ -19,6 +19,7 @@ fw --refresh --summary --open
 ```
 
 For a specific PR:
+
 ```bash
 fw --type comment --prs 42 --open
 ```
@@ -38,26 +39,31 @@ Graphite metadata is automatically enriched when you're in a repo with Graphite 
 ### 2. Check What Needs Attention
 
 **Quick overview (per-PR summary):**
+
 ```bash
 fw --summary --open
 ```
 
 This shows per-PR summaries with:
+
 - Comment/review counts
 - Review states (approved, changes requested)
 - Latest activity info
 
 **All recent comments on open PRs:**
+
 ```bash
 fw --type comment --open --since 7d
 ```
 
 **Review comments specifically (inline code feedback):**
+
 ```bash
 fw --type comment --open | jq 'select(.subtype == "review_comment")'
 ```
 
 **External feedback only (not self-comments):**
+
 ```bash
 fw --type comment | jq 'select(.author != .pr_author)'
 ```
@@ -79,6 +85,7 @@ fw --type comment --prs PR_NUMBER | jq '{
 ```
 
 Key fields:
+
 - `id` -- Use with `--reply` or `fw close`
 - `file` + `line` -- Where to make the fix
 - `body` -- The actual feedback
@@ -95,11 +102,13 @@ fw add PR_NUMBER "Fixed" --reply COMMENT_ID --resolve
 ```
 
 Or resolve without reply:
+
 ```bash
 fw close COMMENT_ID
 ```
 
 Bulk resolve multiple threads:
+
 ```bash
 fw close IC_abc IC_def IC_ghi
 ```
@@ -129,6 +138,7 @@ See [patterns/stack-review.md](patterns/stack-review.md) for detailed steps.
 ### Implementing Review Feedback
 
 For each comment:
+
 1. Read the feedback
 2. Navigate to file:line
 3. Make the fix
@@ -140,6 +150,7 @@ See [patterns/implementing-feedback.md](patterns/implementing-feedback.md) for t
 ### Resolving Comment Threads
 
 After addressing feedback:
+
 1. Reply to acknowledge the fix
 2. Resolve the thread
 3. Verify with `fw --refresh`
@@ -160,48 +171,48 @@ See [patterns/cross-pr-fixes.md](patterns/cross-pr-fixes.md) for the workflow.
 
 ## Entry Types
 
-| Type | Subtype | Meaning |
-|------|---------|---------|
-| `comment` | `review_comment` | Inline code comment (actionable) |
-| `comment` | `issue_comment` | General PR comment |
-| `review` | -- | Review submission (approve/request changes) |
-| `commit` | -- | Commit pushed to PR branch |
-| `ci` | -- | CI/CD status check |
-| `event` | -- | Lifecycle event (opened, closed, merged) |
+| Type      | Subtype          | Meaning                                     |
+| --------- | ---------------- | ------------------------------------------- |
+| `comment` | `review_comment` | Inline code comment (actionable)            |
+| `comment` | `issue_comment`  | General PR comment                          |
+| `review`  | --               | Review submission (approve/request changes) |
+| `commit`  | --               | Commit pushed to PR branch                  |
+| `ci`      | --               | CI/CD status check                          |
+| `event`   | --               | Lifecycle event (opened, closed, merged)    |
 
 ## Command Reference
 
-| Command | Purpose |
-|---------|---------|
-| `fw [options]` | Query cached entries (auto-syncs if stale) |
-| `fw --refresh` | Force sync before query |
-| `fw --summary` | Aggregate into per-PR summaries |
-| `fw add <pr> [body]` | Post a PR comment or add metadata |
-| `fw close <id>...` | Resolve review threads |
-| `fw status` | Firewatch state info |
-| `fw doctor` | Diagnose auth/cache/repo issues |
+| Command              | Purpose                                    |
+| -------------------- | ------------------------------------------ |
+| `fw [options]`       | Query cached entries (auto-syncs if stale) |
+| `fw --refresh`       | Force sync before query                    |
+| `fw --summary`       | Aggregate into per-PR summaries            |
+| `fw add <pr> [body]` | Post a PR comment or add metadata          |
+| `fw close <id>...`   | Resolve review threads                     |
+| `fw status`          | Firewatch state info                       |
+| `fw doctor`          | Diagnose auth/cache/repo issues            |
 
 ### Query Options
 
-| Option | Description |
-|--------|-------------|
-| `--type <type>` | Filter by entry type |
+| Option               | Description                 |
+| -------------------- | --------------------------- |
+| `--type <type>`      | Filter by entry type        |
 | `--since <duration>` | Time filter (24h, 7d, etc.) |
-| `--prs <numbers>` | Filter by PR number(s) |
-| `--author <name>` | Filter by author |
-| `--open` | Open PRs only |
-| `--active` | Open or draft PRs |
-| `--mine` | Items on PRs assigned to me |
-| `--reviews` | PRs I need to review |
+| `--prs <numbers>`    | Filter by PR number(s)      |
+| `--author <name>`    | Filter by author            |
+| `--open`             | Open PRs only               |
+| `--active`           | Open or draft PRs           |
+| `--mine`             | Items on PRs assigned to me |
+| `--reviews`          | PRs I need to review        |
 
 ### Add Options
 
-| Option | Description |
-|--------|-------------|
-| `--reply <id>` | Reply to a specific comment |
-| `--resolve` | Resolve the thread after posting |
+| Option            | Description                                    |
+| ----------------- | ---------------------------------------------- |
+| `--reply <id>`    | Reply to a specific comment                    |
+| `--resolve`       | Resolve the thread after posting               |
 | `--review <type>` | Add review (approve, request-changes, comment) |
-| `--label <name>` | Add label (repeatable) |
+| `--label <name>`  | Add label (repeatable)                         |
 
 ## References
 

@@ -33,16 +33,19 @@ fw sync --all
 ### 2. Check What Needs Attention
 
 **PRs with changes requested:**
+
 ```bash
 fw status | jq 'select(.review_states.changes_requested > 0) | {pr, pr_title, changes: .review_states.changes_requested}'
 ```
 
 **PRs awaiting review (no reviews yet):**
+
 ```bash
 fw status --active | jq 'select(.counts.reviews == 0) | {pr, pr_title, pr_author}'
 ```
 
 **Recent comments to address:**
+
 ```bash
 fw query --type comment --since 24h | jq 'select(.author != .pr_author) | {pr, author, file, body: .body[0:80]}'
 ```

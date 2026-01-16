@@ -21,11 +21,7 @@ interface ConfigCommandOptions {
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    !Array.isArray(value)
-  );
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function setNestedValue(
@@ -85,7 +81,10 @@ function parseCliValue(key: string, raw: string): unknown {
     raw.includes(",") &&
     !raw.trim().startsWith("[")
   ) {
-    return raw.split(",").map((item) => item.trim()).filter(Boolean);
+    return raw
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
   }
 
   try {
@@ -147,79 +146,99 @@ export const configCommand = new Command("config")
   .option("--local", "Target project config (.firewatch.toml)")
   .option("--json", "Force JSON output")
   .option("--no-json", "Force human-readable output")
-  .action(async (key: string | undefined, value: string | undefined, options: ConfigCommandOptions) => {
-    try {
-      if (options.path) {
-        const paths = await getConfigPaths();
-        const projectPath = await getProjectConfigPath();
-        const payload = {
-          config: paths.user,
-          ...(projectPath && { project: projectPath }),
-        };
+  .action(
+    async (
+      key: string | undefined,
+      value: string | undefined,
+      options: ConfigCommandOptions
+    ) => {
+      try {
+        if (options.path) {
+          const paths = await getConfigPaths();
+          const projectPath = await getProjectConfigPath();
+          const payload = {
+            config: paths.user,
+            ...(projectPath && { project: projectPath }),
+          };
+
+          if (shouldOutputJson(options)) {
+            await writeJsonLine(payload);
+          } else {
+            console.log(`Config:  ${paths.user}`);
+            if (projectPath) {
+              console.log(`Project: ${projectPath}`);
+            }
+          }
+          return;
+        }
+
+        if (options.edit) {
+          const targetPath = await resolveConfigPath(options.local);
+          await openEditor(targetPath);
+          return;
+        }
+
+        if (!key) {
+          const config = await loadConfig();
+          if (shouldOutputJson(options, config.output?.default_format)) {
+            await writeJsonLine(config);
+          } else {
+            console.log(
+              serializeConfigObject(config as Record<string, unknown>)
+            );
+          }
+          return;
+        }
+
+        if (!value) {
+          const config = await loadConfig();
+          const outputJson = shouldOutputJson(
+            options,
+            config.output?.default_format
+          );
+          const path = key
+            .split(".")
+            .map((part) => part.trim())
+            .filter(Boolean);
+          const resolved = getNestedValue(
+            config as Record<string, unknown>,
+            path
+          );
+          if (outputJson) {
+            await writeJsonLine({ key, value: resolved ?? null });
+          } else {
+            console.log(resolved ?? "");
+          }
+          return;
+        }
+
+        const targetPath = await resolveConfigPath(options.local);
+        const configFile = await readConfigFile(targetPath);
+        const path = key
+          .split(".")
+          .map((part) => part.trim())
+          .filter(Boolean);
+        const parsedValue = parseCliValue(key, value);
+        setNestedValue(configFile, path, parsedValue);
+        await Bun.write(targetPath, serializeConfigObject(configFile));
 
         if (shouldOutputJson(options)) {
-          await writeJsonLine(payload);
+          await writeJsonLine({
+            ok: true,
+            path: targetPath,
+            key,
+            value: parsedValue,
+            ...(options.local && { local: true }),
+          });
         } else {
-          console.log(`Config:  ${paths.user}`);
-          if (projectPath) {
-            console.log(`Project: ${projectPath}`);
-          }
+          console.log(`Set ${key} = ${value}`);
         }
-        return;
+      } catch (error) {
+        console.error(
+          "Config failed:",
+          error instanceof Error ? error.message : error
+        );
+        process.exit(1);
       }
-
-      if (options.edit) {
-        const targetPath = await resolveConfigPath(options.local);
-        await openEditor(targetPath);
-        return;
-      }
-
-      if (!key) {
-        const config = await loadConfig();
-        if (shouldOutputJson(options, config.output?.default_format)) {
-          await writeJsonLine(config);
-        } else {
-          console.log(serializeConfigObject(config as Record<string, unknown>));
-        }
-        return;
-      }
-
-      if (!value) {
-        const config = await loadConfig();
-        const outputJson = shouldOutputJson(options, config.output?.default_format);
-        const path = key.split(".").map((part) => part.trim()).filter(Boolean);
-        const resolved = getNestedValue(config as Record<string, unknown>, path);
-        if (outputJson) {
-          await writeJsonLine({ key, value: resolved ?? null });
-        } else {
-          console.log(resolved ?? "");
-        }
-        return;
-      }
-
-      const targetPath = await resolveConfigPath(options.local);
-      const configFile = await readConfigFile(targetPath);
-      const path = key.split(".").map((part) => part.trim()).filter(Boolean);
-      const parsedValue = parseCliValue(key, value);
-      setNestedValue(configFile, path, parsedValue);
-      await Bun.write(targetPath, serializeConfigObject(configFile));
-
-      if (shouldOutputJson(options)) {
-        await writeJsonLine({
-          ok: true,
-          path: targetPath,
-          key,
-          value: parsedValue,
-          ...(options.local && { local: true }),
-        });
-      } else {
-        console.log(`Set ${key} = ${value}`);
-      }
-    } catch (error) {
-      console.error(
-        "Config failed:",
-        error instanceof Error ? error.message : error
-      );
-      process.exit(1);
     }
-  });
+  );

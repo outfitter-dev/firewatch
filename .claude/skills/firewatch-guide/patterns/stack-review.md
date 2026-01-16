@@ -15,6 +15,7 @@ Graphite metadata is automatically enriched when you're in a repo with Graphite 
 ### Step 1: Identify the Stack
 
 **From Graphite CLI:**
+
 ```bash
 gt state
 ```
@@ -22,6 +23,7 @@ gt state
 This shows your current stack and all PRs in it.
 
 **From Firewatch:**
+
 ```bash
 fw --open | jq -s '
   map(select(.graphite != null)) |
@@ -54,6 +56,7 @@ fw --type comment --prs 101,102,103 | jq '{
 ### Step 3: Filter to Actionable Comments
 
 **Review comments only (inline code feedback):**
+
 ```bash
 fw --type comment --prs 101,102,103 | jq '
   select(.subtype == "review_comment")
@@ -61,6 +64,7 @@ fw --type comment --prs 101,102,103 | jq '
 ```
 
 **External feedback only (not self-comments):**
+
 ```bash
 fw --type comment --prs 101,102,103 | jq '
   select(.author != .pr_author)
@@ -68,6 +72,7 @@ fw --type comment --prs 101,102,103 | jq '
 ```
 
 **Unaddressed comments (file not modified since comment):**
+
 ```bash
 fw --type comment --prs 101,102,103 | jq '
   select(
@@ -195,6 +200,7 @@ fw --type comment --prs 101,102,103 | jq -s 'length'
 ### Comments on Wrong PR
 
 If a reviewer comments on PR #103 but the file originated in PR #101:
+
 - The comment will have `file_provenance.origin_pr = 101`
 - Make the fix in PR #101, not #103
 - After `gt restack`, the fix propagates to #103
@@ -202,6 +208,7 @@ If a reviewer comments on PR #103 but the file originated in PR #101:
 ### Stack Conflicts After Restack
 
 If `gt restack` fails:
+
 1. Check for merge conflicts
 2. Resolve in the base PR first
 3. Run `gt restack` again
@@ -210,6 +217,7 @@ If `gt restack` fails:
 ### Missing Graphite Metadata
 
 If `graphite` fields are null:
+
 1. Verify you're in a repo with Graphite stacks
 2. Check that the PR is actually in a Graphite stack
 3. Verify `gt state` shows the PR

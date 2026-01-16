@@ -20,11 +20,7 @@ export function printSchema(name: SchemaName): void {
 
 export const schemaCommand = new Command("schema")
   .description("Print JSON schema for Firewatch data types")
-  .argument(
-    "[name]",
-    "Schema variant: entry, worklist, config",
-    "entry"
-  )
+  .argument("[name]", "Schema variant: entry, worklist, config", "entry")
   .action((name: SchemaName) => {
     if (!schemaMap[name]) {
       console.error(

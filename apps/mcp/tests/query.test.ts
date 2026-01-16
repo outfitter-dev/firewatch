@@ -1,6 +1,9 @@
+import type {
+  FirewatchConfig,
+  FirewatchEntry,
+} from "@outfitter/firewatch-core";
 import { expect, test } from "bun:test";
 
-import type { FirewatchConfig, FirewatchEntry } from "@outfitter/firewatch-core";
 import {
   buildQueryContext,
   buildQueryOptions,
@@ -103,14 +106,9 @@ test("resolveQueryOutput builds worklist when summary is set", async () => {
     detectedRepo: "outfitter-dev/firewatch",
   };
 
-  const output = await resolveQueryOutput(
-    { summary: true },
-    entries,
-    context,
-    {
-      enrichGraphite: (items) => Promise.resolve(items),
-    }
-  );
+  const output = await resolveQueryOutput({ summary: true }, entries, context, {
+    enrichGraphite: (items) => Promise.resolve(items),
+  });
 
   const worklist = output as {
     pr: number;

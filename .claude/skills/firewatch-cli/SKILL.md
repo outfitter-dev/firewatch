@@ -29,6 +29,7 @@ This guide teaches you to use Firewatch (`fw`) for querying GitHub PR activity. 
 Firewatch fetches PR activity from GitHub and caches it locally as JSONL. Each line is a self-contained JSON object — a comment, review, commit, or CI status. This design makes the output directly pipeable to `jq` without joins or lookups.
 
 **Core workflow:**
+
 ```bash
 fw sync                    # Fetch from GitHub → local cache
 fw query --since 24h       # Filter cache → JSONL to stdout
@@ -50,6 +51,7 @@ fw sync
 Firewatch auto-detects the repo from your git remote. It fetches open PRs and their activity, storing everything in `~/.cache/firewatch/`.
 
 For a specific repo:
+
 ```bash
 fw sync owner/repo
 ```
@@ -84,13 +86,13 @@ Every entry has the same structure, regardless of type. This is the key insight:
 
 ### Entry Types
 
-| Type | What it represents |
-|------|-------------------|
-| `comment` | PR comments (issue comments and review comments) |
-| `review` | Review submissions (approve, request changes, comment) |
-| `commit` | Commits pushed to the PR branch |
-| `ci` | CI/CD status checks |
-| `event` | Lifecycle events (opened, closed, merged) |
+| Type      | What it represents                                     |
+| --------- | ------------------------------------------------------ |
+| `comment` | PR comments (issue comments and review comments)       |
+| `review`  | Review submissions (approve, request changes, comment) |
+| `commit`  | Commits pushed to the PR branch                        |
+| `ci`      | CI/CD status checks                                    |
+| `event`   | Lifecycle events (opened, closed, merged)              |
 
 ### Denormalization
 
@@ -299,6 +301,7 @@ fw lookout                  # What's new since last check?
 First run shows the last 7 days. After that, it remembers your last lookout timestamp.
 
 **What lookout surfaces:**
+
 - PRs with changes requested
 - PRs waiting for review
 - Stale PRs (no activity for 3+ days)
@@ -372,32 +375,32 @@ See [patterns/graphite-stacked-prs.md](patterns/graphite-stacked-prs.md) for sta
 
 ## Command Reference
 
-| Command | Purpose |
-|---------|---------|
-| `fw sync [repo]` | Fetch PR activity from GitHub |
-| `fw query [options]` | Filter and output cached entries |
-| `fw status` | Per-PR summary (worklist) |
-| `fw lookout` | What needs attention since last check |
-| `fw recap` | Human-readable activity digest |
-| `fw check` | Refresh staleness hints |
-| `fw comment <pr> <body>` | Post a PR comment |
-| `fw resolve <id>...` | Resolve review threads |
-| `fw config` | View/edit configuration |
-| `fw schema <type>` | Print JSON schema |
+| Command                  | Purpose                               |
+| ------------------------ | ------------------------------------- |
+| `fw sync [repo]`         | Fetch PR activity from GitHub         |
+| `fw query [options]`     | Filter and output cached entries      |
+| `fw status`              | Per-PR summary (worklist)             |
+| `fw lookout`             | What needs attention since last check |
+| `fw recap`               | Human-readable activity digest        |
+| `fw check`               | Refresh staleness hints               |
+| `fw comment <pr> <body>` | Post a PR comment                     |
+| `fw resolve <id>...`     | Resolve review threads                |
+| `fw config`              | View/edit configuration               |
+| `fw schema <type>`       | Print JSON schema                     |
 
 ### Common Options
 
-| Option | Commands | Description |
-|--------|----------|-------------|
-| `--since <duration>` | query, sync, lookout, recap | Time filter |
-| `--type <type>` | query | Entry type filter |
-| `--author <name>` | query | Author filter |
-| `--prs<number>` | query | PR number filter |
-| `--open` | query, status | Open PRs only |
-| `--active` | query, status | Open or draft PRs |
-| `--worklist` | query | Aggregate to per-PR summary |
-| `--json` | lookout, recap | Output as JSONL |
-| `--with-graphite` | sync | Include stack metadata |
+| Option               | Commands                    | Description                 |
+| -------------------- | --------------------------- | --------------------------- |
+| `--since <duration>` | query, sync, lookout, recap | Time filter                 |
+| `--type <type>`      | query                       | Entry type filter           |
+| `--author <name>`    | query                       | Author filter               |
+| `--prs<number>`      | query                       | PR number filter            |
+| `--open`             | query, status               | Open PRs only               |
+| `--active`           | query, status               | Open or draft PRs           |
+| `--worklist`         | query                       | Aggregate to per-PR summary |
+| `--json`             | lookout, recap              | Output as JSONL             |
+| `--with-graphite`    | sync                        | Include stack metadata      |
 
 ## Schema Reference
 
@@ -405,42 +408,44 @@ See [patterns/graphite-stacked-prs.md](patterns/graphite-stacked-prs.md) for sta
 
 ```typescript
 interface FirewatchEntry {
-  id: string                    // Unique identifier
-  repo: string                  // "owner/repo"
-  pr: number
-  pr_title: string
-  pr_state: "open" | "closed" | "merged" | "draft"
-  pr_author: string
-  pr_branch: string
-  pr_labels?: string[]
+  id: string; // Unique identifier
+  repo: string; // "owner/repo"
+  pr: number;
+  pr_title: string;
+  pr_state: "open" | "closed" | "merged" | "draft";
+  pr_author: string;
+  pr_branch: string;
+  pr_labels?: string[];
 
-  type: "comment" | "review" | "commit" | "ci" | "event"
-  subtype?: string              // "review_comment", "issue_comment", etc.
-  author: string
-  body?: string
-  state?: string                // Review state: "approved", "changes_requested"
+  type: "comment" | "review" | "commit" | "ci" | "event";
+  subtype?: string; // "review_comment", "issue_comment", etc.
+  author: string;
+  body?: string;
+  state?: string; // Review state: "approved", "changes_requested"
 
-  created_at: string            // ISO 8601
-  updated_at?: string
-  captured_at: string
+  created_at: string; // ISO 8601
+  updated_at?: string;
+  captured_at: string;
 
-  file?: string                 // For review comments
-  line?: number
-  url?: string
+  file?: string; // For review comments
+  line?: number;
+  url?: string;
 
-  file_activity_after?: {       // Populated by fw check
-    modified: boolean
-    commits_touching_file: number
-    latest_commit: string
-    latest_commit_at: string
-  }
+  file_activity_after?: {
+    // Populated by fw check
+    modified: boolean;
+    commits_touching_file: number;
+    latest_commit: string;
+    latest_commit_at: string;
+  };
 
-  graphite?: {                  // If synced with --with-graphite
-    stack_id: string
-    stack_position: number      // 1 = bottom of stack
-    stack_size: number
-    parent_pr?: number
-  }
+  graphite?: {
+    // If synced with --with-graphite
+    stack_id: string;
+    stack_position: number; // 1 = bottom of stack
+    stack_size: number;
+    parent_pr?: number;
+  };
 }
 ```
 
@@ -448,34 +453,36 @@ interface FirewatchEntry {
 
 ```typescript
 interface WorklistEntry {
-  repo: string
-  pr: number
-  pr_title: string
-  pr_state: string
-  pr_author: string
-  pr_branch: string
-  pr_labels?: string[]
+  repo: string;
+  pr: number;
+  pr_title: string;
+  pr_state: string;
+  pr_author: string;
+  pr_branch: string;
+  pr_labels?: string[];
 
-  last_activity_at: string
-  latest_activity_type: string
-  latest_activity_author: string
+  last_activity_at: string;
+  latest_activity_type: string;
+  latest_activity_author: string;
 
   counts: {
-    comments: number
-    reviews: number
-    commits: number
-    ci: number
-    events: number
-  }
+    comments: number;
+    reviews: number;
+    commits: number;
+    ci: number;
+    events: number;
+  };
 
   review_states?: {
-    approved: number
-    changes_requested: number
-    commented: number
-    dismissed: number
-  }
+    approved: number;
+    changes_requested: number;
+    commented: number;
+    dismissed: number;
+  };
 
-  graphite?: { /* same as entry */ }
+  graphite?: {
+    /* same as entry */
+  };
 }
 ```
 

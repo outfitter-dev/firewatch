@@ -21,7 +21,9 @@ This is an orchestrated cleanup workflow using subagents.
 Spawn a subagent to collect and analyze all review comments:
 
 **Subagent prompt:**
+
 > Analyze all open review comments from Firewatch. For each comment:
+>
 > 1. Read the file at the commented line
 > 2. Determine if the concern has been addressed in the current code
 > 3. Return a structured report:
@@ -39,15 +41,16 @@ Use: `Task` tool with `subagent_type: "Explore"` and `run_in_background: true`
 
 When subagent returns, present findings:
 
-| PR | File | Concern | Addressed? | Evidence |
-|----|------|---------|------------|----------|
-| #102 | auth.ts:42 | Add error handling | ✅ Yes | try/catch added at L40-45 |
-| #102 | auth.ts:58 | Rate limiting | ❌ No | No rate limit code found |
-| #103 | config.ts:18 | Validate input | ✅ Yes | Zod schema added |
+| PR   | File         | Concern            | Addressed? | Evidence                  |
+| ---- | ------------ | ------------------ | ---------- | ------------------------- |
+| #102 | auth.ts:42   | Add error handling | ✅ Yes     | try/catch added at L40-45 |
+| #102 | auth.ts:58   | Rate limiting      | ❌ No      | No rate limit code found  |
+| #103 | config.ts:18 | Validate input     | ✅ Yes     | Zod schema added          |
 
 ### Phase 3: Confirm
 
 Ask user to confirm which comments to resolve:
+
 - Show the list of "Addressed" comments
 - If `--dry-run` was passed, just show what would be resolved
 - Otherwise, ask: "Resolve these N comments? [Y/n]"
@@ -55,6 +58,7 @@ Ask user to confirm which comments to resolve:
 ### Phase 4: Resolve
 
 For confirmed comments:
+
 ```bash
 bun apps/cli/bin/fw.ts close ID1 ID2 ID3
 ```
@@ -62,14 +66,15 @@ bun apps/cli/bin/fw.ts close ID1 ID2 ID3
 ### Phase 5: Report
 
 Summarize:
+
 - ✅ Resolved: N comments
 - ⏳ Still open: M comments (not yet addressed)
 - 📝 Next steps: List remaining concerns
 
 ## Options
 
-| Flag | Description |
-|------|-------------|
+| Flag        | Description                                  |
+| ----------- | -------------------------------------------- |
 | `--dry-run` | Show what would be resolved without doing it |
 
 ## Error Handling

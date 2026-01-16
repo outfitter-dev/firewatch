@@ -13,16 +13,16 @@ Firewatch is a standalone CLI tool for fetching, caching, and querying GitHub PR
 
 ## Architecture Decisions
 
-| Area             | Decision                                                   | Rationale                                                         |
-| ---------------- | ---------------------------------------------------------- | ----------------------------------------------------------------- |
-| **Architecture** | Monorepo with core + CLI + MCP                             | Core logic reusable across interfaces                             |
-| **API Strategy** | Adaptive: `gh` CLI → GitHub PAT → error                    | Zero-config when gh is available; explicit PAT as fallback        |
-| **Storage**      | Per-repo JSONL files                                       | Clean incremental updates, parallelizable, combine with `jq -s`   |
-| **Schema**       | Fully denormalized                                         | Each line self-contained for jq queries without joins             |
-| **Integrations** | Plugin architecture                                        | Core is GitHub-only; Graphite via plugins                         |
-| **CLI Design**   | Bare `fw` + CRUD verbs (`add`/`edit`/`rm`/`close`)          | Most common actions are shortest                                  |
-| **Runtime**      | Bun-native APIs                                            | Native fetch, file I/O, shell — minimal dependencies              |
-| **Linting**      | Ultracite with oxlint/oxfmt                                | 50-100x faster than ESLint, Rust-powered                          |
+| Area             | Decision                                           | Rationale                                                       |
+| ---------------- | -------------------------------------------------- | --------------------------------------------------------------- |
+| **Architecture** | Monorepo with core + CLI + MCP                     | Core logic reusable across interfaces                           |
+| **API Strategy** | Adaptive: `gh` CLI → GitHub PAT → error            | Zero-config when gh is available; explicit PAT as fallback      |
+| **Storage**      | Per-repo JSONL files                               | Clean incremental updates, parallelizable, combine with `jq -s` |
+| **Schema**       | Fully denormalized                                 | Each line self-contained for jq queries without joins           |
+| **Integrations** | Plugin architecture                                | Core is GitHub-only; Graphite via plugins                       |
+| **CLI Design**   | Bare `fw` + CRUD verbs (`add`/`edit`/`rm`/`close`) | Most common actions are shortest                                |
+| **Runtime**      | Bun-native APIs                                    | Native fetch, file I/O, shell — minimal dependencies            |
+| **Linting**      | Ultracite with oxlint/oxfmt                        | 50-100x faster than ESLint, Rust-powered                        |
 
 ## Project Structure
 

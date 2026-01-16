@@ -33,16 +33,19 @@ fw --summary | jq 'select(.last_activity_at < (now - 259200 | todate))'
 ## Priority Categories
 
 ### P0 - Immediate
+
 - Changes requested on your PRs
 - Review threads awaiting your response
 - CI failures on open PRs
 
 ### P1 - Today
+
 - Approved PRs ready to merge
 - Review requests assigned to you
 - Stale PRs blocking others
 
 ### P2 - This Week
+
 - Draft PRs needing polish
 - Old review comments to address
 - PRs with unresolved discussions
