@@ -16,7 +16,9 @@ interface ConfigPaths {
  * Load configuration from the config file.
  * Returns merged config from user + project config files.
  */
-export async function loadConfig(options: { cwd?: string } = {}): Promise<FirewatchConfig> {
+export async function loadConfig(
+  options: { cwd?: string; strict?: boolean } = {}
+): Promise<FirewatchConfig> {
   const cwd = options.cwd ?? process.cwd();
   const paths = await getConfigPaths(cwd);
   const userConfig = await readConfigFile(paths.user);
@@ -29,6 +31,9 @@ export async function loadConfig(options: { cwd?: string } = {}): Promise<Firewa
   try {
     return FirewatchConfigSchema.parse(merged);
   } catch (error) {
+    if (options.strict) {
+      throw error;
+    }
     console.error(
       "Warning: Failed to parse config file, using defaults:",
       error instanceof Error ? error.message : error
@@ -44,6 +49,7 @@ export async function loadConfig(options: { cwd?: string } = {}): Promise<Firewa
 function parseTOML(text: string): Record<string, unknown> {
   const result: Record<string, unknown> = {};
   const lines = text.split("\n");
+  let currentSection: string[] = [];
 
   for (const line of lines) {
     const trimmed = line.trim();
@@ -53,8 +59,27 @@ function parseTOML(text: string): Record<string, unknown> {
       continue;
     }
 
+    const withoutComment = stripInlineComment(trimmed);
+    if (!withoutComment) {
+      continue;
+    }
+
+    // Section header
+    if (withoutComment.startsWith("[") && withoutComment.endsWith("]")) {
+      const name = withoutComment.slice(1, -1).trim();
+      if (!name) {
+        continue;
+      }
+      currentSection = name
+        .split(".")
+        .map((part) => part.trim())
+        .filter(Boolean);
+      ensureNestedObject(result, currentSection);
+      continue;
+    }
+
     // Parse key = value
-    const match = trimmed.match(/^(\w+)\s*=\s*(.+)$/);
+    const match = withoutComment.match(/^([A-Za-z0-9_.-]+)\s*=\s*(.+)$/);
     if (!match) {
       continue;
     }
@@ -64,7 +89,15 @@ function parseTOML(text: string): Record<string, unknown> {
       continue;
     }
 
-    result[key] = parseValue(rawValue.trim());
+    const path = [
+      ...currentSection,
+      ...key.split(".").map((part) => part.trim()),
+    ].filter(Boolean);
+    if (path.length === 0) {
+      continue;
+    }
+
+    setNestedValue(result, path, parseValue(rawValue.trim()));
   }
 
   return result;
@@ -84,17 +117,9 @@ function mergeConfig(
   userConfig: Record<string, unknown>,
   projectConfig: Record<string, unknown>
 ): FirewatchConfig {
-  const merged: Record<string, unknown> = { ...DEFAULT_CONFIG };
-  for (const [key, value] of Object.entries(userConfig)) {
-    if (value !== undefined) {
-      merged[key] = value;
-    }
-  }
-  for (const [key, value] of Object.entries(projectConfig)) {
-    if (value !== undefined) {
-      merged[key] = value;
-    }
-  }
+  let merged: Record<string, unknown> = { ...DEFAULT_CONFIG };
+  merged = mergeDeep(merged, userConfig);
+  merged = mergeDeep(merged, projectConfig);
   return merged as FirewatchConfig;
 }
 
@@ -103,8 +128,21 @@ function splitArrayValues(inner: string): string[] {
   let current = "";
   let inQuote = false;
   let quoteChar = "";
+  let escapeNext = false;
 
   for (const char of inner) {
+    if (escapeNext) {
+      current += char;
+      escapeNext = false;
+      continue;
+    }
+
+    if (char === "\\") {
+      current += char;
+      escapeNext = true;
+      continue;
+    }
+
     if ((char === '"' || char === "'") && !inQuote) {
       inQuote = true;
       quoteChar = char;
@@ -248,29 +286,177 @@ function parseValue(value: string): unknown {
   return value;
 }
 
+function stripInlineComment(value: string): string {
+  let inQuote = false;
+  let quoteChar = "";
+  let escapeNext = false;
+
+  for (let i = 0; i < value.length; i += 1) {
+    const char = value[i]!;
+
+    if (escapeNext) {
+      escapeNext = false;
+      continue;
+    }
+
+    if (char === "\\") {
+      escapeNext = true;
+      continue;
+    }
+
+    if ((char === '"' || char === "'") && !inQuote) {
+      inQuote = true;
+      quoteChar = char;
+      continue;
+    }
+
+    if (inQuote && char === quoteChar) {
+      inQuote = false;
+      continue;
+    }
+
+    if (!inQuote && char === "#") {
+      return value.slice(0, i).trim();
+    }
+  }
+
+  return value.trim();
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value)
+  );
+}
+
+function ensureNestedObject(
+  target: Record<string, unknown>,
+  path: string[]
+): void {
+  let cursor: Record<string, unknown> = target;
+  for (const key of path) {
+    const existing = cursor[key];
+    if (isPlainObject(existing)) {
+      cursor = existing;
+      continue;
+    }
+    const next: Record<string, unknown> = {};
+    cursor[key] = next;
+    cursor = next;
+  }
+}
+
+function setNestedValue(
+  target: Record<string, unknown>,
+  path: string[],
+  value: unknown
+): void {
+  let cursor: Record<string, unknown> = target;
+  for (let i = 0; i < path.length; i += 1) {
+    const key = path[i];
+    if (!key) {
+      continue;
+    }
+    if (i === path.length - 1) {
+      cursor[key] = value;
+      return;
+    }
+    const existing = cursor[key];
+    if (isPlainObject(existing)) {
+      cursor = existing;
+      continue;
+    }
+    const next: Record<string, unknown> = {};
+    cursor[key] = next;
+    cursor = next;
+  }
+}
+
+function mergeDeep(
+  base: Record<string, unknown>,
+  override: Record<string, unknown>
+): Record<string, unknown> {
+  const result: Record<string, unknown> = { ...base };
+  for (const [key, value] of Object.entries(override)) {
+    if (value === undefined) {
+      continue;
+    }
+    const existing = result[key];
+    if (isPlainObject(existing) && isPlainObject(value)) {
+      result[key] = mergeDeep(existing, value);
+    } else {
+      result[key] = value;
+    }
+  }
+  return result;
+}
+
+function serializeValue(value: unknown): string {
+  if (Array.isArray(value)) {
+    const items = value.map((item) => serializeValue(item));
+    return `[${items.join(", ")}]`;
+  }
+  if (typeof value === "string") {
+    return `"${value}"`;
+  }
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  if (value === null) {
+    return "null";
+  }
+  return `"${String(value)}"`;
+}
+
+function serializeObject(
+  section: Record<string, unknown>,
+  prefix: string[] = []
+): string[] {
+  const lines: string[] = [];
+  const entries = Object.entries(section);
+
+  const scalarEntries = entries.filter(
+    ([, value]) => !isPlainObject(value)
+  );
+  const objectEntries = entries.filter(([, value]) => isPlainObject(value));
+
+  for (const [key, value] of scalarEntries) {
+    lines.push(`${key} = ${serializeValue(value)}`);
+  }
+
+  for (const [key, value] of objectEntries) {
+    if (!isPlainObject(value)) {
+      continue;
+    }
+    const nextPrefix = [...prefix, key];
+    lines.push("");
+    lines.push(`[${nextPrefix.join(".")}]`);
+    lines.push(...serializeObject(value, nextPrefix));
+  }
+
+  return lines;
+}
+
+export function parseConfigText(text: string): Record<string, unknown> {
+  return parseTOML(text);
+}
+
+export function serializeConfigObject(config: Record<string, unknown>): string {
+  const lines = [
+    "# Firewatch configuration",
+    "",
+    ...serializeObject(config),
+    "",
+  ];
+  return lines.join("\n");
+}
+
 /**
  * Save configuration to the config file.
  */
 export async function saveConfig(config: FirewatchConfig): Promise<void> {
-  const lines: string[] = ["# Firewatch configuration", ""];
-
-  for (const [key, value] of Object.entries(config)) {
-    if (value === undefined) {
-      continue;
-    }
-
-    if (Array.isArray(value)) {
-      const items = value.map((v) =>
-        typeof v === "string" ? `"${v}"` : String(v)
-      );
-      lines.push(`${key} = [${items.join(", ")}]`);
-    } else if (typeof value === "string") {
-      lines.push(`${key} = "${value}"`);
-    } else {
-      lines.push(`${key} = ${value}`);
-    }
-  }
-
-  lines.push("");
-  await Bun.write(PATHS.configFile, lines.join("\n"));
+  const content = serializeConfigObject(config as Record<string, unknown>);
+  await Bun.write(PATHS.configFile, content);
 }

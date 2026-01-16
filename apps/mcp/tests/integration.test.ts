@@ -108,11 +108,11 @@ test("mcp tool query returns jsonl entries", async () => {
   expect(lines[0]?.id).toBe("comment-1");
 });
 
-test("mcp tool status short returns per-PR summary", async () => {
+test("mcp tool query summary short returns per-PR summary", async () => {
   const result = await callTool({
-    action: "status",
+    action: "query",
     repo,
-    status_short: true,
+    summary_short: true,
   });
 
   expect(result.content).toHaveLength(1);

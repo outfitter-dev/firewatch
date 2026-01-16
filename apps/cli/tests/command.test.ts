@@ -1,33 +1,33 @@
 import { afterAll, expect, test } from "bun:test";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import {
-  ensureDirectories,
-  getRepoCachePath,
-  PATHS,
-  writeJsonl,
-  type FirewatchEntry,
-} from "@outfitter/firewatch-core";
-import { program } from "../src";
-import { statusCommand } from "../src/commands/status";
+import type { FirewatchEntry } from "@outfitter/firewatch-core";
 
 const tempRoot = await mkdtemp(join(tmpdir(), "firewatch-cli-"));
-const originalPaths = { ...PATHS };
+const paths =
+  process.platform === "darwin"
+    ? {
+        cache: join(tempRoot, "Library", "Caches", "firewatch"),
+        config: join(tempRoot, "Library", "Preferences", "firewatch"),
+        data: join(tempRoot, "Library", "Application Support", "firewatch"),
+      }
+    : {
+        cache: join(tempRoot, ".cache", "firewatch"),
+        config: join(tempRoot, ".config", "firewatch"),
+        data: join(tempRoot, ".local", "share", "firewatch"),
+      };
 
-Object.assign(PATHS as Record<string, string>, {
-  cache: join(tempRoot, "cache"),
-  config: join(tempRoot, "config"),
-  data: join(tempRoot, "data"),
-  repos: join(tempRoot, "cache", "repos"),
-  meta: join(tempRoot, "cache", "meta.jsonl"),
-  configFile: join(tempRoot, "config", "config.toml"),
-});
-
-await ensureDirectories();
+const reposDir = join(paths.cache, "repos");
+await mkdir(reposDir, { recursive: true });
+await mkdir(paths.config, { recursive: true });
+await mkdir(paths.data, { recursive: true });
 
 const repo = "outfitter-dev/firewatch";
+const encoded = Buffer.from(repo, "utf8").toString("base64url");
+const cachePath = join(reposDir, `b64~${encoded}.jsonl`);
+
 const entries: FirewatchEntry[] = [
   {
     id: "comment-1",
@@ -90,89 +90,74 @@ const entries: FirewatchEntry[] = [
   },
 ];
 
-await writeJsonl(getRepoCachePath(repo), entries);
+await Bun.write(
+  cachePath,
+  `${entries.map((entry) => JSON.stringify(entry)).join("\n")}\n`
+);
 
 afterAll(async () => {
-  Object.assign(PATHS as Record<string, string>, originalPaths);
   await rm(tempRoot, { recursive: true, force: true });
 });
 
-async function captureLogs(fn: () => Promise<void>) {
-  const logs: string[] = [];
-  const originalLog = console.log;
-  console.log = (value?: unknown) => {
-    logs.push(String(value));
-  };
+async function runCli(args: string[]): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+  const proc = Bun.spawn({
+    cmd: [process.execPath, "apps/cli/bin/fw.ts", ...args],
+    cwd: process.cwd(),
+    env: {
+      ...process.env,
+      HOME: tempRoot,
+    },
+    stdout: "pipe",
+    stderr: "pipe",
+  });
 
-  try {
-    await fn();
-  } finally {
-    console.log = originalLog;
-  }
+  const stdout = await new Response(proc.stdout).text();
+  const stderr = proc.stderr ? await new Response(proc.stderr).text() : "";
+  const exitCode = await proc.exited;
 
-  return logs;
+  return { stdout, stderr, exitCode };
 }
 
-test("status command wiring outputs short summaries", async () => {
-  const logs = await captureLogs(() =>
-    statusCommand.parseAsync(["node", "status", "--short"])
-  );
+function parseLines(stdout: string): string[] {
+  return stdout
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
 
-  expect(logs).toHaveLength(2);
-  const first = JSON.parse(logs[0]!);
-  expect(first.pr).toBe(42);
-  expect(first.changes_requested).toBe(1);
+test("root command outputs filtered entries by type", async () => {
+  const { stdout, stderr, exitCode } = await runCli([
+    "--repo",
+    repo,
+    "--type",
+    "review",
+    "--json",
+    "--offline",
+  ]);
+
+  expect(exitCode).toBe(0);
+  expect(stderr.trim()).toBe("");
+
+  const lines = parseLines(stdout);
+  expect(lines).toHaveLength(1);
+  const entry = JSON.parse(lines[0]!);
+  expect(entry.id).toBe("review-1");
 });
 
-test("root command stack wiring groups entries", async () => {
-  const originalCwd = process.cwd();
-  process.chdir(tempRoot);
+test("root command summary outputs worklist entries", async () => {
+  const { stdout, stderr, exitCode } = await runCli([
+    "--repo",
+    repo,
+    "--summary",
+    "--offline",
+  ]);
 
-  try {
-    const logs = await captureLogs(() =>
-      program.parseAsync(["node", "fw", repo, "--stack"])
-    );
+  expect(exitCode).toBe(0);
+  expect(stderr.trim()).toBe("");
 
-    expect(logs).toHaveLength(1);
-    const group = JSON.parse(logs[0]!);
-    expect(group.stack_id).toBe("feat-stack");
-    expect(group.entries).toHaveLength(3);
-  } finally {
-    process.chdir(originalCwd);
-  }
-});
-
-test("root command query outputs filtered entries", async () => {
-  const originalCwd = process.cwd();
-  process.chdir(tempRoot);
-
-  try {
-    const logs = await captureLogs(() =>
-      program.parseAsync(["node", "fw", repo, "--type", "review"])
-    );
-
-    expect(logs).toHaveLength(1);
-    const entry = JSON.parse(logs[0]!);
-    expect(entry.id).toBe("review-1");
-  } finally {
-    process.chdir(originalCwd);
-  }
-});
-
-test("query subcommand outputs filtered entries", async () => {
-  const logs = await captureLogs(() =>
-    program.parseAsync([
-      "node",
-      "fw",
-      "query",
-      "--repo",
-      repo,
-      "--type",
-      "comment",
-    ])
-  );
-
-  expect(logs).toHaveLength(2);
-  const ids = logs.map((line) => JSON.parse(line).id).toSorted();
-  expect(ids).toEqual(["comment-1", "comment-2"]);
+  const lines = parseLines(stdout);
+  expect(lines).toHaveLength(2);
+  const worklist = lines.map((line) => JSON.parse(line));
+  const prs = worklist.map((entry) => entry.pr).toSorted();
+  expect(prs).toEqual([42, 43]);
 });

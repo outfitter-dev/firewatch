@@ -101,3 +101,44 @@ export const WORKLIST_SCHEMA_DOC = {
     },
   },
 };
+
+export const CONFIG_SCHEMA_DOC = {
+  name: "FirewatchConfig",
+  description: "Configuration schema for Firewatch.",
+  fields: {
+    repos: { type: "string[]", description: "Repositories to sync" },
+    github_token: { type: "string", optional: true },
+    max_prs_per_sync: { type: "number", optional: true },
+    sync: {
+      type: "object",
+      optional: true,
+      fields: {
+        auto_sync: { type: "boolean", optional: true },
+        stale_threshold: { type: "string", optional: true },
+      },
+    },
+    filters: {
+      type: "object",
+      optional: true,
+      fields: {
+        exclude_authors: { type: "string[]", optional: true },
+        bot_patterns: { type: "string[]", optional: true },
+        exclude_bots: { type: "boolean", optional: true },
+      },
+    },
+    output: {
+      type: "object",
+      optional: true,
+      fields: {
+        default_format: { type: "human | json", optional: true },
+      },
+    },
+    user: {
+      type: "object",
+      optional: true,
+      fields: {
+        github_username: { type: "string", optional: true },
+      },
+    },
+  },
+};

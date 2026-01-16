@@ -32,7 +32,6 @@ export {
   PATHS,
   readEntriesJsonl,
   readJsonl,
-  REPO_SEPARATOR,
   writeJsonl,
 } from "./cache";
 
@@ -63,7 +62,7 @@ export { checkRepo, type CheckOptions, type CheckResult } from "./check";
 export { buildWorklist, sortWorklist } from "./worklist";
 
 // Time
-export { parseSince } from "./time";
+export { parseDurationMs, parseSince } from "./time";
 
 // Repo Detection
 export { detectRepo, type RepoDetectResult } from "./repo-detect";
@@ -74,7 +73,9 @@ export {
   getConfigPaths,
   getProjectConfigPath,
   loadConfig,
+  parseConfigText,
   saveConfig,
+  serializeConfigObject,
 } from "./config";
 
 // Re-export schemas

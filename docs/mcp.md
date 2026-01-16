@@ -11,7 +11,7 @@ Firewatch provides an MCP (Model Context Protocol) server for AI agent integrati
 bun run --filter @outfitter/firewatch-mcp dev
 
 # Or directly
-bun apps/mcp/bin/mcp.ts
+bun apps/mcp/bin/fw-mcp.ts
 ```
 
 ### Configuration for Claude Code
@@ -23,7 +23,7 @@ Add to your MCP configuration:
   "mcpServers": {
     "firewatch": {
       "command": "bun",
-      "args": ["run", "--filter", "@outfitter/firewatch-mcp", "start"],
+      "args": ["run", "--filter", "@outfitter/firewatch-mcp", "dev"],
       "cwd": "/path/to/firewatch"
     }
   }
