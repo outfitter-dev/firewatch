@@ -1,0 +1,14 @@
+{
+  "extraKnownMarketplaces": {
+    "outfitter": {
+      "source": {
+        "source": "github",
+        "repo": "outfitter-dev/agents"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "baselayer@outfitter": true,
+    "agent-kit@outfitter": true
+  }
+}
