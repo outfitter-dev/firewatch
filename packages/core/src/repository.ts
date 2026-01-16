@@ -447,7 +447,10 @@ function buildWhereClause(filters: QueryFilters): {
     params.$id = filters.id;
   }
 
-  if (filters.repo) {
+  if (filters.exactRepo) {
+    conditions.push("e.repo = $exactRepo");
+    params.$exactRepo = filters.exactRepo;
+  } else if (filters.repo) {
     conditions.push("e.repo LIKE $repo");
     params.$repo = `%${filters.repo}%`;
   }

@@ -1,16 +1,18 @@
-import {
-  PATHS,
-  appendJsonl,
-  getRepoCachePath,
-  readJsonl,
-  writeJsonl,
-} from "./cache";
+import { ensureDirectories, getDatabase } from "./cache";
 import type { GitHubClient, PRNode } from "./github";
 import type { FirewatchPlugin } from "./plugins/types";
+import {
+  getSyncMeta,
+  insertEntries,
+  setSyncMeta,
+  upsertPR,
+  type PRMetadata,
+} from "./repository";
 import type { FirewatchEntry, SyncMetadata } from "./schema/entry";
 
 /**
- * Map GitHub PR state to Firewatch state.
+ * Map GitHub PR state to Firewatch state (for entries).
+ * Includes draft as a state for backward compatibility with JSONL.
  */
 function mapPRState(
   state: "OPEN" | "CLOSED" | "MERGED",
@@ -20,6 +22,25 @@ function mapPRState(
     return "draft";
   }
   if (state === "MERGED") {
+    return "merged";
+  }
+  if (state === "CLOSED") {
+    return "closed";
+  }
+  return "open";
+}
+
+/**
+ * Map GitHub PR state to database state.
+ * The database stores state and isDraft separately, so this only returns
+ * the core state without considering draft status.
+ */
+function mapPRStateForDb(
+  state: "OPEN" | "CLOSED" | "MERGED",
+  merged?: boolean
+): PRMetadata["state"] {
+  // GitHub can return MERGED state directly, or we can check the merged flag
+  if (state === "MERGED" || merged) {
     return "merged";
   }
   if (state === "CLOSED") {
@@ -174,7 +195,87 @@ export interface SyncResult {
 }
 
 /**
+ * Build PR metadata from a GitHub PR node for SQLite storage.
+ */
+function buildPRMetadata(repo: string, pr: PRNode): PRMetadata {
+  return {
+    repo,
+    number: pr.number,
+    nodeId: undefined, // PR node doesn't include node ID in current query
+    state: mapPRStateForDb(pr.state),
+    isDraft: pr.isDraft,
+    title: pr.title,
+    author: pr.author?.login,
+    branch: pr.headRefName,
+    labels: pr.labels.nodes.map((l) => l.name),
+    updatedAt: pr.updatedAt,
+  };
+}
+
+/**
+ * Load sync metadata from SQLite.
+ */
+function loadSyncMeta(
+  db: ReturnType<typeof getDatabase>,
+  repo: string
+): SyncMetadata | null {
+  return getSyncMeta(db, repo);
+}
+
+/**
+ * Process a single PR: build metadata and entries, run plugins.
+ */
+async function processPR(
+  repo: string,
+  pr: PRNode,
+  capturedAt: string,
+  plugins?: FirewatchPlugin[]
+): Promise<{ metadata: PRMetadata; entries: FirewatchEntry[] }> {
+  const metadata = buildPRMetadata(repo, pr);
+  let entries = prToEntries(repo, pr, capturedAt);
+
+  if (plugins) {
+    for (const plugin of plugins) {
+      if (plugin.enrich) {
+        entries = await Promise.all(entries.map((e) => plugin.enrich!(e)));
+      }
+    }
+  }
+
+  return { metadata, entries };
+}
+
+/**
+ * Write batch to SQLite (PR metadata + entries) in a transaction.
+ */
+function writeBatchToSQLite(
+  db: ReturnType<typeof getDatabase>,
+  prMetadataList: PRMetadata[],
+  entries: FirewatchEntry[]
+): void {
+  db.transaction(() => {
+    for (const prMeta of prMetadataList) {
+      upsertPR(db, prMeta);
+    }
+    insertEntries(db, entries);
+  })();
+}
+
+/**
+ * Update sync metadata in SQLite.
+ */
+function updateSyncMetadata(
+  db: ReturnType<typeof getDatabase>,
+  meta: SyncMetadata
+): void {
+  setSyncMeta(db, meta);
+}
+
+/**
  * Sync a repository's PR activity.
+ *
+ * Writes to SQLite database with PR metadata updates on every sync,
+ * fixing Issue #37 (stale PR state).
  */
 export async function syncRepo(
   client: GitHubClient,
@@ -186,13 +287,12 @@ export async function syncRepo(
     throw new Error(`Invalid repo format: ${repo}. Expected owner/repo`);
   }
 
-  const cachePath = getRepoCachePath(repo);
-  const capturedAt = new Date().toISOString();
+  await ensureDirectories();
 
-  // Load existing sync metadata
-  const allMeta = await readJsonl<SyncMetadata>(PATHS.meta);
-  const repoMeta = allMeta.find((m) => m.repo === repo);
-  const cursor = options.full ? null : (repoMeta?.cursor ?? null);
+  const capturedAt = new Date().toISOString();
+  const db = getDatabase();
+  const syncMeta = loadSyncMeta(db, repo);
+  const cursor = options.full ? null : (syncMeta?.cursor ?? null);
 
   let entriesAdded = 0;
   let prsProcessed = 0;
@@ -207,49 +307,42 @@ export async function syncRepo(
     });
 
     const { nodes, pageInfo } = data.repository.pullRequests;
+    const prMetadataList: PRMetadata[] = [];
+    const allEntries: FirewatchEntry[] = [];
 
     for (const pr of nodes) {
-      // Skip if updated before 'since' date
       if (options.since && new Date(pr.updatedAt) < options.since) {
         hasNextPage = false;
         break;
       }
 
-      let entries = prToEntries(repo, pr, capturedAt);
-
-      // Run plugins
-      if (options.plugins) {
-        for (const plugin of options.plugins) {
-          if (plugin.enrich) {
-            entries = await Promise.all(entries.map((e) => plugin.enrich!(e)));
-          }
-        }
-      }
-
-      // Append to cache
-      for (const entry of entries) {
-        await appendJsonl(cachePath, entry);
-        entriesAdded++;
-      }
-
+      const { metadata, entries } = await processPR(
+        repo,
+        pr,
+        capturedAt,
+        options.plugins
+      );
+      prMetadataList.push(metadata);
+      allEntries.push(...entries);
       prsProcessed++;
     }
+
+    // Write to SQLite (updates PR state on every sync)
+    writeBatchToSQLite(db, prMetadataList, allEntries);
+    entriesAdded += allEntries.length;
 
     hasNextPage = pageInfo.hasNextPage && hasNextPage;
     currentCursor = pageInfo.endCursor;
   }
 
-  // Update sync metadata
   const newMeta: SyncMetadata = {
     repo,
     last_sync: capturedAt,
     cursor: currentCursor ?? undefined,
-    pr_count: prsProcessed,
+    pr_count: (syncMeta?.pr_count ?? 0) + prsProcessed,
   };
 
-  const updatedMeta = allMeta.filter((m) => m.repo !== repo);
-  updatedMeta.push(newMeta);
-  await writeJsonl(PATHS.meta, updatedMeta);
+  updateSyncMetadata(db, newMeta);
 
   return {
     repo,

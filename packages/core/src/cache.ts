@@ -1,6 +1,9 @@
+import type { Database } from "bun:sqlite";
 import envPaths from "env-paths";
-import { appendFile, mkdir } from "node:fs/promises";
-import type { FirewatchEntry } from "./schema";
+import { mkdirSync } from "node:fs";
+import { mkdir } from "node:fs/promises";
+
+import { closeDatabase, openDatabase } from "./db";
 
 const paths = envPaths("firewatch", { suffix: "" });
 
@@ -22,6 +25,9 @@ export const PATHS = {
 
   /** Sync metadata file */
   meta: `${paths.cache}/meta.jsonl`,
+
+  /** SQLite database file */
+  db: `${paths.cache}/firewatch.db`,
 
   /** Config file */
   configFile: `${paths.config}/config.toml`,
@@ -71,16 +77,6 @@ export function parseRepoCacheFilename(filename: string): string | null {
 }
 
 /**
- * Append a line to a JSONL file.
- * @param path - File path
- * @param data - Data to serialize and append
- */
-export async function appendJsonl<T>(path: string, data: T): Promise<void> {
-  const line = `${JSON.stringify(data)}\n`;
-  await appendFile(path, line);
-}
-
-/**
  * Read all lines from a JSONL file.
  * @param path - File path
  * @returns Array of parsed objects
@@ -99,40 +95,37 @@ export async function readJsonl<T>(path: string): Promise<T[]> {
     .map((line) => JSON.parse(line) as T);
 }
 
-/**
- * Write multiple lines to a JSONL file (overwrites existing).
- * @param path - File path
- * @param data - Array of data to serialize
- */
-export async function writeJsonl<T>(path: string, data: T[]): Promise<void> {
-  const content = `${data.map((item) => JSON.stringify(item)).join("\n")}\n`;
-  await Bun.write(path, content);
-}
+// --- Database Singleton ---
 
 /**
- * Deduplicate entries by ID, keeping the entry with the latest captured_at timestamp.
- * This handles the case where the same entry is appended multiple times during syncs.
- * @param entries - Array of entries that may contain duplicates
- * @returns Array of unique entries with the latest captured_at for each ID
+ * Singleton database instance.
+ * Lazily initialized on first access.
  */
-export function deduplicateEntries(entries: FirewatchEntry[]): FirewatchEntry[] {
-  const byId = new Map<string, FirewatchEntry>();
-  for (const entry of entries) {
-    const existing = byId.get(entry.id);
-    if (!existing || entry.captured_at > existing.captured_at) {
-      byId.set(entry.id, entry);
-    }
+let _db: Database | null = null;
+
+/**
+ * Gets the shared database instance.
+ * Creates and initializes the database if not already open.
+ *
+ * @returns The shared Database instance
+ */
+export function getDatabase(): Database {
+  if (!_db) {
+    // Ensure cache directory exists before opening database
+    mkdirSync(PATHS.cache, { recursive: true });
+    _db = openDatabase(PATHS.db);
   }
-  return [...byId.values()];
+  return _db;
 }
 
 /**
- * Read entries from a JSONL cache file, deduplicating by ID.
- * Keeps entries with the latest captured_at timestamp when duplicates exist.
- * @param path - File path to the cache
- * @returns Array of unique entries
+ * Closes the shared database connection.
+ * Safe to call even if database is not open.
+ * Should be called during application shutdown.
  */
-export async function readEntriesJsonl(path: string): Promise<FirewatchEntry[]> {
-  const entries = await readJsonl<FirewatchEntry>(path);
-  return deduplicateEntries(entries);
+export function closeFirewatchDb(): void {
+  if (_db) {
+    closeDatabase(_db);
+    _db = null;
+  }
 }

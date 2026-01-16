@@ -1,5 +1,8 @@
-import { getRepoCachePath, readEntriesJsonl, writeJsonl } from "./cache";
-import type { FirewatchEntry, FileActivityAfter } from "./schema/entry";
+import type { Database } from "bun:sqlite";
+
+import { getDatabase } from "./cache";
+import { queryEntries, updateEntry } from "./repository";
+import type { FileActivityAfter, FirewatchEntry } from "./schema/entry";
 
 interface CommitActivity {
   id: string;
@@ -132,12 +135,22 @@ function activityEqual(
   );
 }
 
-export async function checkRepo(
+/**
+ * Check file activity for entries using SQLite database.
+ * Updates entries in-place with efficient UPDATE statements.
+ *
+ * @param db - Database instance
+ * @param repo - Repository in owner/repo format
+ * @param options - Check options including file resolver
+ * @returns Check result with counts
+ */
+export async function checkRepoDb(
+  db: Database,
   repo: string,
   options: CheckOptions = {}
 ): Promise<CheckResult> {
-  const cachePath = getRepoCachePath(repo);
-  const entries = await readEntriesJsonl(cachePath);
+  // Query all entries for the repo from SQLite (exact match)
+  const entries = queryEntries(db, { exactRepo: repo });
   if (entries.length === 0) {
     return { repo, comments_checked: 0, entries_updated: 0 };
   }
@@ -146,9 +159,12 @@ export async function checkRepo(
   let commentsChecked = 0;
   let entriesUpdated = 0;
 
-  const updatedEntries = entries.map((entry) => {
+  // Track updates for batch processing
+  const updates: { id: string; activity: FileActivityAfter }[] = [];
+
+  for (const entry of entries) {
     if (entry.type !== "comment") {
-      return entry;
+      continue;
     }
 
     commentsChecked += 1;
@@ -156,19 +172,38 @@ export async function checkRepo(
     const activity = computeActivityAfter(entry, commits);
 
     if (activityEqual(activity, entry.file_activity_after)) {
-      return entry;
+      continue;
     }
 
     entriesUpdated += 1;
-    return {
-      ...entry,
-      file_activity_after: activity,
-    };
-  });
-
-  if (entriesUpdated > 0) {
-    await writeJsonl(cachePath, updatedEntries);
+    updates.push({ id: entry.id, repo: entry.repo, activity });
   }
 
-  return { repo, comments_checked: commentsChecked, entries_updated: entriesUpdated };
+  // Apply updates to SQLite
+  for (const { id, repo: entryRepo, activity } of updates) {
+    updateEntry(db, id, entryRepo, { file_activity_after: activity });
+  }
+
+  return {
+    repo,
+    comments_checked: commentsChecked,
+    entries_updated: entriesUpdated,
+  };
+}
+
+/**
+ * Check file activity for entries.
+ *
+ * Uses SQLite database to query and update entries with file activity hints.
+ *
+ * @param repo - Repository in owner/repo format
+ * @param options - Check options including file resolver
+ * @returns Check result with counts
+ */
+export function checkRepo(
+  repo: string,
+  options: CheckOptions = {}
+): Promise<CheckResult> {
+  const db = getDatabase();
+  return checkRepoDb(db, repo, options);
 }
