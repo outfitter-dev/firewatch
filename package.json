@@ -1,55 +1,32 @@
 {
   "name": "@outfitter/firewatch",
   "version": "0.1.0",
+  "private": true,
   "description": "GitHub PR activity logger with pure JSONL output for jq-based workflows",
+  "homepage": "https://github.com/outfitter-dev/firewatch#readme",
+  "bugs": {
+    "url": "https://github.com/outfitter-dev/firewatch/issues"
+  },
+  "license": "MIT",
+  "author": "Matt Galligan",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/outfitter-dev/firewatch.git"
   },
-  "bugs": {
-    "url": "https://github.com/outfitter-dev/firewatch/issues"
-  },
-  "homepage": "https://github.com/outfitter-dev/firewatch#readme",
-  "keywords": [
-    "activity",
-    "cli",
-    "github",
-    "jsonl",
-    "pr",
-    "pull-request"
+  "workspaces": [
+    "packages/*",
+    "apps/*"
   ],
-  "license": "MIT",
-  "author": "Matt Galligan",
-  "bin": {
-    "fw": "./bin/fw.ts"
-  },
   "type": "module",
-  "exports": {
-    ".": {
-      "types": "./src/core/index.ts",
-      "import": "./src/core/index.ts"
-    },
-    "./cli": {
-      "types": "./src/cli/index.ts",
-      "import": "./src/cli/index.ts"
-    }
-  },
   "scripts": {
-    "dev": "bun --watch src/cli/index.ts",
-    "build": "bun build ./src/cli/index.ts --outfile dist/fw.js --minify",
-    "build:bin": "bun build ./bin/fw.ts --compile --outfile dist/fw",
+    "dev": "bun run --filter @outfitter/firewatch-cli dev",
+    "build": "bun run --filter '*' build",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
-    "check": "oxlint && bunx tsc --noEmit",
-    "test": "bun test",
-    "prepublishOnly": "bun run check && bun run build"
-  },
-  "dependencies": {
-    "commander": "^13.0.0",
-    "env-paths": "^3.0.0",
-    "zod": "^3.24.0"
+    "check": "oxlint && bun run --filter '*' check",
+    "test": "bun test"
   },
   "devDependencies": {
     "@types/bun": "latest",
