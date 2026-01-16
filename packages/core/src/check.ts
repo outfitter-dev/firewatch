@@ -1,4 +1,4 @@
-import { getRepoCachePath, readJsonl, writeJsonl } from "./cache";
+import { getRepoCachePath, readEntriesJsonl, writeJsonl } from "./cache";
 import type { FirewatchEntry, FileActivityAfter } from "./schema/entry";
 
 interface CommitActivity {
@@ -137,7 +137,7 @@ export async function checkRepo(
   options: CheckOptions = {}
 ): Promise<CheckResult> {
   const cachePath = getRepoCachePath(repo);
-  const entries = await readJsonl<FirewatchEntry>(cachePath);
+  const entries = await readEntriesJsonl(cachePath);
   if (entries.length === 0) {
     return { repo, comments_checked: 0, entries_updated: 0 };
   }

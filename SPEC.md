@@ -174,9 +174,15 @@ interface FirewatchEntry {
   line?: number;
   file_activity_after?: {
     modified: boolean;
-    commits_touching_file: number;
+    commits_touching_file: number; // best-effort, file-scoped when file data is available
     latest_commit?: string;
     latest_commit_at?: string;
+  };
+  file_provenance?: {
+    origin_pr: number;
+    origin_branch: string;
+    origin_commit: string;
+    stack_position: number;
   };
 
   // Plugin data (optional)
@@ -223,6 +229,8 @@ Refresh staleness hints in the local cache.
 fw check
 fw check outfitter-dev/ranger
 ```
+
+When running inside a repo, Firewatch uses local git history to match commit file paths for more accurate staleness hints.
 
 ### query
 

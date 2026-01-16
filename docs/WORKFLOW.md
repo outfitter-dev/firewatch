@@ -36,7 +36,9 @@ Refresh staleness hints in the local cache:
 fw check
 ```
 
-After `fw check`, comment entries can include `file_activity_after` so you can see whether follow-up commits landed after the feedback.
+After `fw check`, comment entries can include `file_activity_after` so you can see whether follow-up commits landed after the feedback. When commit file lists are available, the hints are file-scoped; otherwise they fall back to PR-level activity.
+
+When running inside a repo, Firewatch uses local git history to match commit file paths for more accurate staleness hints.
 
 ## Query
 
@@ -107,9 +109,9 @@ fw config set --local default-stack true
 
 Stack metadata is designed to be compatible with GitHub's stacked PRs as they roll out.
 
-## Stack-Aware Provenance (Planned)
+## Stack-Aware Provenance
 
-For feedback that references a file/line, the goal is to identify which PR in the stack last touched that file. That makes it clear where fixes should land, especially when stacks are deep.
+For feedback that references a file/line, Firewatch can identify which PR in the stack last touched that file. That makes it clear where fixes should land, especially when stacks are deep. This is available when Graphite stacks are detected.
 
 ## Configuration
 
