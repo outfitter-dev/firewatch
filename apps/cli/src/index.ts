@@ -4,21 +4,23 @@ import {
   ENTRY_TYPES,
   GitHubClient,
   PATHS,
+  countEntries,
   detectAuth,
   detectRepo,
   ensureDirectories,
+  getAllSyncMeta,
+  getDatabase,
   getRepoCachePath,
+  getSyncMeta,
   loadConfig,
   mergeExcludeAuthors,
   parseDurationMs,
   parseSince,
   parseRepoCacheFilename,
   queryEntries,
-  readJsonl,
   syncRepo,
   type FirewatchConfig,
   type FirewatchEntry,
-  type SyncMetadata,
 } from "@outfitter/firewatch-core";
 import {
   getGraphiteStacks,
@@ -248,11 +250,12 @@ function resolveReposToSync(
   return [];
 }
 
-async function readSyncMeta(): Promise<Map<string, SyncMetadata>> {
-  const meta = await readJsonl<SyncMetadata>(PATHS.meta);
-  const map = new Map<string, SyncMetadata>();
-  for (const entry of meta) {
-    map.set(entry.repo, entry);
+function getSyncMetaMap(): Map<string, { last_sync: string }> {
+  const db = getDatabase();
+  const allMeta = getAllSyncMeta(db);
+  const map = new Map<string, { last_sync: string }>();
+  for (const entry of allMeta) {
+    map.set(entry.repo, { last_sync: entry.last_sync });
   }
   return map;
 }
@@ -313,6 +316,12 @@ function isStale(lastSync: string | undefined, threshold: string): boolean {
   return Date.now() - last > thresholdMs;
 }
 
+function hasRepoCache(repo: string): boolean {
+  const db = getDatabase();
+  const meta = getSyncMeta(db, repo);
+  return meta !== null && countEntries(db, { exactRepo: repo }) > 0;
+}
+
 async function ensureFreshRepos(
   repos: string[],
   options: RootCommandOptions,
@@ -325,12 +334,7 @@ async function ensureFreshRepos(
 
   if (options.offline) {
     for (const repo of repos) {
-      const cachePath = getRepoCachePath(repo);
-      const cacheFile = Bun.file(cachePath);
-      const hasCache = (await cacheFile.exists())
-        ? cacheFile.size > 0
-        : false;
-      if (!hasCache) {
+      if (!hasRepoCache(repo)) {
         throw new Error(`Offline mode: no cache for ${repo}.`);
       }
     }
@@ -346,7 +350,7 @@ async function ensureFreshRepos(
     return;
   }
 
-  const meta = await readSyncMeta();
+  const meta = getSyncMetaMap();
   const threshold = config.sync?.stale_threshold ?? DEFAULT_STALE_THRESHOLD;
 
   for (const repo of repos) {
@@ -354,11 +358,7 @@ async function ensureFreshRepos(
       continue;
     }
 
-    const cachePath = getRepoCachePath(repo);
-    const cacheFile = Bun.file(cachePath);
-    const hasCache = (await cacheFile.exists())
-      ? cacheFile.size > 0
-      : false;
+    const hasCache = hasRepoCache(repo);
     const lastSync = meta.get(repo)?.last_sync;
     const needsSync =
       forceRefresh || !hasCache || isStale(lastSync, threshold);

@@ -1,4 +1,4 @@
-import { afterAll, expect, test } from "bun:test";
+import { afterAll, beforeAll, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -6,32 +6,25 @@ import { join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import {
+  closeFirewatchDb,
   ensureDirectories,
-  getRepoCachePath,
+  getDatabase,
+  insertEntries,
   PATHS,
-  writeJsonl,
+  setSyncMeta,
+  upsertPR,
   type FirewatchEntry,
+  type PRMetadata,
 } from "@outfitter/firewatch-core";
 import { createServer } from "../src/index";
 
 const tempRoot = await mkdtemp(join(tmpdir(), "firewatch-mcp-"));
 const originalPaths = { ...PATHS };
 
-Object.assign(PATHS as Record<string, string>, {
-  cache: join(tempRoot, "cache"),
-  config: join(tempRoot, "config"),
-  data: join(tempRoot, "data"),
-  repos: join(tempRoot, "cache", "repos"),
-  meta: join(tempRoot, "cache", "meta.jsonl"),
-  configFile: join(tempRoot, "config", "config.toml"),
-});
-
-await ensureDirectories();
-
-const repo = "outfitter-dev/firewatch";
+const repo = "mcp-test/firewatch";
 const entries: FirewatchEntry[] = [
   {
-    id: "comment-1",
+    id: "mcp-comment-1",
     repo,
     pr: 10,
     pr_title: "Add workflow",
@@ -46,7 +39,7 @@ const entries: FirewatchEntry[] = [
     captured_at: "2025-01-02T04:00:00.000Z",
   },
   {
-    id: "review-1",
+    id: "mcp-review-1",
     repo,
     pr: 10,
     pr_title: "Add workflow",
@@ -62,9 +55,47 @@ const entries: FirewatchEntry[] = [
   },
 ];
 
-await writeJsonl(getRepoCachePath(repo), entries);
+const pr: PRMetadata = {
+  repo,
+  number: 10,
+  state: "open",
+  isDraft: false,
+  title: "Add workflow",
+  author: "alice",
+  branch: "feature/workflow",
+  labels: [],
+};
+
+// Set up test environment before tests run
+beforeAll(async () => {
+  // Close any existing database singleton before modifying paths
+  closeFirewatchDb();
+
+  Object.assign(PATHS as Record<string, string>, {
+    cache: join(tempRoot, "cache"),
+    config: join(tempRoot, "config"),
+    data: join(tempRoot, "data"),
+    repos: join(tempRoot, "cache", "repos"),
+    meta: join(tempRoot, "cache", "meta.jsonl"),
+    db: join(tempRoot, "cache", "firewatch.db"),
+    configFile: join(tempRoot, "config", "config.toml"),
+  });
+
+  await ensureDirectories();
+
+  // Use the singleton to ensure consistency with queryEntries()
+  const db = getDatabase();
+  upsertPR(db, pr);
+  insertEntries(db, entries);
+  setSyncMeta(db, {
+    repo,
+    last_sync: new Date().toISOString(),
+    pr_count: 1,
+  });
+});
 
 afterAll(async () => {
+  closeFirewatchDb();
   Object.assign(PATHS as Record<string, string>, originalPaths);
   await rm(tempRoot, { recursive: true, force: true });
 });
@@ -94,6 +125,7 @@ test("mcp tool query returns jsonl entries", async () => {
     action: "query",
     repo,
     type: "comment",
+    offline: true,
   });
 
   expect(result.content).toHaveLength(1);
@@ -105,7 +137,7 @@ test("mcp tool query returns jsonl entries", async () => {
     .map((line) => JSON.parse(line) as FirewatchEntry);
 
   expect(lines).toHaveLength(1);
-  expect(lines[0]?.id).toBe("comment-1");
+  expect(lines[0]?.id).toBe("mcp-comment-1");
 });
 
 test("mcp tool query summary short returns per-PR summary", async () => {
@@ -113,6 +145,7 @@ test("mcp tool query summary short returns per-PR summary", async () => {
     action: "query",
     repo,
     summary_short: true,
+    offline: true,
   });
 
   expect(result.content).toHaveLength(1);
