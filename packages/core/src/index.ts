@@ -4,6 +4,21 @@
  * GitHub PR activity logger with pure JSONL output for jq-based workflows.
  */
 
+// Authors
+export {
+  DEFAULT_BOT_PATTERNS,
+  DEFAULT_EXCLUDE_AUTHORS,
+  buildAuthorIndex,
+  filterByAuthor,
+  getAuthorStatsSorted,
+  isBot,
+  isExcludedAuthor,
+  mergeExcludeAuthors,
+  shouldExcludeAuthor,
+  type AuthorFilterOptions,
+  type AuthorStats,
+} from "./authors";
+
 // Auth
 export { detectAuth, type AuthResult, type AuthSource } from "./auth";
 

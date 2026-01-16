@@ -1,6 +1,11 @@
 import { readdir } from "node:fs/promises";
 
 import {
+  DEFAULT_BOT_PATTERNS,
+  isBot,
+  isExcludedAuthor,
+} from "./authors";
+import {
   PATHS,
   getRepoCachePath,
   parseRepoCacheFilename,
@@ -39,6 +44,15 @@ export interface QueryFilters {
 
   /** Custom plugin filters */
   custom?: Record<string, string>;
+
+  /** Authors to exclude (case-insensitive) */
+  excludeAuthors?: string[];
+
+  /** Exclude entries from detected bots */
+  excludeBots?: boolean;
+
+  /** Custom bot patterns as RegExp (defaults to DEFAULT_BOT_PATTERNS) */
+  botPatterns?: RegExp[];
 }
 
 /**
@@ -114,6 +128,30 @@ function matchesCustomFilters(
   return true;
 }
 
+function matchesAuthorExclusions(
+  entry: FirewatchEntry,
+  filters: QueryFilters
+): boolean {
+  // Check explicit exclusion list
+  if (
+    filters.excludeAuthors &&
+    filters.excludeAuthors.length > 0 &&
+    isExcludedAuthor(entry.author, filters.excludeAuthors)
+  ) {
+    return false;
+  }
+
+  // Check bot patterns
+  if (filters.excludeBots) {
+    const patterns = filters.botPatterns ?? DEFAULT_BOT_PATTERNS;
+    if (isBot(entry.author, patterns)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 function matchesFilters(
   entry: FirewatchEntry,
   filters: QueryFilters,
@@ -132,6 +170,11 @@ function matchesFilters(
   }
 
   if (filters.author && entry.author !== filters.author) {
+    return false;
+  }
+
+  // Author exclusion checks (bots and explicit list)
+  if (!matchesAuthorExclusions(entry, filters)) {
     return false;
   }
 
