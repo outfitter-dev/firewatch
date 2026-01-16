@@ -24,16 +24,50 @@ export { detectAuth, type AuthResult, type AuthSource } from "./auth";
 
 // Cache
 export {
-  appendJsonl,
-  deduplicateEntries,
+  closeFirewatchDb,
   ensureDirectories,
+  getDatabase,
   getRepoCachePath,
   parseRepoCacheFilename,
   PATHS,
-  readEntriesJsonl,
   readJsonl,
-  writeJsonl,
 } from "./cache";
+
+// Database
+export {
+  closeDatabase,
+  CURRENT_SCHEMA_VERSION,
+  getSchemaVersion,
+  initSchema,
+  migrateSchema,
+  openDatabase,
+} from "./db";
+
+// Repository
+export {
+  clearRepo,
+  countEntries,
+  deleteEntriesByRepo,
+  deletePR,
+  deleteSyncMeta,
+  getAllSyncMeta,
+  getEntry,
+  getPR,
+  getPRsByState,
+  getRepos,
+  getSyncMeta,
+  insertEntries,
+  insertEntry,
+  queryEntries as queryEntriesDb,
+  rowToEntry,
+  setSyncMeta,
+  updateEntry,
+  updatePRState,
+  upsertPR,
+  upsertPRs,
+  type EntryUpdates,
+  type PRMetadata,
+} from "./repository";
 
 // GitHub
 export {
@@ -56,7 +90,12 @@ export {
 } from "./query";
 
 // Check
-export { checkRepo, type CheckOptions, type CheckResult } from "./check";
+export {
+  checkRepo,
+  checkRepoDb,
+  type CheckOptions,
+  type CheckResult,
+} from "./check";
 
 // Worklist
 export { buildWorklist, sortWorklist } from "./worklist";
