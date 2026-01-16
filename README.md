@@ -97,6 +97,26 @@ fw status
 fw status --short
 ```
 
+### comment
+
+Post a PR comment or reply to a review thread.
+
+```bash
+# Top-level PR comment
+fw comment 42 "Addressed feedback"
+
+# Reply and resolve
+fw comment 42 "Fixed in abc123" --reply-to comment-2001 --resolve
+```
+
+### resolve
+
+Resolve review comment threads by comment ID.
+
+```bash
+fw resolve comment-2001 comment-2002
+```
+
 ## Configuration
 
 Firewatch loads configuration in this order (project overrides user):
@@ -168,13 +188,13 @@ fw schema worklist
 fw status --short
 ```
 
-## Planned Write Ops
+## Write Ops
 
-To close the loop on feedback, the plan is to add write commands:
+Firewatch can post replies and resolve review threads so agents can close the loop:
 
 ```bash
-# Post a comment and resolve in one step
 fw comment 42 "Fixed in abc123" --reply-to comment-2001 --resolve
+fw resolve comment-2001 comment-2002
 ```
 
 ## Development

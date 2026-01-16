@@ -148,12 +148,18 @@ If you want an ultra-tight status view, use:
 fw status --short
 ```
 
-## Write Ops (Planned)
+## Write Ops
 
-Closing the loop on feedback should be one command:
+Close the loop on feedback in one command:
 
 ```bash
 fw comment 42 "Fixed in abc123" --reply-to comment-2001 --resolve
+```
+
+Resolve review threads directly by comment ID:
+
+```bash
+fw resolve comment-2001 comment-2002
 ```
 
 ## Suggested Agent Prompts

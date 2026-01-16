@@ -96,6 +96,12 @@ test("queryEntries filters by repo substring", async () => {
   expect(results.every((entry) => entry.repo === repoA)).toBe(true);
 });
 
+test("queryEntries filters by id", async () => {
+  const results = await queryEntries({ filters: { id: "review-1" } });
+  expect(results).toHaveLength(1);
+  expect(results[0]?.id).toBe("review-1");
+});
+
 test("queryEntries filters by label and state", async () => {
   const results = await queryEntries({
     filters: { label: "BUG", states: ["open"] },
