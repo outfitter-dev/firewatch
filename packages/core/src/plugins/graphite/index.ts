@@ -13,6 +13,24 @@ export interface GraphiteStack {
   branches: GraphiteStackBranch[];
 }
 
+/**
+ * Output format from `gt state` command
+ */
+interface GtStateBranch {
+  trunk: boolean;
+  needs_restack?: boolean;
+  parents?: Array<{ ref: string; sha: string }>;
+}
+type GtStateOutput = Record<string, GtStateBranch>;
+
+/**
+ * Output format from `gh pr list --json`
+ */
+interface GhPrListItem {
+  number: number;
+  headRefName: string;
+}
+
 type FileProvenanceMap = Map<string, FileProvenance>;
 type FileProvenanceIndex = Map<string, FileProvenanceMap>;
 
@@ -21,6 +39,89 @@ let stackPromise: Promise<GraphiteStack[] | null> | null = null;
 let cachedProvenance: FileProvenanceIndex | null | undefined;
 let provenancePromise: Promise<FileProvenanceIndex | null> | null = null;
 
+/**
+ * Transform flat gt state output into ordered GraphiteStack[] structure.
+ *
+ * Strategy:
+ * 1. Find trunk branch (where trunk: true)
+ * 2. Build child relationships by inverting parent refs
+ * 3. Find leaf branches (no children, not trunk)
+ * 4. Walk each leaf up to trunk to build ordered stack
+ */
+function transformGtStateToStacks(
+  gtState: GtStateOutput,
+  prMap: Map<string, number>
+): GraphiteStack[] {
+  // Find trunk branch
+  let trunkBranch: string | undefined;
+  for (const [branch, data] of Object.entries(gtState)) {
+    if (data.trunk) {
+      trunkBranch = branch;
+      break;
+    }
+  }
+
+  if (!trunkBranch) {
+    return [];
+  }
+
+  // Build child relationships by inverting parent refs
+  const children = new Map<string, string[]>();
+  for (const [branch, data] of Object.entries(gtState)) {
+    if (data.trunk) continue;
+
+    // A branch's parent is the first entry in parents array
+    const parentRef = data.parents?.[0]?.ref;
+    if (parentRef) {
+      const existing = children.get(parentRef) ?? [];
+      existing.push(branch);
+      children.set(parentRef, existing);
+    }
+  }
+
+  // Find leaf branches (branches with no children, not trunk)
+  const leaves: string[] = [];
+  for (const [branch, data] of Object.entries(gtState)) {
+    if (data.trunk) continue;
+    const branchChildren = children.get(branch) ?? [];
+    if (branchChildren.length === 0) {
+      leaves.push(branch);
+    }
+  }
+
+  // Walk each leaf up to trunk to build ordered stacks
+  const stacks: GraphiteStack[] = [];
+  for (const leaf of leaves) {
+    const stackBranches: GraphiteStackBranch[] = [];
+    let current: string | undefined = leaf;
+
+    // Walk up the parent chain until we hit trunk
+    while (current && current !== trunkBranch) {
+      const branchData: GtStateBranch | undefined = gtState[current];
+      if (!branchData) break;
+
+      const prNumber = prMap.get(current);
+      stackBranches.unshift({
+        name: current,
+        ...(prNumber !== undefined && { prNumber }),
+      });
+
+      // Move to parent
+      current = branchData.parents?.[0]?.ref;
+    }
+
+    if (stackBranches.length > 0) {
+      // Use the leaf branch name as stack name
+      stacks.push({
+        name: leaf,
+        branches: stackBranches,
+      });
+    }
+  }
+
+  return stacks;
+}
+
 function loadStacks(): Promise<GraphiteStack[] | null> {
   if (cachedStacks !== undefined) {
     return Promise.resolve(cachedStacks);
@@ -28,14 +129,33 @@ function loadStacks(): Promise<GraphiteStack[] | null> {
 
   if (!stackPromise) {
     stackPromise = (async () => {
-      const result = await $`gt log --json`.nothrow().quiet();
-      if (result.exitCode !== 0) {
+      // Fetch gt state and gh pr list in parallel
+      const [gtStateResult, ghPrResult] = await Promise.all([
+        $`gt state`.nothrow().quiet(),
+        $`gh pr list --state open --json number,headRefName --limit 100`
+          .nothrow()
+          .quiet(),
+      ]);
+
+      // gt state must succeed
+      if (gtStateResult.exitCode !== 0) {
         cachedStacks = null;
         return cachedStacks;
       }
 
       try {
-        const stacks = JSON.parse(result.text()) as GraphiteStack[];
+        const gtState = JSON.parse(gtStateResult.text()) as GtStateOutput;
+
+        // Build PR number map from gh pr list (may fail if not in a gh repo)
+        const prMap = new Map<string, number>();
+        if (ghPrResult.exitCode === 0) {
+          const prList = JSON.parse(ghPrResult.text()) as GhPrListItem[];
+          for (const pr of prList) {
+            prMap.set(pr.headRefName, pr.number);
+          }
+        }
+
+        const stacks = transformGtStateToStacks(gtState, prMap);
         cachedStacks = stacks;
         return stacks;
       } catch {
