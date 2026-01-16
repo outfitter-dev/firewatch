@@ -1,17 +1,7 @@
-import { readdir } from "node:fs/promises";
-
-import {
-  DEFAULT_BOT_PATTERNS,
-  isBot,
-  isExcludedAuthor,
-} from "./authors";
-import {
-  PATHS,
-  getRepoCachePath,
-  parseRepoCacheFilename,
-  readEntriesJsonl,
-} from "./cache";
+import { DEFAULT_BOT_PATTERNS, isBot, isExcludedAuthor } from "./authors";
+import { getDatabase } from "./cache";
 import type { FirewatchPlugin } from "./plugins/types";
+import { queryEntries as queryEntriesDb } from "./repository";
 import type { FirewatchEntry, PrState } from "./schema/entry";
 
 /**
@@ -23,6 +13,9 @@ export interface QueryFilters {
 
   /** Filter by repository (partial match) */
   repo?: string;
+
+  /** Filter by repository (exact match) */
+  exactRepo?: string;
 
   /** Filter by PR number */
   pr?: number;
@@ -75,41 +68,6 @@ export interface QueryOptions {
   offset?: number;
 }
 
-/**
- * Get all cached repository names.
- */
-async function getCachedRepos(): Promise<string[]> {
-  try {
-    const files = await readdir(PATHS.repos);
-    return files
-      .filter((f) => f.endsWith(".jsonl"))
-      .map((f) => parseRepoCacheFilename(f.replace(".jsonl", "")))
-      .filter((repo): repo is string => repo !== null);
-  } catch {
-    return [];
-  }
-}
-
-/**
- * Apply filters to an entry.
- */
-function matchesLabel(entry: FirewatchEntry, label?: string): boolean {
-  if (!label) {
-    return true;
-  }
-  const labelLower = label.toLowerCase();
-  return (
-    entry.pr_labels?.some((l) => l.toLowerCase().includes(labelLower)) ?? false
-  );
-}
-
-function matchesStates(entry: FirewatchEntry, states?: PrState[]): boolean {
-  if (!states || states.length === 0) {
-    return true;
-  }
-  return states.includes(entry.pr_state);
-}
-
 function matchesCustomFilters(
   entry: FirewatchEntry,
   custom: Record<string, string> | undefined,
@@ -156,102 +114,59 @@ function matchesAuthorExclusions(
   return true;
 }
 
-function matchesFilters(
-  entry: FirewatchEntry,
-  filters: QueryFilters,
-  plugins: FirewatchPlugin[]
-): boolean {
-  if (filters.repo && !entry.repo.includes(filters.repo)) {
-    return false;
-  }
-
-  if (filters.id && entry.id !== filters.id) {
-    return false;
-  }
-
-  if (filters.pr !== undefined && entry.pr !== filters.pr) {
-    return false;
-  }
-
-  if (filters.prs?.length && !filters.prs.includes(entry.pr)) {
-    return false;
-  }
-
-  if (filters.author && entry.author !== filters.author) {
-    return false;
-  }
-
-  // Author exclusion checks (bots and explicit list)
-  if (!matchesAuthorExclusions(entry, filters)) {
-    return false;
-  }
-
-  if (filters.type) {
-    const types = Array.isArray(filters.type) ? filters.type : [filters.type];
-    if (!types.includes(entry.type)) {
-      return false;
-    }
-  }
-
-  if (!matchesStates(entry, filters.states)) {
-    return false;
-  }
-
-  if (!matchesLabel(entry, filters.label)) {
-    return false;
-  }
-
-  if (filters.since && new Date(entry.created_at) < filters.since) {
-    return false;
-  }
-
-  return matchesCustomFilters(entry, filters.custom, plugins);
-}
-
 /**
- * Query cached entries.
+ * Query cached entries from SQLite database.
+ *
+ * Returns entries with current PR state from the prs table, fixing Issue #37
+ * (--open returning merged PRs). The pr_state is computed from current PR
+ * metadata which is updated on every sync.
  */
-export async function queryEntries(
+export function queryEntries(
   options: QueryOptions = {}
 ): Promise<FirewatchEntry[]> {
   const { filters = {}, plugins = [], limit, offset = 0 } = options;
 
-  // Determine which repos to query
-  let repos: string[];
-  if (filters.repo) {
-    const allRepos = await getCachedRepos();
-    repos = allRepos.filter((r) => r.includes(filters.repo!));
-  } else {
-    repos = await getCachedRepos();
-  }
+  const db = getDatabase();
 
-  // Load and filter entries from all repos
-  const allEntries: FirewatchEntry[] = [];
+  // Build filters for the database query
+  // Note: excludeAuthors, excludeBots, and custom filters are applied post-query
+  // Use spread syntax to avoid passing undefined values (exactOptionalPropertyTypes)
+  const dbFilters: QueryFilters = {
+    ...(filters.id !== undefined && { id: filters.id }),
+    ...(filters.repo !== undefined && { repo: filters.repo }),
+    ...(filters.exactRepo !== undefined && { exactRepo: filters.exactRepo }),
+    ...(filters.pr !== undefined && { pr: filters.pr }),
+    ...(filters.prs !== undefined && { prs: filters.prs }),
+    ...(filters.author !== undefined && { author: filters.author }),
+    ...(filters.type !== undefined && { type: filters.type }),
+    ...(filters.states !== undefined && { states: filters.states }),
+    ...(filters.label !== undefined && { label: filters.label }),
+    ...(filters.since !== undefined && { since: filters.since }),
+  };
 
-  for (const repo of repos) {
-    const cachePath = getRepoCachePath(repo);
-    const entries = await readEntriesJsonl(cachePath);
+  // Query from SQLite with JOINs - pr_state is computed from current PR metadata
+  let entries = queryEntriesDb(db, dbFilters);
 
-    for (const entry of entries) {
-      if (matchesFilters(entry, filters, plugins)) {
-        allEntries.push(entry);
+  // Apply post-query filters not supported by SQLite
+  // These include author exclusions (bots, explicit list) and custom plugin filters
+  if (filters.excludeAuthors?.length || filters.excludeBots || filters.custom) {
+    entries = entries.filter((entry) => {
+      // Check author exclusions
+      if (!matchesAuthorExclusions(entry, filters)) {
+        return false;
       }
-    }
+      // Check custom plugin filters
+      return matchesCustomFilters(entry, filters.custom, plugins);
+    });
   }
-
-  // Sort by created_at descending
-  allEntries.sort(
-    (a, b) =>
-      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-  );
 
   // Apply offset and limit
-  let result = allEntries.slice(offset);
+  let result = entries.slice(offset);
   if (limit !== undefined) {
     result = result.slice(0, limit);
   }
 
-  return result;
+  return Promise.resolve(result);
 }
 
 /**
