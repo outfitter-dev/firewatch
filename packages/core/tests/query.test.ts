@@ -392,3 +392,314 @@ describe("SQLite query path", () => {
     expect(prs).toEqual([1, 2]);
   });
 });
+
+// =============================================================================
+// Orphaned Comments Filter Tests (Issue #43)
+// =============================================================================
+
+describe("orphaned comments filter", () => {
+  const orphanedRepo = "orphaned/test-repo";
+
+  function createTestPR(overrides: Partial<PRMetadata> = {}): PRMetadata {
+    return {
+      repo: orphanedRepo,
+      number: 1,
+      state: "merged",
+      isDraft: false,
+      title: "Test PR",
+      author: "testuser",
+      branch: "feature/test",
+      labels: [],
+      updatedAt: "2025-01-15T00:00:00Z",
+      ...overrides,
+    };
+  }
+
+  function createTestEntry(
+    overrides: Partial<FirewatchEntry> = {}
+  ): FirewatchEntry {
+    return {
+      id: "orphaned-entry-1",
+      repo: orphanedRepo,
+      pr: 1,
+      pr_title: "Test PR",
+      pr_state: "merged",
+      pr_author: "testuser",
+      pr_branch: "feature/test",
+      type: "comment",
+      subtype: "review_comment",
+      author: "reviewer",
+      body: "Test comment",
+      created_at: "2025-01-15T00:00:00Z",
+      captured_at: "2025-01-15T02:00:00Z",
+      thread_resolved: false,
+      ...overrides,
+    };
+  }
+
+  beforeEach(() => {
+    const db = getDatabase();
+    clearRepo(db, orphanedRepo);
+  });
+
+  test("returns unresolved review comments on merged PRs", async () => {
+    const db = getDatabase();
+
+    upsertPRs(db, [createTestPR({ number: 1, state: "merged" })]);
+    insertEntries(db, [
+      createTestEntry({
+        id: "orphaned-1",
+        pr: 1,
+        subtype: "review_comment",
+        thread_resolved: false,
+      }),
+    ]);
+    setSyncMeta(db, {
+      repo: orphanedRepo,
+      last_sync: "2025-01-15T00:00:00Z",
+      pr_count: 1,
+    });
+
+    const results = await queryEntries({
+      filters: { repo: orphanedRepo, orphaned: true },
+    });
+
+    expect(results).toHaveLength(1);
+    expect(results[0]?.id).toBe("orphaned-1");
+    expect(results[0]?.thread_resolved).toBe(false);
+    expect(results[0]?.pr_state).toBe("merged");
+  });
+
+  test("returns unresolved review comments on closed PRs", async () => {
+    const db = getDatabase();
+
+    upsertPRs(db, [createTestPR({ number: 1, state: "closed" })]);
+    insertEntries(db, [
+      createTestEntry({
+        id: "orphaned-closed",
+        pr: 1,
+        subtype: "review_comment",
+        thread_resolved: false,
+      }),
+    ]);
+    setSyncMeta(db, {
+      repo: orphanedRepo,
+      last_sync: "2025-01-15T00:00:00Z",
+      pr_count: 1,
+    });
+
+    const results = await queryEntries({
+      filters: { repo: orphanedRepo, orphaned: true },
+    });
+
+    expect(results).toHaveLength(1);
+    expect(results[0]?.id).toBe("orphaned-closed");
+    expect(results[0]?.pr_state).toBe("closed");
+  });
+
+  test("excludes resolved review comments", async () => {
+    const db = getDatabase();
+
+    upsertPRs(db, [createTestPR({ number: 1, state: "merged" })]);
+    insertEntries(db, [
+      createTestEntry({
+        id: "resolved-comment",
+        pr: 1,
+        subtype: "review_comment",
+        thread_resolved: true,
+      }),
+      createTestEntry({
+        id: "unresolved-comment",
+        pr: 1,
+        subtype: "review_comment",
+        thread_resolved: false,
+      }),
+    ]);
+    setSyncMeta(db, {
+      repo: orphanedRepo,
+      last_sync: "2025-01-15T00:00:00Z",
+      pr_count: 1,
+    });
+
+    const results = await queryEntries({
+      filters: { repo: orphanedRepo, orphaned: true },
+    });
+
+    expect(results).toHaveLength(1);
+    expect(results[0]?.id).toBe("unresolved-comment");
+  });
+
+  test("excludes issue comments (only review comments)", async () => {
+    const db = getDatabase();
+
+    upsertPRs(db, [createTestPR({ number: 1, state: "merged" })]);
+    insertEntries(db, [
+      createTestEntry({
+        id: "issue-comment",
+        pr: 1,
+        subtype: "issue_comment",
+        thread_resolved: undefined,
+      }),
+      createTestEntry({
+        id: "review-comment",
+        pr: 1,
+        subtype: "review_comment",
+        thread_resolved: false,
+      }),
+    ]);
+    setSyncMeta(db, {
+      repo: orphanedRepo,
+      last_sync: "2025-01-15T00:00:00Z",
+      pr_count: 1,
+    });
+
+    const results = await queryEntries({
+      filters: { repo: orphanedRepo, orphaned: true },
+    });
+
+    expect(results).toHaveLength(1);
+    expect(results[0]?.id).toBe("review-comment");
+    expect(results[0]?.subtype).toBe("review_comment");
+  });
+
+  test("excludes comments on open PRs", async () => {
+    const db = getDatabase();
+
+    upsertPRs(db, [
+      createTestPR({ number: 1, state: "open" }),
+      createTestPR({ number: 2, state: "merged" }),
+    ]);
+    insertEntries(db, [
+      createTestEntry({
+        id: "open-pr-comment",
+        pr: 1,
+        subtype: "review_comment",
+        thread_resolved: false,
+      }),
+      createTestEntry({
+        id: "merged-pr-comment",
+        pr: 2,
+        subtype: "review_comment",
+        thread_resolved: false,
+      }),
+    ]);
+    setSyncMeta(db, {
+      repo: orphanedRepo,
+      last_sync: "2025-01-15T00:00:00Z",
+      pr_count: 2,
+    });
+
+    const results = await queryEntries({
+      filters: { repo: orphanedRepo, orphaned: true },
+    });
+
+    expect(results).toHaveLength(1);
+    expect(results[0]?.id).toBe("merged-pr-comment");
+  });
+
+  test("excludes comments on draft PRs", async () => {
+    const db = getDatabase();
+
+    upsertPRs(db, [
+      createTestPR({ number: 1, state: "open", isDraft: true }),
+      createTestPR({ number: 2, state: "closed" }),
+    ]);
+    insertEntries(db, [
+      createTestEntry({
+        id: "draft-pr-comment",
+        pr: 1,
+        subtype: "review_comment",
+        thread_resolved: false,
+      }),
+      createTestEntry({
+        id: "closed-pr-comment",
+        pr: 2,
+        subtype: "review_comment",
+        thread_resolved: false,
+      }),
+    ]);
+    setSyncMeta(db, {
+      repo: orphanedRepo,
+      last_sync: "2025-01-15T00:00:00Z",
+      pr_count: 2,
+    });
+
+    const results = await queryEntries({
+      filters: { repo: orphanedRepo, orphaned: true },
+    });
+
+    expect(results).toHaveLength(1);
+    expect(results[0]?.id).toBe("closed-pr-comment");
+  });
+
+  test("handles entries with null thread_resolved (excludes them)", async () => {
+    const db = getDatabase();
+
+    upsertPRs(db, [createTestPR({ number: 1, state: "merged" })]);
+    insertEntries(db, [
+      createTestEntry({
+        id: "null-resolved",
+        pr: 1,
+        subtype: "review_comment",
+        thread_resolved: undefined, // Will be stored as NULL
+      }),
+      createTestEntry({
+        id: "false-resolved",
+        pr: 1,
+        subtype: "review_comment",
+        thread_resolved: false,
+      }),
+    ]);
+    setSyncMeta(db, {
+      repo: orphanedRepo,
+      last_sync: "2025-01-15T00:00:00Z",
+      pr_count: 1,
+    });
+
+    const results = await queryEntries({
+      filters: { repo: orphanedRepo, orphaned: true },
+    });
+
+    expect(results).toHaveLength(1);
+    expect(results[0]?.id).toBe("false-resolved");
+  });
+
+  test("combines orphaned with other filters", async () => {
+    const db = getDatabase();
+
+    upsertPRs(db, [
+      createTestPR({ number: 1, state: "merged" }),
+      createTestPR({ number: 2, state: "merged" }),
+    ]);
+    insertEntries(db, [
+      createTestEntry({
+        id: "pr1-orphan",
+        pr: 1,
+        subtype: "review_comment",
+        thread_resolved: false,
+        author: "alice",
+      }),
+      createTestEntry({
+        id: "pr2-orphan",
+        pr: 2,
+        subtype: "review_comment",
+        thread_resolved: false,
+        author: "bob",
+      }),
+    ]);
+    setSyncMeta(db, {
+      repo: orphanedRepo,
+      last_sync: "2025-01-15T00:00:00Z",
+      pr_count: 2,
+    });
+
+    // Filter by orphaned AND author
+    const results = await queryEntries({
+      filters: { repo: orphanedRepo, orphaned: true, author: "alice" },
+    });
+
+    expect(results).toHaveLength(1);
+    expect(results[0]?.id).toBe("pr1-orphan");
+    expect(results[0]?.author).toBe("alice");
+  });
+});

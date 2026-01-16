@@ -8,6 +8,7 @@ export interface StateOptions {
   closed?: boolean;
   draft?: boolean;
   active?: boolean;
+  orphaned?: boolean;
 }
 
 export function parseStates(value: string): PrState[] {
@@ -49,6 +50,11 @@ export function resolveStates(options: StateOptions): PrState[] {
 
   if (states.size > 0) {
     return [...states];
+  }
+
+  // Orphaned implies merged/closed PRs (unresolved comments on finished PRs)
+  if (options.orphaned) {
+    return ["closed", "merged"];
   }
 
   return ["open", "draft"];

@@ -124,45 +124,45 @@ const clearSubcommand = new Command("clear")
       // Remove main database file
       try {
         await rm(PATHS.db, { force: true });
-      } catch (err) {
+      } catch (error) {
         errors.push(
-          `Database: ${err instanceof Error ? err.message : String(err)}`
+          `Database: ${error instanceof Error ? error.message : String(error)}`
         );
       }
 
       // Remove WAL file
       try {
         await rm(`${PATHS.db}-wal`, { force: true });
-      } catch (err) {
+      } catch (error) {
         errors.push(
-          `WAL file: ${err instanceof Error ? err.message : String(err)}`
+          `WAL file: ${error instanceof Error ? error.message : String(error)}`
         );
       }
 
       // Remove SHM file
       try {
         await rm(`${PATHS.db}-shm`, { force: true });
-      } catch (err) {
+      } catch (error) {
         errors.push(
-          `SHM file: ${err instanceof Error ? err.message : String(err)}`
+          `SHM file: ${error instanceof Error ? error.message : String(error)}`
         );
       }
 
       // Remove legacy JSONL cache directory
       try {
         await rm(PATHS.repos, { recursive: true, force: true });
-      } catch (err) {
+      } catch (error) {
         errors.push(
-          `JSONL cache: ${err instanceof Error ? err.message : String(err)}`
+          `JSONL cache: ${error instanceof Error ? error.message : String(error)}`
         );
       }
 
       // Remove legacy meta file
       try {
         await rm(PATHS.meta, { force: true });
-      } catch (err) {
+      } catch (error) {
         errors.push(
-          `Meta file: ${err instanceof Error ? err.message : String(err)}`
+          `Meta file: ${error instanceof Error ? error.message : String(error)}`
         );
       }
 

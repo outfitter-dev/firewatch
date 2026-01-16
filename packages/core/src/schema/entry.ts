@@ -92,6 +92,10 @@ export const FirewatchEntrySchema = z.object({
   file_activity_after: FileActivityAfterSchema.optional(),
   file_provenance: FileProvenanceSchema.optional(),
 
+  // Thread resolution (for review_comment entries)
+  // true = resolved, false = unresolved, undefined = unknown/not applicable
+  thread_resolved: z.boolean().optional(),
+
   // Plugin data
   graphite: GraphiteMetadataSchema.optional(),
 });

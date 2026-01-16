@@ -87,6 +87,7 @@ const FirewatchParamsShape = {
   offset: z.number().int().nonnegative().optional(),
   summary: z.boolean().optional(),
   summary_short: z.boolean().optional(),
+  orphaned: z.boolean().optional(),
   status_short: z.boolean().optional(),
   short: z.boolean().optional(),
   all: z.boolean().optional(),
@@ -229,6 +230,11 @@ function resolveStates(params: FirewatchParams): PrState[] {
 
   if (combined.length > 0) {
     return [...new Set(combined)];
+  }
+
+  // Orphaned implies merged/closed PRs (unresolved comments on finished PRs)
+  if (params.orphaned) {
+    return ["closed", "merged"];
   }
 
   return ["open", "draft"];
@@ -589,6 +595,10 @@ async function handleQuery(params: FirewatchParams): Promise<McpToolResult> {
     throw new Error("Cannot use mine and reviews together.");
   }
 
+  if (params.orphaned && params.open) {
+    throw new Error("Cannot use orphaned with open (orphaned implies merged/closed PRs).");
+  }
+
   const states = resolveStates(params);
   const labelFilter = resolveLabelFilter(params.label);
   const typeList = resolveTypeList(params.type);
@@ -623,7 +633,7 @@ async function handleQuery(params: FirewatchParams): Promise<McpToolResult> {
     type: typeList.length > 0 ? typeList : undefined,
     states,
     label: labelFilter,
-    since: params.since,
+    since: params.since ?? (params.orphaned ? "7d" : undefined),
     limit: params.limit,
     offset: params.offset,
     summary: wantsSummary,
@@ -667,6 +677,7 @@ async function handleQuery(params: FirewatchParams): Promise<McpToolResult> {
       ...(excludeAuthorsMerged && { excludeAuthors: excludeAuthorsMerged }),
       ...(excludeBots && { excludeBots }),
       ...(botPatterns.length > 0 && { botPatterns }),
+      ...(params.orphaned && { orphaned: true }),
     },
   });
 

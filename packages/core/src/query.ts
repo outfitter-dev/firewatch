@@ -49,6 +49,13 @@ export interface QueryFilters {
 
   /** Custom bot patterns as RegExp (defaults to DEFAULT_BOT_PATTERNS) */
   botPatterns?: RegExp[];
+
+  /**
+   * Filter for orphaned comments: unresolved review comments on merged/closed PRs.
+   * When true, returns only review_comment entries where thread_resolved = false
+   * and PR state is merged or closed.
+   */
+  orphaned?: boolean;
 }
 
 /**
@@ -115,6 +122,27 @@ function matchesAuthorExclusions(
 }
 
 /**
+ * Build database filters from query filters, excluding post-query filters.
+ * This extracts only the filters that can be applied at the SQLite level.
+ */
+function buildDbFilters(filters: QueryFilters): QueryFilters {
+  // Use spread syntax to avoid passing undefined values (exactOptionalPropertyTypes)
+  return {
+    ...(filters.id !== undefined && { id: filters.id }),
+    ...(filters.repo !== undefined && { repo: filters.repo }),
+    ...(filters.exactRepo !== undefined && { exactRepo: filters.exactRepo }),
+    ...(filters.pr !== undefined && { pr: filters.pr }),
+    ...(filters.prs !== undefined && { prs: filters.prs }),
+    ...(filters.author !== undefined && { author: filters.author }),
+    ...(filters.type !== undefined && { type: filters.type }),
+    ...(filters.states !== undefined && { states: filters.states }),
+    ...(filters.label !== undefined && { label: filters.label }),
+    ...(filters.since !== undefined && { since: filters.since }),
+    ...(filters.orphaned !== undefined && { orphaned: filters.orphaned }),
+  };
+}
+
+/**
  * Query cached entries from SQLite database.
  *
  * Returns entries with current PR state from the prs table, fixing Issue #37
@@ -130,19 +158,7 @@ export function queryEntries(
 
   // Build filters for the database query
   // Note: excludeAuthors, excludeBots, and custom filters are applied post-query
-  // Use spread syntax to avoid passing undefined values (exactOptionalPropertyTypes)
-  const dbFilters: QueryFilters = {
-    ...(filters.id !== undefined && { id: filters.id }),
-    ...(filters.repo !== undefined && { repo: filters.repo }),
-    ...(filters.exactRepo !== undefined && { exactRepo: filters.exactRepo }),
-    ...(filters.pr !== undefined && { pr: filters.pr }),
-    ...(filters.prs !== undefined && { prs: filters.prs }),
-    ...(filters.author !== undefined && { author: filters.author }),
-    ...(filters.type !== undefined && { type: filters.type }),
-    ...(filters.states !== undefined && { states: filters.states }),
-    ...(filters.label !== undefined && { label: filters.label }),
-    ...(filters.since !== undefined && { since: filters.since }),
-  };
+  const dbFilters = buildDbFilters(filters);
 
   // Query from SQLite with JOINs - pr_state is computed from current PR metadata
   let entries = queryEntriesDb(db, dbFilters);
