@@ -79,7 +79,10 @@ async function getChangedFiles(
   if (!text) {
     return [];
   }
-  return text.split("\n").map((line) => line.trim()).filter(Boolean);
+  return text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
 }
 
 async function getBranchCommit(branch: string): Promise<string | null> {

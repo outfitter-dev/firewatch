@@ -75,31 +75,31 @@ Filter cached PR activity entries.
 
 **Parameters:**
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `repo` | string | Filter by repository |
-| `pr` | number | Filter by PR number |
-| `prs` | number \| number[] \| string | Filter by multiple PRs (comma-separated string allowed) |
-| `type` | string \| string[] | Entry type(s): `comment`, `review`, `commit`, `ci`, `event` |
-| `author` | string \| string[] | Filter by author (prefix with `!` to exclude) |
-| `states` | string[] | Filter by PR state: `open`, `closed`, `merged`, `draft` |
-| `state` | string \| string[] | Explicit state list (comma-separated allowed) |
-| `open` | boolean | Include open PRs |
-| `closed` | boolean | Include closed + merged PRs |
-| `draft` | boolean | Include draft PRs |
-| `active` | boolean | Include open + draft PRs |
-| `label` | string | Filter by label |
-| `since` | string | Time filter: `24h`, `7d`, etc. |
-| `limit` | number | Maximum results |
-| `offset` | number | Skip N results |
-| `summary` | boolean | Return aggregated per-PR summary |
-| `summary_short` | boolean | Compact summary output (requires `summary`) |
-| `mine` | boolean | PRs authored by `user.github_username` |
-| `reviews` | boolean | PRs authored by others (review queue) |
-| `no_bots` | boolean | Exclude bot activity |
-| `all` | boolean | Include all cached repositories |
-| `refresh` | boolean \| "full" | Force sync before query |
-| `offline` | boolean | Use cache only (no network) |
+| Parameter       | Type                         | Description                                                 |
+| --------------- | ---------------------------- | ----------------------------------------------------------- |
+| `repo`          | string                       | Filter by repository                                        |
+| `pr`            | number                       | Filter by PR number                                         |
+| `prs`           | number \| number[] \| string | Filter by multiple PRs (comma-separated string allowed)     |
+| `type`          | string \| string[]           | Entry type(s): `comment`, `review`, `commit`, `ci`, `event` |
+| `author`        | string \| string[]           | Filter by author (prefix with `!` to exclude)               |
+| `states`        | string[]                     | Filter by PR state: `open`, `closed`, `merged`, `draft`     |
+| `state`         | string \| string[]           | Explicit state list (comma-separated allowed)               |
+| `open`          | boolean                      | Include open PRs                                            |
+| `closed`        | boolean                      | Include closed + merged PRs                                 |
+| `draft`         | boolean                      | Include draft PRs                                           |
+| `active`        | boolean                      | Include open + draft PRs                                    |
+| `label`         | string                       | Filter by label                                             |
+| `since`         | string                       | Time filter: `24h`, `7d`, etc.                              |
+| `limit`         | number                       | Maximum results                                             |
+| `offset`        | number                       | Skip N results                                              |
+| `summary`       | boolean                      | Return aggregated per-PR summary                            |
+| `summary_short` | boolean                      | Compact summary output (requires `summary`)                 |
+| `mine`          | boolean                      | PRs authored by `user.github_username`                      |
+| `reviews`       | boolean                      | PRs authored by others (review queue)                       |
+| `no_bots`       | boolean                      | Exclude bot activity                                        |
+| `all`           | boolean                      | Include all cached repositories                             |
+| `refresh`       | boolean \| "full"            | Force sync before query                                     |
+| `offline`       | boolean                      | Use cache only (no network)                                 |
 
 Note: `mine` and `reviews` require `user.github_username` to be set in config.
 
@@ -116,17 +116,17 @@ Add content or metadata to PRs.
 
 **Parameters:**
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `repo` | string | Repository |
-| `pr` | number | PR number (required) |
-| `body` | string | Comment/review body |
-| `reply_to` | string | Comment ID to reply to |
-| `resolve` | boolean | Resolve thread after reply |
-| `review` | string | `approve`, `request-changes`, `comment` |
-| `labels` | string \| string[] | Labels to add |
-| `reviewer` | string \| string[] | Reviewers to request |
-| `assignee` | string \| string[] | Assignees to add |
+| Parameter  | Type               | Description                             |
+| ---------- | ------------------ | --------------------------------------- |
+| `repo`     | string             | Repository                              |
+| `pr`       | number             | PR number (required)                    |
+| `body`     | string             | Comment/review body                     |
+| `reply_to` | string             | Comment ID to reply to                  |
+| `resolve`  | boolean            | Resolve thread after reply              |
+| `review`   | string             | `approve`, `request-changes`, `comment` |
+| `labels`   | string \| string[] | Labels to add                           |
+| `reviewer` | string \| string[] | Reviewers to request                    |
+| `assignee` | string \| string[] | Assignees to add                        |
 
 ### close
 
@@ -181,7 +181,7 @@ Read Firewatch configuration (read-only).
 Diagnose setup (auth, cache, repo, GitHub API).
 
 ```json
-{"action": "doctor"}
+{ "action": "doctor" }
 ```
 
 ### schema
@@ -200,7 +200,7 @@ Get schema documentation.
 Get help text.
 
 ```json
-{"action": "help"}
+{ "action": "help" }
 ```
 
 ## Output Format
@@ -223,7 +223,7 @@ All actions return JSONL (newline-delimited JSON). Each line is a complete JSON 
 ### Operation Results
 
 ```json
-{"ok":true,"repo":"org/repo","pr":42,"comment_id":"IC_abc123"}
+{ "ok": true, "repo": "org/repo", "pr": 42, "comment_id": "IC_abc123" }
 ```
 
 ## Auto-Sync Behavior

@@ -229,7 +229,14 @@ function buildActionableItems(
   }
 
   for (const item of attention.changes_requested) {
-    if (items.some((i) => i.repo === item.repo && i.pr === item.pr && i.category === "unaddressed")) {
+    if (
+      items.some(
+        (i) =>
+          i.repo === item.repo &&
+          i.pr === item.pr &&
+          i.category === "unaddressed"
+      )
+    ) {
       continue;
     }
 
@@ -347,7 +354,9 @@ export function printActionableSummary(summary: ActionableSummary): void {
   if (summary.perspective) {
     const perspectiveLabel =
       summary.perspective === "mine" ? "My PRs" : "To Review";
-    console.log(`Perspective: ${perspectiveLabel}${summary.username ? ` (${summary.username})` : ""}`);
+    console.log(
+      `Perspective: ${perspectiveLabel}${summary.username ? ` (${summary.username})` : ""}`
+    );
   }
 
   if (summary.counts.total === 0) {

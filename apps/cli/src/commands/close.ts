@@ -130,7 +130,10 @@ export const closeCommand = new Command("close")
       }
 
       const config = await loadConfig();
-      const outputJson = shouldOutputJson(options, config.output?.default_format);
+      const outputJson = shouldOutputJson(
+        options,
+        config.output?.default_format
+      );
 
       const targets: ResolveTarget[] = [];
       let hadLookupError = false;

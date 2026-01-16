@@ -18,67 +18,67 @@ fw [options]
 
 ### Scope
 
-| Option | Description |
-|--------|-------------|
+| Option            | Description                                                    |
+| ----------------- | -------------------------------------------------------------- |
 | `--prs [numbers]` | Filter to PR domain, optionally specific PRs (comma-separated) |
-| `--repo <name>` | Filter to specific repository (`owner/repo`) |
-| `-a, --all` | Include all cached repos |
+| `--repo <name>`   | Filter to specific repository (`owner/repo`)                   |
+| `-a, --all`       | Include all cached repos                                       |
 
 ### Perspective
 
-| Option | Description |
-|--------|-------------|
-| `--mine` | Items on PRs assigned to me (requires `user.github_username`) |
-| `--reviews` | PRs I need to review (requires `user.github_username`) |
+| Option      | Description                                                   |
+| ----------- | ------------------------------------------------------------- |
+| `--mine`    | Items on PRs assigned to me (requires `user.github_username`) |
+| `--reviews` | PRs I need to review (requires `user.github_username`)        |
 
 ### State
 
-| Option | Description |
-|--------|-------------|
-| `--open` | Include open PRs |
-| `--closed` | Include merged and closed PRs |
-| `--draft` | Include draft PRs |
-| `--active` | Alias for `--open --draft` |
+| Option             | Description                         |
+| ------------------ | ----------------------------------- |
+| `--open`           | Include open PRs                    |
+| `--closed`         | Include merged and closed PRs       |
+| `--draft`          | Include draft PRs                   |
+| `--active`         | Alias for `--open --draft`          |
 | `--state <states>` | Explicit comma-separated state list |
 
 ### Filters
 
-| Option | Description |
-|--------|-------------|
-| `--type <types>` | Entry types: `comment`, `review`, `commit`, `ci`, `event` |
-| `--label <name>` | Filter by PR label |
-| `--author <list>` | Filter by author(s); prefix with `!` to exclude |
-| `--no-bots` | Exclude bot activity |
+| Option            | Description                                               |
+| ----------------- | --------------------------------------------------------- |
+| `--type <types>`  | Entry types: `comment`, `review`, `commit`, `ci`, `event` |
+| `--label <name>`  | Filter by PR label                                        |
+| `--author <list>` | Filter by author(s); prefix with `!` to exclude           |
+| `--no-bots`       | Exclude bot activity                                      |
 
 ### Time
 
-| Option | Description |
-|--------|-------------|
+| Option                   | Description                            |
+| ------------------------ | -------------------------------------- |
 | `-s, --since <duration>` | Time window (`30m`, `24h`, `7d`, `1w`) |
 
 ### Sync/Cache
 
-| Option | Description |
-|--------|-------------|
-| `--offline` | Use cache only, no network |
+| Option             | Description                                     |
+| ------------------ | ----------------------------------------------- |
+| `--offline`        | Use cache only, no network                      |
 | `--refresh [full]` | Force sync before query (`full` ignores cursor) |
 
 ### Pagination
 
-| Option | Description |
-|--------|-------------|
+| Option                | Description             |
+| --------------------- | ----------------------- |
 | `-n, --limit <count>` | Limit number of results |
-| `--offset <count>` | Skip first N results |
+| `--offset <count>`    | Skip first N results    |
 
 ### Output
 
-| Option | Description |
-|--------|-------------|
-| `--summary` | Aggregate entries into per-PR summary |
-| `-j, --json` | Force JSON output |
-| `--no-json` | Force human-readable output |
-| `--debug` | Enable debug logging |
-| `--no-color` | Disable color output |
+| Option       | Description                           |
+| ------------ | ------------------------------------- |
+| `--summary`  | Aggregate entries into per-PR summary |
+| `-j, --json` | Force JSON output                     |
+| `--no-json`  | Force human-readable output           |
+| `--debug`    | Enable debug logging                  |
+| `--no-color` | Disable color output                  |
 
 ## Examples
 

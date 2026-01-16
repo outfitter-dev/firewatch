@@ -29,7 +29,11 @@ export const ENTRY_SCHEMA_DOC = {
         modified: { type: "boolean" },
         commits_touching_file: { type: "number" },
         latest_commit: { type: "string", optional: true },
-        latest_commit_at: { type: "string", format: "date-time", optional: true },
+        latest_commit_at: {
+          type: "string",
+          format: "date-time",
+          optional: true,
+        },
       },
     },
     file_provenance: {

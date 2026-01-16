@@ -44,12 +44,14 @@ test("fetchReviewThreadMap paginates review thread comments", async () => {
     },
   ];
 
-  (client as {
-    query: <T>(
-      query: string,
-      variables: Record<string, unknown>
-    ) => Promise<GraphQLResponse<T>>;
-  }).query = <T,>(
+  (
+    client as {
+      query: <T>(
+        query: string,
+        variables: Record<string, unknown>
+      ) => Promise<GraphQLResponse<T>>;
+    }
+  ).query = <T>(
     query: string,
     variables: Record<string, unknown>
   ): Promise<GraphQLResponse<T>> => {

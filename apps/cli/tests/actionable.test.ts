@@ -1,6 +1,6 @@
+import type { FirewatchEntry } from "@outfitter/firewatch-core";
 import { expect, test } from "bun:test";
 
-import type { FirewatchEntry } from "@outfitter/firewatch-core";
 import {
   buildActionableSummary,
   identifyUnaddressedFeedback,
@@ -112,7 +112,9 @@ test("identifyUnaddressedFeedback ignores comments with newer commits or file up
 test("buildActionableSummary groups categories and respects perspective", () => {
   const now = new Date();
   const nowIso = now.toISOString();
-  const staleIso = new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000).toISOString();
+  const staleIso = new Date(
+    now.getTime() - 10 * 24 * 60 * 60 * 1000
+  ).toISOString();
 
   const entries: FirewatchEntry[] = [
     {
@@ -199,7 +201,9 @@ test("buildActionableSummary groups categories and respects perspective", () => 
   expect(pr11Items[0]?.category).toBe("unaddressed");
 
   const mineSummary = buildActionableSummary(repo, entries, "mine", "alice");
-  expect(mineSummary.items.every((item) => item.pr_author === "alice")).toBe(true);
+  expect(mineSummary.items.every((item) => item.pr_author === "alice")).toBe(
+    true
+  );
   expect(mineSummary.counts.stale).toBe(0);
   expect(mineSummary.counts.total).toBe(3);
 });

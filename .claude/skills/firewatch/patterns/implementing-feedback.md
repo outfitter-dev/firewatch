@@ -40,7 +40,7 @@ Common feedback patterns and how to interpret them:
 | "LGTM" | Approval | No action needed |
 | "Blocking:" | Critical | Must address before merge |
 
-### Check Dependencies
+### Check for Cross-PR Fixes (Graphite Stacks)
 
 If in a Graphite stack, check if this file originated elsewhere:
 
@@ -52,44 +52,15 @@ fw --type comment --prs PR_NUMBER | jq 'select(.file_provenance != null) | {
 }'
 ```
 
-If `origin_pr` differs from the current PR, make the fix in the origin PR instead.
+If `origin_pr` differs from the current PR, the fix belongs in the origin PR.
+
+See [../graphite/cross-pr-fixes.md](../graphite/cross-pr-fixes.md) for the workflow.
 
 ## Phase 2: Implement Fix
 
-### For Single-PR Fixes
+### Make the Code Change
 
-1. Make the code change
-2. Stage and commit:
-   ```bash
-   git add <file>
-   git commit -m "address review: <summary>"
-   ```
-
-### For Graphite Stack Fixes
-
-When `file_provenance.origin_pr` differs from comment PR:
-
-1. Check out the origin branch:
-   ```bash
-   gt checkout <origin-branch>
-   ```
-
-2. Make the fix there
-
-3. Commit with gt modify:
-   ```bash
-   gt modify -m "address review: <summary>"
-   ```
-
-4. Restack to propagate:
-   ```bash
-   gt restack
-   ```
-
-5. Return to original branch if needed:
-   ```bash
-   gt checkout <original-branch>
-   ```
+Navigate to the file and line, then implement the fix.
 
 ### Common Fix Patterns
 
@@ -149,17 +120,6 @@ Reply: "Added null safety for user.name"
 
 ## Phase 3: Verify Changes
 
-### Check File Was Modified
-
-```bash
-fw --refresh
-fw --type comment --prs PR_NUMBER | jq 'select(.file == "TARGET_FILE") | {
-  file,
-  addressed: .file_activity_after.modified,
-  commits_after: .file_activity_after.commits_touching_file
-}'
-```
-
 ### Run Tests
 
 Always verify changes don't break anything:
@@ -176,6 +136,17 @@ npm test
 bun run check
 # or
 npm run lint
+```
+
+### Check File Was Modified
+
+```bash
+fw --refresh
+fw --type comment --prs PR_NUMBER | jq 'select(.file == "TARGET_FILE") | {
+  file,
+  addressed: .file_activity_after.modified,
+  commits_after: .file_activity_after.commits_touching_file
+}'
 ```
 
 ## Phase 4: Resolve Comments
@@ -229,10 +200,10 @@ For each comment:
 2. [ ] Navigate to file:line
 3. [ ] Understand surrounding context (read 10-20 lines around the location)
 4. [ ] Determine if code change needed or just explanation
-5. [ ] Check file_provenance for stack fixes
+5. [ ] Check file_provenance for stack fixes (see [../graphite/cross-pr-fixes.md](../graphite/cross-pr-fixes.md))
 6. [ ] Implement the fix
 7. [ ] Run tests and linter
-8. [ ] Commit with descriptive message
+8. [ ] Commit changes
 9. [ ] Reply with brief description of change
 10. [ ] Resolve the thread
 11. [ ] Move to next comment
@@ -273,3 +244,10 @@ fw --type comment --prs PR_NUMBER | jq -s '{
   )] | length
 }'
 ```
+
+## For Graphite Stacks
+
+When implementing feedback across a stack, see:
+
+- [../graphite/cross-pr-fixes.md](../graphite/cross-pr-fixes.md) — Fixing in the right PR
+- [../graphite/commit-workflow.md](../graphite/commit-workflow.md) — How to commit changes

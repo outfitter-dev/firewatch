@@ -689,13 +689,10 @@ export class GitHubClient {
     prNumber: number,
     labels: string[]
   ): Promise<void> {
-    await this.rest(
-      `/repos/${owner}/${repo}/issues/${prNumber}/labels`,
-      {
-        method: "POST",
-        body: { labels },
-      }
-    );
+    await this.rest(`/repos/${owner}/${repo}/issues/${prNumber}/labels`, {
+      method: "POST",
+      body: { labels },
+    });
   }
 
   async removeLabels(
@@ -718,13 +715,10 @@ export class GitHubClient {
     prNumber: number,
     assignees: string[]
   ): Promise<void> {
-    await this.rest(
-      `/repos/${owner}/${repo}/issues/${prNumber}/assignees`,
-      {
-        method: "POST",
-        body: { assignees },
-      }
-    );
+    await this.rest(`/repos/${owner}/${repo}/issues/${prNumber}/assignees`, {
+      method: "POST",
+      body: { assignees },
+    });
   }
 
   async removeAssignees(
@@ -733,13 +727,10 @@ export class GitHubClient {
     prNumber: number,
     assignees: string[]
   ): Promise<void> {
-    await this.rest(
-      `/repos/${owner}/${repo}/issues/${prNumber}/assignees`,
-      {
-        method: "DELETE",
-        body: { assignees },
-      }
-    );
+    await this.rest(`/repos/${owner}/${repo}/issues/${prNumber}/assignees`, {
+      method: "DELETE",
+      body: { assignees },
+    });
   }
 
   async requestReviewers(
@@ -787,16 +778,13 @@ export class GitHubClient {
     const response = await this.rest<{
       id: number;
       html_url?: string;
-    }>(
-      `/repos/${owner}/${repo}/pulls/${prNumber}/reviews`,
-      {
-        method: "POST",
-        body: {
-          event: eventMap[event],
-          ...(body && { body }),
-        },
-      }
-    );
+    }>(`/repos/${owner}/${repo}/pulls/${prNumber}/reviews`, {
+      method: "POST",
+      body: {
+        event: eventMap[event],
+        ...(body && { body }),
+      },
+    });
 
     if (!response) {
       return null;
@@ -814,13 +802,10 @@ export class GitHubClient {
     prNumber: number,
     updates: { title?: string; body?: string; base?: string }
   ): Promise<void> {
-    await this.rest(
-      `/repos/${owner}/${repo}/pulls/${prNumber}`,
-      {
-        method: "PATCH",
-        body: updates,
-      }
-    );
+    await this.rest(`/repos/${owner}/${repo}/pulls/${prNumber}`, {
+      method: "PATCH",
+      body: updates,
+    });
   }
 
   private async resolveMilestoneNumber(
@@ -830,9 +815,7 @@ export class GitHubClient {
   ): Promise<number> {
     let page = 1;
     while (page <= 5) {
-      const milestones = await this.rest<
-        { number: number; title: string }[]
-      >(
+      const milestones = await this.rest<{ number: number; title: string }[]>(
         `/repos/${owner}/${repo}/milestones?state=all&per_page=100&page=${page}`,
         { method: "GET" }
       );
@@ -857,13 +840,10 @@ export class GitHubClient {
     name: string
   ): Promise<void> {
     const milestone = await this.resolveMilestoneNumber(owner, repo, name);
-    await this.rest(
-      `/repos/${owner}/${repo}/issues/${prNumber}`,
-      {
-        method: "PATCH",
-        body: { milestone },
-      }
-    );
+    await this.rest(`/repos/${owner}/${repo}/issues/${prNumber}`, {
+      method: "PATCH",
+      body: { milestone },
+    });
   }
 
   async clearMilestone(
@@ -871,13 +851,10 @@ export class GitHubClient {
     repo: string,
     prNumber: number
   ): Promise<void> {
-    await this.rest(
-      `/repos/${owner}/${repo}/issues/${prNumber}`,
-      {
-        method: "PATCH",
-        body: { milestone: null },
-      }
-    );
+    await this.rest(`/repos/${owner}/${repo}/issues/${prNumber}`, {
+      method: "PATCH",
+      body: { milestone: null },
+    });
   }
 
   /**

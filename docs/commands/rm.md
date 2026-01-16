@@ -10,15 +10,15 @@ fw rm <pr> [options]
 
 ## Options
 
-| Option | Description |
-|--------|-------------|
-| `--label <name>` | Remove label (repeatable) |
-| `--reviewer <user>` | Remove reviewer (repeatable) |
-| `--assignee <user>` | Remove assignee (repeatable) |
-| `--milestone` | Clear milestone |
-| `--repo <name>` | Target repository (`owner/repo`) |
-| `--json` | Force JSON output |
-| `--no-json` | Force human-readable output |
+| Option              | Description                      |
+| ------------------- | -------------------------------- |
+| `--label <name>`    | Remove label (repeatable)        |
+| `--reviewer <user>` | Remove reviewer (repeatable)     |
+| `--assignee <user>` | Remove assignee (repeatable)     |
+| `--milestone`       | Clear milestone                  |
+| `--repo <name>`     | Target repository (`owner/repo`) |
+| `--json`            | Force JSON output                |
+| `--no-json`         | Force human-readable output      |
 
 ## Examples
 

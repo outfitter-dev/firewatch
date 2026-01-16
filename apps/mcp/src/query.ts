@@ -28,7 +28,6 @@ export interface QueryContext {
   detectedRepo: string | null;
 }
 
-
 export function resolveRepoFilter(
   repo: string | undefined,
   detectedRepo: string | null
@@ -82,8 +81,8 @@ export function shouldEnrichGraphite(
   const wantsGraphite = Boolean(params.summary);
   return Boolean(
     wantsGraphite &&
-      context.detectedRepo &&
-      context.repoFilter === context.detectedRepo
+    context.detectedRepo &&
+    context.repoFilter === context.detectedRepo
   );
 }
 

@@ -27,6 +27,7 @@ Firewatch uses adaptive auth (`src/core/auth.ts`):
 ### Primary Query
 
 We fetch PR activity using the `pullRequests` connection with nested:
+
 - `reviews` — Review submissions (approved, changes_requested, etc.)
 - `comments` — Issue-style comments on the PR
 - `reviewThreads.comments` — Inline review comments on code
@@ -51,17 +52,18 @@ We fetch PR activity using the `pullRequests` connection with nested:
 
 Each GitHub object maps to a denormalized entry:
 
-| GitHub Object | Entry Type | Subtype |
-|---------------|------------|---------|
-| `PullRequestReview` | `review` | `pull_request_review` |
-| `IssueComment` | `comment` | `issue_comment` |
-| `PullRequestReviewComment` | `comment` | `review_comment` |
-| `CheckRun` | `ci` | `check_run` |
-| `Commit` | `commit` | `commit` |
+| GitHub Object              | Entry Type | Subtype               |
+| -------------------------- | ---------- | --------------------- |
+| `PullRequestReview`        | `review`   | `pull_request_review` |
+| `IssueComment`             | `comment`  | `issue_comment`       |
+| `PullRequestReviewComment` | `comment`  | `review_comment`      |
+| `CheckRun`                 | `ci`       | `check_run`           |
+| `Commit`                   | `commit`   | `commit`              |
 
 ### Denormalization
 
 Each entry includes full PR context:
+
 - `pr`, `pr_title`, `pr_state`, `pr_author`, `pr_branch`
 - Enables filtering without joins
 - Trade-off: larger cache, simpler queries
@@ -77,10 +79,12 @@ Each entry includes full PR context:
 ### What We Capture
 
 Current:
+
 - Individual comments with `file`, `line`
 - No threading or resolution
 
 Proposed (see SCRATCHPAD.md):
+
 - `comment_meta.in_reply_to` — Parent comment ID
 - `comment_meta.resolved` — Thread resolution state
 - `comment_meta.outdated` — Comment on outdated diff
@@ -89,11 +93,12 @@ Proposed (see SCRATCHPAD.md):
 
 ### GitHub Format
 
-```markdown
+````markdown
 ```suggestion
 const x = newValue;
 ` ` `
 ```
+````
 
 ### Parsing Strategy
 
@@ -107,6 +112,7 @@ const x = newValue;
 ### Check Runs vs Commit Status
 
 GitHub has two CI systems:
+
 - **Check Runs** — GitHub Actions, most modern CI
 - **Commit Status** — Older integrations
 
@@ -119,13 +125,14 @@ interface CiEntry {
   type: "ci";
   subtype: "check_run";
   state: "success" | "failure" | "pending" | "neutral" | "skipped";
-  body?: string;  // Failure message if available
+  body?: string; // Failure message if available
 }
 ```
 
 ## Webhook Alternative (Future)
 
 For real-time updates, consider GitHub webhooks:
+
 - `pull_request_review` — Review submitted
 - `pull_request_review_comment` — Inline comment
 - `check_run` — CI status change
@@ -137,6 +144,7 @@ Would require a server component or polling service.
 ### Mock Responses
 
 Store fixture responses in `tests/fixtures/github/`:
+
 - `pr-with-reviews.json`
 - `pr-with-comments.json`
 - `pr-with-ci.json`
@@ -144,6 +152,7 @@ Store fixture responses in `tests/fixtures/github/`:
 ### Without Auth
 
 For CI environments without GitHub auth:
+
 - Skip integration tests
 - Use mocked GraphQL responses
 - Set `FIREWATCH_SKIP_GITHUB_TESTS=1`

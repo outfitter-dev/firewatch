@@ -11,10 +11,10 @@ fw schema <name>
 
 ## Options
 
-| Option | Description |
-|--------|-------------|
-| `name` | Schema to display: `entry`, `worklist`, or `config` |
-| `--json` | Force JSON output |
+| Option   | Description                                         |
+| -------- | --------------------------------------------------- |
+| `name`   | Schema to display: `entry`, `worklist`, or `config` |
+| `--json` | Force JSON output                                   |
 
 ## Examples
 

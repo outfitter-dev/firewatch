@@ -35,4 +35,8 @@ export {
   type WorklistReviewStates,
 } from "./worklist";
 
-export { CONFIG_SCHEMA_DOC, ENTRY_SCHEMA_DOC, WORKLIST_SCHEMA_DOC } from "./docs";
+export {
+  CONFIG_SCHEMA_DOC,
+  ENTRY_SCHEMA_DOC,
+  WORKLIST_SCHEMA_DOC,
+} from "./docs";

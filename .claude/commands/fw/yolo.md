@@ -19,21 +19,34 @@ Fix all outstanding feedback, resolve threads, commit, and submit the stack.
 
 !`bun apps/cli/bin/fw.ts --refresh --open --summary --json 2>/dev/null | jq -c '{pr, title: .pr_title, stack_pos: .graphite.stack_position, comments: .counts.comments, changes_requested: .review_states.changes_requested}'`
 
+## Skill Context
+
+```
+Load skill: firewatch
+```
+
+For Graphite stack workflows, reference:
+- `.claude/skills/firewatch/graphite/commit-workflow.md` — `gt modify` vs `gt amend -a`
+- `.claude/skills/firewatch/graphite/cross-pr-fixes.md` — File provenance and fixing in the right PR
+
 ## Task
 
 ### Phase 1: Sitrep
 
-First, get the full picture by running `/fw:sitrep` flow internally:
+Run `/fw:sitrep` analysis (Phases 1-2 from sitrep.md):
 
-```
-Load skill: firewatch-guide
-Execute sitrep analysis
-```
+1. Quick scan of all open PRs
+2. If anything needs attention, get detailed categorization
+
+Use sitrep's categorization system:
+- **Type:** 🧠 Logic, ✨ Style, 🤓 Nit
+- **Severity:** 🔴 Blocking, 🟡 Should fix, 🟢 Optional
 
 Capture:
 - All open PRs in the stack
-- All actionable comments (🔴 Logic/Bug, 🟡 Style)
+- All actionable comments with type/severity
 - Any "changes requested" reviews
+- Cross-PR fixes needed (file provenance)
 
 ### Phase 2: Plan
 
@@ -41,32 +54,36 @@ Present the attack plan to user:
 
 **Found N actionable items across M PRs:**
 
-| PR | File | Issue | Severity |
-|----|------|-------|----------|
-| #102 | auth.ts:42 | Add error handling | 🔴 Must fix |
-| #102 | auth.ts:58 | Add rate limiting | 🟡 Should fix |
-| #103 | config.ts | Address auth concerns | 🔴 Must fix |
+| PR | File | Type | Severity | Issue |
+|----|------|------|----------|-------|
+| #102 | auth.ts:42 | 🧠 Logic | 🔴 | Add error handling |
+| #102 | auth.ts:58 | ✨ Style | 🟡 | Consider rate limiting |
+| #103 | config.ts:18 | 🧠 Logic | 🔴 | Validate input |
+
+**Cross-PR fixes needed:**
+- Comment on #103 → fix in #101 (file originated there)
 
 **Proposed approach:**
-1. Dispatch agents to fix each file
+1. Dispatch agents to fix each file (bottom-up for stacks)
 2. Resolve threads after fixes verified
-3. `gt amend -a` to capture changes
-4. `gt submit --stack` to push
+3. `gt amend -a` to capture changes across stack
+4. `gt restack` to propagate
+5. `gt submit --stack` to push
 
 **Ask:** "Proceed with YOLO? [Y/n]"
 
 ### Phase 3: Dispatch
 
-If confirmed, load the dispatch-agents skill:
+If confirmed, dispatch specialized agents for each fix:
 
 ```
 /baselayer:dispatch-agents
 ```
 
-Dispatch specialized agents for each fix:
 - Group fixes by file where possible
 - Use `senior-dev` agents for implementation
 - Run in parallel where files don't conflict
+- For cross-PR fixes, ensure agent works in the origin branch
 
 **Dispatch pattern:**
 ```
@@ -93,14 +110,26 @@ If any fail, iterate with agents until passing.
 
 For each addressed comment:
 ```bash
+bun apps/cli/bin/fw.ts add PR "Fixed" --reply COMMENT_ID --resolve
+```
+
+Or bulk resolve:
+```bash
 bun apps/cli/bin/fw.ts close ID1 ID2 ID3
 ```
 
 ### Phase 6: Commit & Submit
 
-Stage and amend all changes:
+**Important:** When subagents make cross-stack changes, use `gt amend -a` to place changes in appropriate branches. See `.claude/skills/firewatch/graphite/commit-workflow.md` for details.
+
+Stage and amend all changes (distributes to appropriate branches):
 ```bash
 gt amend -a
+```
+
+Restack to propagate changes:
+```bash
+gt restack
 ```
 
 Submit the entire stack:
@@ -143,4 +172,3 @@ End with: `<promise>flow:fw:yolo complete</promise>`
 
 - `/fw:sitrep` — Just the analysis, no action
 - `/fw:cleanup` — Just resolve threads, no fixes
-- `/fw:check PR` — Focus on single PR

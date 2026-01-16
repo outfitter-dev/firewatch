@@ -10,11 +10,11 @@ fw close <comment-id> [comment-id...]
 
 ## Options
 
-| Option | Description |
-|--------|-------------|
+| Option          | Description                                             |
+| --------------- | ------------------------------------------------------- |
 | `--repo <name>` | Target repository (`owner/repo`), if cache lookup fails |
-| `--json` | Force JSON output |
-| `--no-json` | Force human-readable output |
+| `--json`        | Force JSON output                                       |
+| `--no-json`     | Force human-readable output                             |
 
 ## Examples
 

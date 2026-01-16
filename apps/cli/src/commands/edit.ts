@@ -63,7 +63,10 @@ export const editCommand = new Command("edit")
       }
 
       const client = new GitHubClient(auth.token);
-      const outputJson = shouldOutputJson(options, config.output?.default_format);
+      const outputJson = shouldOutputJson(
+        options,
+        config.output?.default_format
+      );
 
       if (options.title || options.body || options.base) {
         await client.editPullRequest(owner, name, pr, {
