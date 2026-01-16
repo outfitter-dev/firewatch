@@ -39,25 +39,11 @@ export {
   type QueryOptions,
 } from "./query";
 
+// Check
+export { checkRepo, type CheckOptions, type CheckResult } from "./check";
+
 // Worklist
 export { buildWorklist, sortWorklist } from "./worklist";
-
-// Lookout
-export {
-  buildLookoutContext,
-  buildLookoutSummary,
-  clearLookoutFor,
-  getLookoutFor,
-  getSyncMetadata,
-  identifyAttentionItems,
-  identifyUnaddressedFeedback,
-  isStale,
-  readLookoutMetadata,
-  setLookoutFor,
-  writeLookoutMetadata,
-  type LookoutContext,
-  type LookoutOptions,
-} from "./lookout";
 
 // Time
 export { parseSince } from "./time";

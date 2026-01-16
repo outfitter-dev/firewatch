@@ -558,4 +558,39 @@ export class GitHubClient {
       throw new Error("No thread returned from GitHub API");
     }
   }
+
+  /**
+   * Fetch the list of files changed in a specific commit.
+   * Uses the REST API since GraphQL doesn't expose individual commit files easily.
+   *
+   * @returns Array of file paths changed in the commit, or empty array on error
+   */
+  async getCommitFiles(
+    owner: string,
+    repo: string,
+    commitSha: string
+  ): Promise<string[]> {
+    const response = await fetch(
+      `https://api.github.com/repos/${owner}/${repo}/commits/${commitSha}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${this.token}`,
+          Accept: "application/vnd.github.v3+json",
+          "User-Agent": "firewatch-cli",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      // Return empty array on error - caller will treat as "no file data"
+      return [];
+    }
+
+    const data = (await response.json()) as {
+      files?: { filename: string }[];
+    };
+
+    return (data.files ?? []).map((f) => f.filename);
+  }
 }

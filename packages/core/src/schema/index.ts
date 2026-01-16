@@ -26,15 +26,4 @@ export {
   type WorklistReviewStates,
 } from "./worklist";
 
-export {
-  AttentionItemSchema,
-  LookoutMetadataSchema,
-  LookoutSummarySchema,
-  UnaddressedFeedbackSchema,
-  type AttentionItem,
-  type LookoutMetadata,
-  type LookoutSummary,
-  type UnaddressedFeedback,
-} from "./lookout";
-
 export { ENTRY_SCHEMA_DOC, WORKLIST_SCHEMA_DOC } from "./docs";

@@ -172,6 +172,12 @@ interface FirewatchEntry {
   url?: string;
   file?: string; // For code comments
   line?: number;
+  file_activity_after?: {
+    modified: boolean;
+    commits_touching_file: number;
+    latest_commit?: string;
+    latest_commit_at?: string;
+  };
 
   // Plugin data (optional)
   graphite?: {
@@ -208,6 +214,15 @@ fw sync --since 7d                # Only PRs updated in last 7 days
 ```
 
 Graphite stack metadata is auto-detected when running inside a Graphite-managed repo. You can also enable it by default with `graphite_enabled = true`.
+
+### check
+
+Refresh staleness hints in the local cache.
+
+```bash
+fw check
+fw check outfitter-dev/ranger
+```
 
 ### query
 
