@@ -1,9 +1,6 @@
-import { existsSync, readdirSync } from "node:fs";
-
 import {
   ENTRY_TYPES,
   GitHubClient,
-  PATHS,
   countEntries,
   detectAuth,
   detectRepo,
@@ -15,7 +12,6 @@ import {
   mergeExcludeAuthors,
   parseDurationMs,
   parseSince,
-  parseRepoCacheFilename,
   queryEntries,
   syncRepo,
   type FirewatchConfig,
@@ -219,13 +215,10 @@ function resolveAuthorFilters(
 }
 
 function listCachedRepos(): string[] {
-  if (!existsSync(PATHS.repos)) {
-    return [];
-  }
-  const files = readdirSync(PATHS.repos).filter((f) => f.endsWith(".jsonl"));
-  return files
-    .map((file) => parseRepoCacheFilename(file.replace(".jsonl", "")))
-    .filter((repo): repo is string => repo !== null);
+  const db = getDatabase();
+  // Use sync_meta to include repos that may have no entries yet
+  const syncMeta = getAllSyncMeta(db);
+  return syncMeta.map((m) => m.repo);
 }
 
 function resolveRepoFilter(

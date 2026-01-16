@@ -201,24 +201,25 @@ function derivePrState(prState: string, isDraft: boolean): PrState {
 
 /**
  * Apply optional simple fields from row to entry.
+ * Uses explicit null checks to preserve empty strings as valid values.
  */
 function applyOptionalFields(entry: FirewatchEntry, row: EntryWithPRRow): void {
-  if (row.subtype) {
+  if (row.subtype !== null) {
     entry.subtype = row.subtype;
   }
-  if (row.body) {
+  if (row.body !== null) {
     entry.body = row.body;
   }
-  if (row.state) {
+  if (row.state !== null) {
     entry.state = row.state;
   }
-  if (row.updated_at) {
+  if (row.updated_at !== null) {
     entry.updated_at = row.updated_at;
   }
-  if (row.url) {
+  if (row.url !== null) {
     entry.url = row.url;
   }
-  if (row.file) {
+  if (row.file !== null) {
     entry.file = row.file;
   }
   if (row.line !== null) {
