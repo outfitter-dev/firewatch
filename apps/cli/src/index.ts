@@ -21,6 +21,7 @@ import {
 import { Command } from "commander";
 import ora from "ora";
 
+import { cacheCommand } from "./commands/cache";
 import { checkCommand } from "./commands/check";
 import { commentCommand } from "./commands/comment";
 import { configCommand } from "./commands/config";
@@ -212,7 +213,10 @@ program
   .option("--draft", "Shorthand for --state draft")
   .option("--active", "Shorthand for --state open,draft")
   .option("--label <name>", "Filter by PR label (partial match)")
-  .option("--since <duration>", "Filter by time (e.g., 24h, 7d)")
+  .option(
+    "--since <duration>",
+    "Filter by time window. Formats: Nh (hours), Nd (days), Nw (weeks), Nm (months). Examples: 1h, 24h, 7d, 2w, 1m"
+  )
   .option("--limit <count>", "Limit number of results", Number.parseInt)
   .option("--stack", "Show entries grouped by Graphite stack")
   .option("--worklist", "Aggregate entries into a per-PR worklist")
@@ -257,6 +261,7 @@ program.addCommand(checkCommand);
 program.addCommand(queryCommand);
 program.addCommand(statusCommand);
 program.addCommand(recapCommand);
+program.addCommand(cacheCommand);
 program.addCommand(commentCommand);
 program.addCommand(resolveCommand);
 program.addCommand(configCommand);
