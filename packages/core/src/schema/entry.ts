@@ -51,6 +51,12 @@ export const EntryTypeSchema = z.enum([
 export type EntryType = z.infer<typeof EntryTypeSchema>;
 
 /**
+ * Valid entry type values as a tuple.
+ * Use this for validation: `ENTRY_TYPES.includes(value as EntryType)`
+ */
+export const ENTRY_TYPES = EntryTypeSchema.options;
+
+/**
  * A single Firewatch entry - a fully denormalized record of PR activity.
  * Each line in the JSONL output is self-contained for jq queries.
  */
