@@ -27,6 +27,9 @@ export const FirewatchConfigSchema = z.object({
 
   /** Maximum number of PRs to fetch per sync */
   max_prs_per_sync: z.number().int().positive().default(100),
+
+  /** Staleness threshold for auto-sync before lookout (e.g., "1h", "30m") */
+  lookout_stale_after: z.string().optional(),
 });
 
 export type FirewatchConfig = z.infer<typeof FirewatchConfigSchema>;

@@ -10,10 +10,12 @@ export { detectAuth, type AuthResult, type AuthSource } from "./auth";
 // Cache
 export {
   appendJsonl,
+  deduplicateEntries,
   ensureDirectories,
   getRepoCachePath,
   parseRepoCacheFilename,
   PATHS,
+  readEntriesJsonl,
   readJsonl,
   REPO_SEPARATOR,
   writeJsonl,

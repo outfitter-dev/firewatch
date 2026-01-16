@@ -1,8 +1,6 @@
 import { $ } from "bun";
 import {
   GitHubClient,
-  buildLookoutContext,
-  buildLookoutSummary,
   buildWorklist,
   checkRepo,
   detectAuth,
@@ -12,7 +10,6 @@ import {
   loadConfig,
   parseSince,
   queryEntries,
-  setLookoutFor,
   sortWorklist,
   syncRepo,
   type FirewatchConfig,
@@ -42,7 +39,6 @@ const ActionSchema = z.enum([
   "sync",
   "check",
   "status",
-  "lookout",
   "comment",
   "resolve",
   "schema",
@@ -74,7 +70,6 @@ const FirewatchParamsShape = {
   resolve: z.boolean().optional(),
   comment_ids: z.array(z.string()).optional(),
   schema: z.enum(["query", "entry", "worklist"]).optional(),
-  lookout_reset: z.boolean().optional(),
 };
 
 const FirewatchParamsSchema = z.object(FirewatchParamsShape);
@@ -271,57 +266,6 @@ async function handleStatus(params: FirewatchParams): Promise<McpToolResult> {
   }
 
   return textResult(jsonLines(worklist));
-}
-
-async function handleLookout(params: FirewatchParams): Promise<McpToolResult> {
-  await ensureDirectories();
-
-  const config = await loadConfig();
-  const detected = await detectRepo();
-
-  const repoFilter = params.repo ?? detected.repo;
-  if (!repoFilter) {
-    throw new Error("No repository detected. Provide repo.");
-  }
-
-  const context = await buildLookoutContext({
-    repo: repoFilter,
-    since: params.since ? parseSince(params.since) : undefined,
-    reset: params.lookout_reset,
-    config,
-  });
-
-  let syncedAt: Date | undefined;
-  if (context.syncNeeded) {
-    const auth = await detectAuth(config.github_token);
-    if (!auth.token) {
-      throw new Error(auth.error ?? "Authentication failed");
-    }
-
-    const client = new GitHubClient(auth.token);
-    const graphiteEnabled =
-      config.graphite_enabled ||
-      (detected.repo === context.repo && (await getGraphiteStacks()) !== null);
-
-    await syncRepo(client, context.repo, {
-      plugins: graphiteEnabled ? [graphitePlugin] : [],
-    });
-
-    syncedAt = new Date();
-  }
-
-  const entries = await queryEntries({
-    filters: {
-      repo: context.repo,
-      since: context.since,
-      states: ["open", "draft"],
-    },
-  });
-
-  const summary = buildLookoutSummary(entries, context, syncedAt);
-  await setLookoutFor(context.repo, context.until);
-
-  return textResult(JSON.stringify(summary));
 }
 
 async function handleSync(params: FirewatchParams): Promise<McpToolResult> {
@@ -608,16 +552,16 @@ function schemaDoc(name: SchemaName | undefined): object {
 }
 
 function buildHelpText(): string {
-  return `Firewatch MCP\n\nActions:\n- query: filter cached entries\n- sync: fetch from GitHub\n- check: refresh staleness hints\n- status: worklist summary (status_short for tight view)\n- lookout: PR reconnaissance (what needs attention since last check)\n- comment: post a comment or reply\n- resolve: resolve review threads\n- schema: output schema docs\n- help: this message\n\nExample:\n{"action":"query","since":"24h","type":"review"}\n{"action":"lookout"}\n{"action":"lookout","lookout_reset":true}`;
+  return `Firewatch MCP\n\nActions:\n- query: filter cached entries\n- sync: fetch from GitHub\n- check: refresh staleness hints\n- status: worklist summary (status_short for tight view)\n- comment: post a comment or reply\n- resolve: resolve review threads\n- schema: output schema docs\n- help: this message\n\nExample:\n{"action":"query","since":"24h","type":"review"}\n{"action":"status","status_short":true}`;
 }
 
 const TOOL_DESCRIPTION = `GitHub PR activity query tool. Outputs JSONL for jq.
 
 START HERE: Call with {"action":"schema"} to get field names for jq filters.
 
-Actions: query (filter entries), sync (fetch GitHub), status (PR summary), lookout (what needs attention), check (refresh staleness), comment (post reply), resolve (close threads).
+Actions: query (filter entries), sync (fetch GitHub), status (PR summary), check (refresh staleness), comment (post reply), resolve (close threads).
 
-Common: query with since="24h", type="review", worklist=true for aggregated view. Use lookout for smart "since last check" reconnaissance.`;
+Common: query with since="24h", type="review", worklist=true for aggregated view. Use status with status_short for compact PR summary.`;
 
 export function createServer(): McpServer {
   const server = new McpServer({ name: "firewatch", version: "0.1.0" });
@@ -632,8 +576,6 @@ export function createServer(): McpServer {
         return handleCheck(params);
       case "status":
         return handleStatus(params);
-      case "lookout":
-        return handleLookout(params);
       case "comment":
         return handleComment(params);
       case "resolve":
