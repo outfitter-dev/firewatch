@@ -3,7 +3,15 @@ import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import type { FirewatchEntry } from "@outfitter/firewatch-core";
+import {
+  closeDatabase,
+  insertEntries,
+  openDatabase,
+  setSyncMeta,
+  upsertPR,
+  type FirewatchEntry,
+  type PRMetadata,
+} from "@outfitter/firewatch-core";
 
 const tempRoot = await mkdtemp(join(tmpdir(), "firewatch-cli-smoke-"));
 const paths =
@@ -19,14 +27,12 @@ const paths =
         data: join(tempRoot, ".local", "share", "firewatch"),
       };
 
-const reposDir = join(paths.cache, "repos");
-await mkdir(reposDir, { recursive: true });
+await mkdir(paths.cache, { recursive: true });
 await mkdir(paths.config, { recursive: true });
 await mkdir(paths.data, { recursive: true });
 
 const repo = "outfitter-dev/firewatch";
-const encoded = Buffer.from(repo, "utf8").toString("base64url");
-const cachePath = join(reposDir, `b64~${encoded}.jsonl`);
+const dbPath = join(paths.cache, "firewatch.db");
 
 const entries: FirewatchEntry[] = [
   {
@@ -44,10 +50,28 @@ const entries: FirewatchEntry[] = [
   },
 ];
 
-await Bun.write(
-  cachePath,
-  `${entries.map((entry) => JSON.stringify(entry)).join("\n")}\n`
-);
+// Create PR metadata for the test entry
+const pr: PRMetadata = {
+  repo,
+  number: 101,
+  state: "open",
+  isDraft: false,
+  title: "Smoke test",
+  author: "alice",
+  branch: "feat/smoke",
+  labels: [],
+};
+
+// Set up SQLite database with test data
+const db = openDatabase(dbPath);
+upsertPR(db, pr);
+insertEntries(db, entries);
+setSyncMeta(db, {
+  repo,
+  last_sync: new Date().toISOString(),
+  pr_count: 1,
+});
+closeDatabase(db);
 
 afterAll(async () => {
   await rm(tempRoot, { recursive: true, force: true });

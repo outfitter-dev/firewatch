@@ -1,27 +1,27 @@
 import { constants as fsConstants } from "node:fs";
-import { access, readdir } from "node:fs/promises";
-import { join } from "node:path";
+import { access } from "node:fs/promises";
 import {
   GitHubClient,
   PATHS,
+  countEntries,
   detectAuth,
   detectRepo,
   ensureDirectories,
+  getAllSyncMeta,
   getConfigPaths,
+  getDatabase,
   getProjectConfigPath,
-  getRepoCachePath,
+  getRepos,
+  getSyncMeta,
   loadConfig,
   mergeExcludeAuthors,
   parseDurationMs,
   parseSince,
   queryEntries,
-  readEntriesJsonl,
-  readJsonl,
   syncRepo,
   type FirewatchConfig,
   type FirewatchEntry,
   type PrState,
-  type SyncMetadata,
   type WorklistEntry,
 } from "@outfitter/firewatch-core";
 import {
@@ -313,6 +313,12 @@ function isFullRepo(value: string): boolean {
   return /^[^/]+\/[^/]+$/.test(value);
 }
 
+function hasRepoCache(repo: string): boolean {
+  const db = getDatabase();
+  const meta = getSyncMeta(db, repo);
+  return meta !== null && countEntries(db, { exactRepo: repo }) > 0;
+}
+
 async function resolveRepo(repo?: string): Promise<string | null> {
   if (repo) {
     return repo;
@@ -331,10 +337,7 @@ async function ensureRepoCache(
   config: FirewatchConfig,
   detectedRepo: string | null
 ): Promise<void> {
-  const cachePath = getRepoCachePath(repo);
-  const file = Bun.file(cachePath);
-  const hasCache = (await file.exists()) ? file.size > 0 : false;
-  if (hasCache) {
+  if (hasRepoCache(repo)) {
     return;
   }
 
@@ -362,18 +365,16 @@ async function ensureRepoCacheIfNeeded(
     return;
   }
 
-  const cachePath = getRepoCachePath(repoFilter);
-  const file = Bun.file(cachePath);
-  const hasCache = (await file.exists()) ? file.size > 0 : false;
+  const hasCached = hasRepoCache(repoFilter);
 
   if (options.offline) {
-    if (!hasCache) {
+    if (!hasCached) {
       throw new Error(`Offline mode: no cache for ${repoFilter}.`);
     }
     return;
   }
 
-  if (!hasCache) {
+  if (!hasCached) {
     await ensureRepoCache(repoFilter, config, detectedRepo);
     return;
   }
@@ -391,8 +392,8 @@ async function ensureRepoCacheIfNeeded(
     thresholdMs = parseDurationMs(DEFAULT_STALE_THRESHOLD);
   }
 
-  const meta = await readJsonl<SyncMetadata>(PATHS.meta);
-  const repoMeta = meta.find((entry) => entry.repo === repoFilter);
+  const db = getDatabase();
+  const repoMeta = getSyncMeta(db, repoFilter);
   const lastSync = repoMeta?.last_sync;
   if (!lastSync) {
     await ensureRepoCache(repoFilter, config, detectedRepo);
@@ -545,48 +546,35 @@ function redactConfig(config: FirewatchConfig): FirewatchConfig {
   };
 }
 
-async function getCacheStats(): Promise<{
+function getCacheStats(): {
   repos: number;
   entries: number;
   size_bytes: number;
   last_sync?: string;
-}> {
-  let repos = 0;
-  let entries = 0;
-  let size_bytes = 0;
-
-  try {
-    const files = await readdir(PATHS.repos);
-    for (const file of files) {
-      if (!file.endsWith(".jsonl")) {
-        continue;
-      }
-      repos += 1;
-      const cachePath = join(PATHS.repos, file);
-      const bunFile = Bun.file(cachePath);
-      if (await bunFile.exists()) {
-        size_bytes += bunFile.size;
-        const repoEntries = await readEntriesJsonl(cachePath);
-        entries += repoEntries.length;
-      }
-    }
-  } catch {
-    // Ignore missing cache directory
+} {
+  // Check if database exists
+  const dbFile = Bun.file(PATHS.db);
+  if (!dbFile.size) {
+    return { repos: 0, entries: 0, size_bytes: 0 };
   }
 
+  const db = getDatabase();
+
+  // Get counts from SQLite
+  const repos = getRepos(db).length;
+  const entries = countEntries(db);
+  const size_bytes = dbFile.size;
+
+  // Get last sync time from sync metadata
   let last_sync: string | undefined;
-  try {
-    const metadata = await readJsonl<SyncMetadata>(PATHS.meta);
-    for (const entry of metadata) {
-      if (!entry.last_sync) {
-        continue;
-      }
-      if (!last_sync || entry.last_sync > last_sync) {
-        last_sync = entry.last_sync;
-      }
+  const syncMeta = getAllSyncMeta(db);
+  for (const meta of syncMeta) {
+    if (!meta.last_sync) {
+      continue;
     }
-  } catch {
-    // Ignore metadata errors
+    if (!last_sync || meta.last_sync > last_sync) {
+      last_sync = meta.last_sync;
+    }
   }
 
   return { repos, entries, size_bytes, ...(last_sync && { last_sync }) };
@@ -721,7 +709,7 @@ async function handleStatus(params: FirewatchParams): Promise<McpToolResult> {
   const auth = await detectAuth(config.github_token);
   const configPaths = await getConfigPaths();
   const projectPath = await getProjectConfigPath();
-  const cache = await getCacheStats();
+  const cache = getCacheStats();
 
   const graphite =
     detected.repo && (await getGraphiteStacks())
