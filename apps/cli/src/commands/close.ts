@@ -14,7 +14,6 @@ import { shouldOutputJson } from "../utils/tty";
 interface CloseCommandOptions {
   repo?: string;
   json?: boolean;
-  noJson?: boolean;
 }
 
 interface ResolveTarget {

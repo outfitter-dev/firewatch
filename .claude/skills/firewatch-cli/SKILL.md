@@ -158,7 +158,7 @@ fw query --state open,draft      # Multiple states
 
 ```bash
 fw query --author alice          # Activity by alice
-fw query --pr 42                 # Activity on PR #42
+fw query --prs42                 # Activity on PR #42
 fw query --label bug             # PRs with "bug" label
 ```
 
@@ -392,7 +392,7 @@ See [patterns/graphite-stacked-prs.md](patterns/graphite-stacked-prs.md) for sta
 | `--since <duration>` | query, sync, lookout, recap | Time filter |
 | `--type <type>` | query | Entry type filter |
 | `--author <name>` | query | Author filter |
-| `--pr <number>` | query | PR number filter |
+| `--prs<number>` | query | PR number filter |
 | `--open` | query, status | Open PRs only |
 | `--active` | query, status | Open or draft PRs |
 | `--worklist` | query | Aggregate to per-PR summary |

@@ -22,14 +22,13 @@ Systematic workflow for addressing PR review feedback.
 
 ```bash
 # Get all review comments for a PR
-fw query --pr 123 --type review
+fw --prs 123 --type review
 
 # Get unresolved comments (review_comment subtype)
-fw query --pr 123 --type comment | jq 'select(.subtype == "review_comment")'
+fw --prs 123 --type comment | jq 'select(.subtype == "review_comment")'
 
-# Check staleness hints
-fw check
-fw query --pr 123 | jq 'select(.file_activity_after.modified == false)'
+# Check for staleness hints if present
+fw --prs 123 --type comment | jq 'select(.file_activity_after.modified == false)'
 ```
 
 ## Comment Categories
@@ -67,13 +66,13 @@ fw query --pr 123 | jq 'select(.file_activity_after.modified == false)'
 
 ```bash
 # Reply to a review thread
-fw comment --pr 123 --reply-to COMMENT_ID --body "Fixed in latest commit"
+fw add 123 --reply COMMENT_ID "Fixed in latest commit"
 
 # Reply and resolve in one command
-fw comment --pr 123 --reply-to COMMENT_ID --body "Done" --resolve
+fw add 123 --reply COMMENT_ID "Done" --resolve
 
 # Bulk resolve addressed comments
-fw resolve COMMENT_ID1 COMMENT_ID2 COMMENT_ID3
+fw close COMMENT_ID1 COMMENT_ID2 COMMENT_ID3
 ```
 
 ## Workflow Integration

@@ -42,6 +42,7 @@ import { rmCommand } from "./commands/rm";
 import { schemaCommand } from "./commands/schema";
 import { statusCommand } from "./commands/status";
 import { outputWorklist } from "./worklist";
+import { validateRepoFormat } from "./repo";
 import { ensureGraphiteMetadata } from "./stack";
 import { writeJsonLine } from "./utils/json";
 import { resolveStates } from "./utils/states";
@@ -69,7 +70,6 @@ interface RootCommandOptions {
   offset?: number;
   summary?: boolean;
   json?: boolean;
-  noJson?: boolean;
   debug?: boolean;
   noColor?: boolean;
 }
@@ -213,6 +213,7 @@ function resolveRepoFilter(
   detectedRepo: string | null
 ): string | undefined {
   if (options.repo) {
+    validateRepoFormat(options.repo);
     return options.repo;
   }
   if (options.all) {

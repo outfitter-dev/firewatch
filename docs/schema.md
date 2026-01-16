@@ -4,20 +4,20 @@ Firewatch outputs denormalized JSONL where each line is a self-contained record.
 
 ## Schema Commands
 
-Firewatch provides two distinct schema types. Use `fw schema` to inspect them:
+Firewatch provides multiple schema types. Use `fw schema` to inspect them:
 
 | Command | Output | Use Case |
 |---------|--------|----------|
 | `fw schema entry` | FirewatchEntry schema | Individual activity records (comments, reviews, commits, etc.) |
 | `fw schema worklist` | WorklistEntry schema | Per-PR summaries with aggregated counts |
+| `fw schema config` | Config schema | Configuration file format |
 | `fw schema` | Entry schema (default) | Same as `fw schema entry` |
-| `fw schema query` | Entry schema (deprecated) | Legacy alias, use `entry` instead |
 
 ### When to Use Each
 
-- **Entry schema** (`fw schema entry`): Understanding the structure of individual records from `fw query`. Each entry represents a single event: a comment, review, commit, CI status, or PR event.
+- **Entry schema** (`fw schema entry`): Understanding the structure of individual records from `fw`. Each entry represents a single event: a comment, review, commit, CI status, or PR event.
 
-- **Worklist schema** (`fw schema worklist`): Understanding the structure of `fw status` output or `fw query --worklist`. Each worklist entry is a per-PR summary with activity counts and review states.
+- **Worklist schema** (`fw schema worklist`): Understanding the structure of `fw --summary` output. Each worklist entry is a per-PR summary with activity counts and review states.
 
 ## Entry Types
 
@@ -85,7 +85,7 @@ The primary data structure for individual activity records.
 
 #### file_activity_after
 
-Added by `fw check` for comment entries:
+Populated when staleness hints are available on comment entries:
 
 ```json
 {
@@ -170,7 +170,7 @@ Added by `fw check` for comment entries:
 
 ## WorklistEntry
 
-Aggregated per-PR summary, output by `fw status` or `fw query --worklist`.
+Aggregated per-PR summary, output by `fw --summary`.
 
 ### Fields
 
@@ -365,6 +365,6 @@ fw schema entry
 fw schema worklist
 
 # Inspect live data
-fw query --limit 1 | jq 'keys'
-fw query --limit 1 | jq '.'
+fw --limit 1 | jq 'keys'
+fw --limit 1 | jq '.'
 ```

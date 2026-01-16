@@ -10,9 +10,7 @@ fw mcp
 
 ## Description
 
-The `mcp` command starts the Firewatch MCP (Model Context Protocol) server. This server allows AI assistants to query and interact with PR activity data through a standardized protocol.
-
-The server communicates via stdio and is designed to be launched by MCP-compatible clients like Claude Desktop or other AI assistants.
+The `mcp` command starts the Firewatch MCP (Model Context Protocol) server. The server communicates via stdio and is designed to be launched by MCP-compatible clients.
 
 ## Options
 
@@ -25,13 +23,11 @@ The server communicates via stdio and is designed to be launched by MCP-compatib
 ```bash
 # Start the MCP server
 fw mcp
-
-# The server runs until terminated (Ctrl+C)
 ```
 
 ## Configuration
 
-To use with Claude Desktop or other MCP clients, add to your MCP configuration:
+Add to your MCP configuration:
 
 ```json
 {
@@ -44,33 +40,19 @@ To use with Claude Desktop or other MCP clients, add to your MCP configuration:
 }
 ```
 
-Or with an absolute path to the binary:
-
-```json
-{
-  "mcpServers": {
-    "firewatch": {
-      "command": "/path/to/fw",
-      "args": ["mcp"]
-    }
-  }
-}
-```
-
 ## Server Capabilities
 
-The MCP server exposes a single `firewatch` tool with the following actions:
+The MCP server exposes a single `firewatch` tool with actions:
 
-- `query` - Filter cached PR activity entries
-- `sync` - Fetch PR data from GitHub
-- `status` - Get PR activity summary
-- `check` - Refresh staleness hints
-- `comment` - Post a comment or reply
-- `resolve` - Resolve review threads
-- `schema` - Get schema documentation
-- `help` - Get usage help
+- `query` - Filter cached entries (supports summary output)
+- `add` - Add comments/reviews or metadata
+- `close` - Resolve review threads
+- `edit` - Update PR fields or draft/ready
+- `rm` - Remove labels/reviewers/assignees/milestone
+- `status` - Firewatch state info
+- `config` - Read config (read-only)
+- `doctor` - Diagnose setup
+- `schema` - Schema documentation
+- `help` - Usage help
 
-## See Also
-
-- [MCP Server Documentation](../mcp.md) - Full MCP protocol documentation
-- [Configuration](../configuration.md) - Authentication setup
+See [MCP Server Documentation](../mcp.md) for full details.

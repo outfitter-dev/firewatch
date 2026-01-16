@@ -8,7 +8,7 @@ A systematic workflow for addressing review comments and resolving threads.
 
 ```bash
 fw check  # Refresh staleness data first
-fw query --type comment --pr PR_NUMBER | jq 'select(
+fw query --type comment --prsPR_NUMBER | jq 'select(
   .subtype == "review_comment" and
   (.file_activity_after.modified // false) == false
 )'
@@ -17,7 +17,7 @@ fw query --type comment --pr PR_NUMBER | jq 'select(
 ### Group by File
 
 ```bash
-fw query --type comment --pr PR_NUMBER | jq -s '
+fw query --type comment --prsPR_NUMBER | jq -s '
   map(select(.subtype == "review_comment")) |
   group_by(.file) |
   map({
@@ -31,7 +31,7 @@ fw query --type comment --pr PR_NUMBER | jq -s '
 ### Prioritize by Reviewer
 
 ```bash
-fw query --type comment --pr PR_NUMBER | jq -s '
+fw query --type comment --prsPR_NUMBER | jq -s '
   map(select(.subtype == "review_comment")) |
   group_by(.author) |
   map({
@@ -47,7 +47,7 @@ fw query --type comment --pr PR_NUMBER | jq -s '
 ### Get Comment Details
 
 ```bash
-fw query --type comment --pr PR_NUMBER | jq 'select(.file == "TARGET_FILE") | {
+fw query --type comment --prsPR_NUMBER | jq 'select(.file == "TARGET_FILE") | {
   id,
   line,
   body,
@@ -62,7 +62,7 @@ After making changes:
 
 ```bash
 fw check  # Refresh file activity tracking
-fw query --type comment --pr PR_NUMBER | jq '{
+fw query --type comment --prsPR_NUMBER | jq '{
   file,
   addressed: (.file_activity_after.modified // false),
   commits_after: (.file_activity_after.commits_touching_file // 0)
@@ -85,7 +85,7 @@ fw comment PR_NUMBER "Done" --reply-to COMMENT_ID --resolve
 
 ```bash
 # Get all review comment IDs for a PR
-COMMENTS=$(fw query --type comment --pr PR_NUMBER | jq -r 'select(.subtype == "review_comment") | .id')
+COMMENTS=$(fw query --type comment --prsPR_NUMBER | jq -r 'select(.subtype == "review_comment") | .id')
 
 # Resolve multiple
 fw resolve $COMMENTS
@@ -95,7 +95,7 @@ fw resolve $COMMENTS
 
 ```bash
 # Only resolve comments where file was modified
-fw query --type comment --pr PR_NUMBER | jq -r 'select(
+fw query --type comment --prsPR_NUMBER | jq -r 'select(
   .subtype == "review_comment" and
   .file_activity_after.modified == true
 ) | .id' | xargs fw resolve
@@ -107,7 +107,7 @@ fw query --type comment --pr PR_NUMBER | jq -r 'select(
 
 ```bash
 fw sync  # Refresh from GitHub
-fw query --type comment --pr PR_NUMBER | jq 'select(
+fw query --type comment --prsPR_NUMBER | jq 'select(
   .subtype == "review_comment"
 ) | {file, line, resolved: (.state == "resolved" // false)}'
 ```
@@ -115,7 +115,7 @@ fw query --type comment --pr PR_NUMBER | jq 'select(
 ### Summary Report
 
 ```bash
-fw query --type comment --pr PR_NUMBER | jq -s '{
+fw query --type comment --prsPR_NUMBER | jq -s '{
   total_comments: length,
   review_comments: ([.[] | select(.subtype == "review_comment")] | length),
   addressed: ([.[] | select(.file_activity_after.modified == true)] | length),
@@ -133,7 +133,7 @@ fw query --type comment --pr PR_NUMBER | jq -s '{
 fw sync && fw check
 
 # 2. List pending comments
-fw query --type comment --pr 123 | jq 'select(
+fw query --type comment --prs123 | jq 'select(
   .subtype == "review_comment" and
   (.file_activity_after.modified // false) == false
 ) | {file, line, body: .body[0:80], id}'
@@ -144,14 +144,14 @@ fw query --type comment --pr 123 | jq 'select(
 fw check
 
 # 5. Verify addressed
-fw query --type comment --pr 123 | jq 'select(.file_activity_after.modified == true) | {file, line}'
+fw query --type comment --prs123 | jq 'select(.file_activity_after.modified == true) | {file, line}'
 
 # 6. Reply and resolve
 fw comment 123 "Addressed all feedback" --reply-to IC_xxx --resolve
 
 # 7. Final verification
 fw sync
-fw query --pr 123 --type comment | jq -s 'length' # Should be 0 or only resolved
+fw query --prs123 --type comment | jq -s 'length' # Should be 0 or only resolved
 ```
 
 ## For Graphite Stacks
@@ -160,7 +160,7 @@ When feedback requires changes in a different PR in the stack:
 
 ```bash
 # Check file provenance
-fw query --type comment --pr 123 | jq 'select(.file_provenance.origin_pr != .pr) | {
+fw query --type comment --prs123 | jq 'select(.file_provenance.origin_pr != .pr) | {
   comment_pr: .pr,
   fix_in_pr: .file_provenance.origin_pr,
   file: .file,

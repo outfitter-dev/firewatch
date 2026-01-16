@@ -9,24 +9,26 @@
 
 export interface OutputModeOptions {
   json?: boolean;
-  noJson?: boolean;
 }
 
 /**
  * Determine if output should be JSON based on:
- * 1. --json flag (explicit)
+ * 1. --json/--no-json flags (explicit)
  * 2. FIREWATCH_JSON env var
  * 3. TTY detection (non-TTY defaults to JSON)
+ *
+ * Note: Commander's --no-json sets options.json = false (not noJson = true)
  */
 export function shouldOutputJson(
   options: OutputModeOptions,
   defaultFormat?: "human" | "json"
 ): boolean {
   // Explicit flag takes precedence
+  // --json sets json=true, --no-json sets json=false
   if (options.json === true) {
     return true;
   }
-  if (options.noJson === true) {
+  if (options.json === false) {
     return false;
   }
 

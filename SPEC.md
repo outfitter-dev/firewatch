@@ -13,110 +13,38 @@ Firewatch is a standalone CLI tool for fetching, caching, and querying GitHub PR
 
 ## Architecture Decisions
 
-| Area             | Decision                                             | Rationale                                                         |
-| ---------------- | ---------------------------------------------------- | ----------------------------------------------------------------- |
-| **Architecture** | Hybrid — standalone CLI with optional webhook worker | CLI covers 95% of use cases; worker available for real-time needs |
-| **API Strategy** | Adaptive: `gh` CLI → GitHub PAT → error              | Zero-config when gh is available; explicit PAT as fallback        |
-| **Storage**      | Per-repo JSONL files                                 | Clean incremental updates, parallelizable, combine with `jq -s`   |
-| **Schema**       | Fully denormalized                                   | Each line self-contained for jq queries without joins             |
-| **Integrations** | Plugin architecture                                  | Core is GitHub-only; Graphite/Linear/GitLab via plugins           |
-| **CLI Design**   | Minimal: `sync`, `query`, `config`                   | Let jq handle complex transformations                             |
-| **Runtime**      | Bun-native APIs                                      | Native fetch, file I/O, shell — minimal dependencies              |
-| **Linting**      | Ultracite with oxlint/oxfmt                          | 50-100x faster than ESLint, Rust-powered                          |
-| **Interfaces**   | Core library + CLI + MCP                             | Core logic reusable across interfaces                             |
+| Area             | Decision                                                   | Rationale                                                         |
+| ---------------- | ---------------------------------------------------------- | ----------------------------------------------------------------- |
+| **Architecture** | Monorepo with core + CLI + MCP                             | Core logic reusable across interfaces                             |
+| **API Strategy** | Adaptive: `gh` CLI → GitHub PAT → error                    | Zero-config when gh is available; explicit PAT as fallback        |
+| **Storage**      | Per-repo JSONL files                                       | Clean incremental updates, parallelizable, combine with `jq -s`   |
+| **Schema**       | Fully denormalized                                         | Each line self-contained for jq queries without joins             |
+| **Integrations** | Plugin architecture                                        | Core is GitHub-only; Graphite via plugins                         |
+| **CLI Design**   | Bare `fw` + CRUD verbs (`add`/`edit`/`rm`/`close`)          | Most common actions are shortest                                  |
+| **Runtime**      | Bun-native APIs                                            | Native fetch, file I/O, shell — minimal dependencies              |
+| **Linting**      | Ultracite with oxlint/oxfmt                                | 50-100x faster than ESLint, Rust-powered                          |
 
 ## Project Structure
 
 ```
 firewatch/
-├── src/
-│   ├── core/                    # Pure logic (no CLI/MCP concerns)
-│   │   ├── index.ts             # Core exports
-│   │   ├── auth.ts              # Adaptive auth (gh CLI / PAT detection)
-│   │   ├── github.ts            # GitHub GraphQL client
-│   │   ├── cache.ts             # XDG cache management
-│   │   ├── sync.ts              # Incremental sync logic
-│   │   └── query.ts             # JSONL query engine
-│   ├── schema/
-│   │   ├── entry.ts             # JSONL record schema (Zod)
-│   │   └── config.ts            # Config schema
-│   ├── plugins/                 # Plugin interface
-│   │   ├── types.ts             # Plugin contract
-│   │   └── graphite/            # Graphite stack integration
-│   │       └── index.ts
-│   ├── cli/                     # CLI interface
-│   │   ├── index.ts             # CLI entry point
-│   │   └── commands/
-│   │       ├── sync.ts
-│   │       ├── query.ts
-│   │       └── config.ts
-│   └── mcp/                     # MCP server (future)
-│       └── index.ts
-├── bin/
-│   └── fw.ts                    # Global CLI entry (#!/usr/bin/env bun)
-├── package.json
-├── tsconfig.json
-├── .oxlintrc.json               # Ultracite oxlint config
-├── .oxfmtrc.jsonc               # Ultracite oxfmt config
-└── README.md
-```
-
-## Tooling
-
-### Linting & Formatting (Ultracite + Oxc)
-
-Uses [Ultracite](https://docs.ultracite.ai/) with oxlint/oxfmt for 50-100x faster linting:
-
-```bash
-# Install
-bun add -D ultracite
-
-# Initialize (generates .oxlintrc.json and .oxfmtrc.jsonc)
-bunx ultracite init --provider oxlint
-```
-
-**Oxfmt defaults:**
-
-- 2-space indentation
-- 80 character line width
-- Semicolons always
-- Single quotes
-- ES5 trailing commas
-
-### Bun-Native Patterns
-
-Leverage Bun's built-in capabilities:
-
-| Need     | Bun Pattern                 | Why                         |
-| -------- | --------------------------- | --------------------------- |
-| HTTP     | Native `fetch`              | Built-in, no package needed |
-| File I/O | `Bun.file()`, `Bun.write()` | Fast, streaming support     |
-| Shell    | `$` template literal        | Auto-escaping, clean syntax |
-| TOML     | `@std/toml`                 | Standard library            |
-| Build    | `bun build --compile`       | Single executable output    |
-
-**Shell execution example:**
-
-```typescript
-import { $ } from "bun";
-
-// Detect gh CLI auth
-const { exitCode, stdout } = await $`gh auth status`.nothrow();
-const authenticated = exitCode === 0;
-
-// Get token
-const token = (await $`gh auth token`.text()).trim();
-```
-
-**File streaming example:**
-
-```typescript
-// Append to JSONL without loading full file
-await Bun.write(cachePath, jsonLine + "\n", { append: true });
-
-// Stream read
-const file = Bun.file(cachePath);
-const text = await file.text();
+├── apps/
+│   ├── cli/                    # @outfitter/firewatch-cli
+│   │   ├── bin/fw.ts           # CLI entry point
+│   │   └── src/commands/       # Command implementations
+│   └── mcp/                    # @outfitter/firewatch-mcp
+├── packages/
+│   ├── core/                   # @outfitter/firewatch-core
+│   │   ├── auth.ts             # Adaptive auth
+│   │   ├── github.ts           # GraphQL + REST client
+│   │   ├── cache.ts            # XDG cache management
+│   │   ├── sync.ts             # Incremental sync logic
+│   │   ├── query.ts            # JSONL query engine
+│   │   ├── worklist.ts         # Per-PR summary aggregation
+│   │   ├── schema/             # Zod schemas
+│   │   └── plugins/            # Plugin interface
+│   └── shared/                 # Shared utilities
+└── docs/                        # Documentation
 ```
 
 ## Cache Structure
@@ -126,17 +54,13 @@ XDG Base Directory compliant (cross-platform via `env-paths`):
 ```
 ~/.cache/firewatch/              # XDG_CACHE_HOME/firewatch
 ├── repos/
-│   ├── outfitter-dev-ranger.jsonl
-│   └── outfitter-dev-blz.jsonl
+│   └── b64~<encoded-repo>.jsonl # Per-repo activity cache
 └── meta.jsonl                   # Sync state per repo
 
 ~/.config/firewatch/             # XDG_CONFIG_HOME/firewatch
 └── config.toml                  # User settings
 
 ./.firewatch.toml                # Project-local settings (repo root)
-
-~/.local/share/firewatch/        # XDG_DATA_HOME/firewatch
-└── (future: persistent data)
 ```
 
 ## JSONL Schema
@@ -195,6 +119,15 @@ interface FirewatchEntry {
 }
 ```
 
+## Worklist Summary
+
+`fw --summary` aggregates entries into per-PR summaries (WorklistEntry):
+
+- Counts of comments/reviews/commits/CI/events
+- Latest activity metadata
+- Review state counts
+- Graphite metadata (when available)
+
 ## Sync Metadata
 
 Tracks incremental sync state per repository:
@@ -208,123 +141,84 @@ Tracks incremental sync state per repository:
 
 Binary: `fw` (short for firewatch)
 
-### sync
-
-Fetch and update PR data from GitHub.
+### fw (query)
 
 ```bash
-fw sync                           # Sync all configured repos
-fw sync outfitter-dev/ranger      # Sync specific repo
-fw sync --full                    # Force full refresh (ignore cursor)
-fw sync --since 7d                # Only PRs updated in last 7 days
+fw                       # Actionable items (default)
+fw --summary             # Per-PR summary
+fw --since 24h           # Recent activity
+fw --type review         # Filter by entry type
+fw --prs 42,43           # Specific PRs
+fw --refresh             # Force sync before query
+fw --refresh full        # Full refresh (ignore cursor)
 ```
 
-Graphite stack metadata is auto-detected when running inside a Graphite-managed repo. You can also enable it by default with `graphite_enabled = true`.
-
-### check
-
-Refresh staleness hints in the local cache.
+### fw add
 
 ```bash
-fw check
-fw check outfitter-dev/ranger
+fw add 42 "LGTM"                           # Comment
+fw add 42 --review approve "Looks good"    # Review
+fw add 42 --label bug --label urgent       # Labels
 ```
 
-When running inside a repo, Firewatch uses local git history to match commit file paths for more accurate staleness hints.
-
-### query
-
-Filter and output JSONL to stdout. Pipe to `jq` for complex queries.
+### fw close
 
 ```bash
-fw query                          # All entries
-fw query --repo ranger            # Filter by repo (partial match)
-fw query --pr 42                  # Filter by PR number
-fw query --author galligan        # Filter by author
-fw query --type review            # Filter by type
-fw query --since 24h              # Filter by time
-fw query --stack                  # Show entries grouped by Graphite stack
-fw query --worklist               # Per-PR summary (stack-aware)
+fw close comment-2001 comment-2002         # Resolve threads
 ```
 
-### config
-
-Manage settings.
+### fw edit
 
 ```bash
-fw config show                    # Display current config
-fw config set repos "org/repo1,org/repo2"
-fw config set github-token <token>  # Optional if gh CLI works
-fw config set default-stack true
-fw config set --local default-stack true
+fw edit 42 --title "feat: update auth"     # Update title
+fw edit 42 --draft                         # Convert to draft
 ```
 
-### schema
-
-Print schema information for JSONL outputs.
+### fw rm
 
 ```bash
-fw schema                         # Query output schema (JSON)
-fw schema entry                   # Entry schema (JSON)
-fw schema worklist                # Worklist schema (JSON)
+fw rm 42 --label wip                       # Remove label
+fw rm 42 --milestone                       # Clear milestone
 ```
 
-### status
-
-Tight per-PR summary with minimal context:
+### fw status / config / doctor / schema
 
 ```bash
 fw status --short
-```
-
-### comment
-
-Post a comment and optionally resolve in one step:
-
-```bash
-fw comment 42 "Fixed in abc123" --reply-to comment-2001 --resolve
-```
-
-### resolve
-
-Resolve review comment threads by comment ID:
-
-```bash
-fw resolve comment-2001 comment-2002
+fw config user.github_username galligan
+fw doctor
+fw schema entry
 ```
 
 ## Example jq Workflows
 
 ```bash
 # Approved reviews in last 24 hours
-fw query --since 24h | jq 'select(.type == "review" and .state == "approved")'
+fw --since 24h | jq 'select(.type == "review" and .state == "approved")'
 
 # Comment count by author for PR 42
-fw query --pr 42 | jq -s 'group_by(.author) | map({author: .[0].author, count: length})'
+fw --prs 42 | jq -s 'group_by(.author) | map({author: .[0].author, count: length})'
 
-# All open PRs with pending reviews
-fw query --type review | jq -s '
+# All open PRs with changes requested
+fw --type review | jq -s '
   group_by(.pr) |
   map(select(any(.state == "changes_requested"))) |
   map(.[0] | {pr, pr_title, repo})
 '
 
 # Export to CSV (via jq)
-fw query | jq -r '[.repo, .pr, .type, .author, .created_at] | @csv'
+fw | jq -r '[.repo, .pr, .type, .author, .created_at] | @csv'
 
 # Find reviews for PRs in a Graphite stack
-fw query --type review | jq 'select(.graphite.stack_id == "feat-auth")'
-
-# Short status snapshot (worklist)
-fw status --short
+fw --type review | jq 'select(.graphite.stack_id == "feat-auth")'
 ```
 
 ## Authentication
 
 Adaptive auth detection (in order):
 
-1. **gh CLI** — If `gh auth status` succeeds, use `gh api graphql`
-2. **Environment variable** — `GITHUB_TOKEN` or `FIREWATCH_GITHUB_TOKEN`
+1. **gh CLI** — If `gh auth status` succeeds, use gh token
+2. **Environment variable** — `GITHUB_TOKEN` or `GH_TOKEN`
 3. **Config file** — Token in `~/.config/firewatch/config.toml`
 4. **Error** — Clear message explaining auth options
 
@@ -360,55 +254,7 @@ interface FirewatchPlugin {
 
 ### Graphite Plugin
 
-Enriches entries with Graphite stack context:
-
-Stack metadata fields are structured to map cleanly to GitHub's stacked PRs as those APIs roll out.
-
-```typescript
-// plugins/graphite/index.ts
-import { $ } from "bun";
-import type { FirewatchPlugin, FirewatchEntry } from "../types";
-
-export const graphitePlugin: FirewatchPlugin = {
-  name: "graphite",
-  version: "1.0.0",
-
-  async enrich(entry: FirewatchEntry): Promise<FirewatchEntry> {
-    // Get stack info for the PR's branch
-    const { stdout } = await $`gt log --json`.nothrow();
-    const stacks = JSON.parse(stdout.toString());
-
-    const stack = stacks.find((s: any) =>
-      s.branches.some((b: any) => b.prNumber === entry.pr)
-    );
-
-    if (stack) {
-      const position = stack.branches.findIndex(
-        (b: any) => b.prNumber === entry.pr
-      );
-      entry.graphite = {
-        stack_id: stack.name,
-        stack_position: position + 1,
-        stack_size: stack.branches.length,
-        parent_pr:
-          position > 0 ? stack.branches[position - 1].prNumber : undefined,
-      };
-    }
-
-    return entry;
-  },
-
-  queryFilters() {
-    return {
-      stack: (entry, value) => entry.graphite?.stack_id === value,
-      "stack-position": (entry, value) =>
-        entry.graphite?.stack_position === parseInt(value),
-    };
-  },
-};
-```
-
-**Use case**: Agents navigating stacked PRs can understand where a reviewed file exists in the stack hierarchy.
+Enriches entries with Graphite stack context when `gt` is available and stacks exist. The plugin adds `graphite` and `file_provenance` metadata during sync, enabling stack-aware sorting and provenance-aware fixes.
 
 ## MCP Server
 
@@ -418,76 +264,32 @@ The MCP server exposes a single tool with an action parameter:
 // MCP tool
 {
   name: "firewatch",
-  description: "GitHub PR activity (query/sync/check/status/comment/resolve)",
+  description: "GitHub PR activity (query/add/close/edit/rm/status/config/doctor/schema/help)",
   inputSchema: {
-    action: "query | sync | check | status | comment | resolve | schema | help",
+    action: "query | add | close | edit | rm | status | config | doctor | schema | help",
     repo?: "string",
     pr?: "number",
+    prs?: "number | number[] | string",
     type?: "comment | review | commit | ci | event",
     author?: "string",
     states?: "string[]",
     label?: "string",
     since?: "string",
-    worklist?: "boolean",
+    summary?: "boolean",
+    summary_short?: "boolean",
     status_short?: "boolean",
-    stack_id?: "string",
-    group_stack?: "boolean",
     body?: "string",
     reply_to?: "string",
     resolve?: "boolean",
+    review?: "approve | request-changes | comment",
+    labels?: "string | string[]",
+    reviewer?: "string | string[]",
+    assignee?: "string | string[]",
     comment_ids?: "string[]",
-    schema?: "query | entry | worklist"
+    schema?: "entry | worklist | config"
   }
 }
 ```
-
-This allows AI agents to query PR activity directly without shelling out to the CLI.
-
-## Implementation Phases
-
-### Phase 1: Project Setup
-
-- [ ] Initialize with Bun
-- [ ] Configure Ultracite (oxlint + oxfmt)
-- [ ] Set up tsconfig with strict mode
-- [ ] Create project structure (core/cli/plugins)
-
-### Phase 2: Core Library
-
-- [ ] Implement XDG path resolution (`env-paths`)
-- [ ] Implement adaptive auth detection (Bun shell `$`)
-- [ ] Define JSONL schema with Zod validation
-- [ ] Build GitHub GraphQL client (native fetch)
-- [ ] Implement cache read/write (Bun.file)
-- [ ] Incremental sync with cursor tracking
-
-### Phase 3: CLI (`fw`)
-
-- [ ] Wire up commander with core library
-- [ ] Implement `fw sync`
-- [ ] Implement `fw query`
-- [ ] Implement `fw config`
-- [ ] Global npm installation setup
-
-### Phase 4: Graphite Plugin
-
-- [ ] Plugin interface definition
-- [ ] Graphite stack detection via `gt log --json`
-- [ ] Enrich entries with stack metadata
-- [ ] Stack-aware query filters
-
-### Phase 5: Polish
-
-- [ ] README with examples
-- [ ] Shell completions (fish, zsh, bash)
-- [ ] Error handling and retry logic
-- [ ] Rate limit awareness
-
-### Phase 6: MCP Server (Future)
-
-- [ ] Define MCP tool schemas
-- [ ] Expose core functions as MCP tools
-- [ ] Separate package or optional entry point
 
 ## Dependencies
 
@@ -503,35 +305,3 @@ This allows AI agents to query PR activity directly without shelling out to the 
 - `bun` — Runtime and build
 - `typescript` — Type safety
 - `ultracite` — Linting/formatting (oxlint + oxfmt)
-
-### Optional (Plugin)
-
-- `@anthropic-ai/sdk` — MCP server (if building MCP interface)
-
-## Scripts
-
-```json
-{
-  "scripts": {
-    "dev": "bun --watch src/cli/index.ts",
-    "build": "bun build ./src/cli/index.ts --outfile dist/fw.js --minify",
-    "build:bin": "bun build ./bin/fw.ts --compile --outfile dist/fw",
-    "lint": "bunx oxlint",
-    "format": "bunx oxfmt --write .",
-    "check": "bunx oxlint && bunx tsc --noEmit",
-    "test": "bun test",
-    "prepublishOnly": "bun run check && bun run build"
-  }
-}
-```
-
-## Open Questions (Deferred)
-
-- **npm name**: Verify `firewatch` availability (fallback: `@outfitter/firewatch`)
-- **Worker protocol**: How CLI connects to optional webhook worker
-- **MCP packaging**: Separate package or single package with multiple entry points
-
----
-
-_Generated from pathfinding session on 2026-01-11_
-_Updated with Bun patterns, Ultracite tooling, and Graphite plugin_

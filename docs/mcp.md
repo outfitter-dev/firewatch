@@ -1,6 +1,6 @@
 # MCP Server
 
-Firewatch provides an MCP (Model Context Protocol) server for AI agent integration. The server exposes PR activity data through a single tool interface.
+Firewatch provides an MCP (Model Context Protocol) server for AI agent integration. The server exposes PR activity data and write operations through a single tool interface.
 
 ## Quick Start
 
@@ -44,7 +44,7 @@ Or with the built binary:
 
 ## Tool Design
 
-Firewatch exposes a **single tool** called `firewatch` with an `action` parameter. This design keeps the interface simple while supporting all operations.
+Firewatch exposes a **single tool** called `firewatch` with an `action` parameter.
 
 ### Tool Schema
 
@@ -53,7 +53,7 @@ Firewatch exposes a **single tool** called `firewatch` with an `action` paramete
   name: "firewatch",
   description: "GitHub PR activity query tool. Outputs JSONL for jq.",
   parameters: {
-    action: "query" | "sync" | "check" | "status" | "comment" | "resolve" | "schema" | "help",
+    action: "query" | "add" | "close" | "edit" | "rm" | "status" | "config" | "doctor" | "schema" | "help",
     // ... additional parameters per action
   }
 }
@@ -68,8 +68,9 @@ Filter cached PR activity entries.
 ```json
 {"action": "query", "since": "24h"}
 {"action": "query", "type": "review", "author": "alice"}
-{"action": "query", "pr": 42, "worklist": true}
+{"action": "query", "prs": "23,34", "summary": true}
 {"action": "query", "states": ["open", "draft"], "limit": 10}
+{"action": "query", "summary": true, "summary_short": true}
 ```
 
 **Parameters:**
@@ -78,77 +79,39 @@ Filter cached PR activity entries.
 |-----------|------|-------------|
 | `repo` | string | Filter by repository |
 | `pr` | number | Filter by PR number |
-| `type` | string | Filter by type: `comment`, `review`, `commit`, `ci`, `event` |
-| `author` | string | Filter by author |
+| `prs` | number \| number[] \| string | Filter by multiple PRs (comma-separated string allowed) |
+| `type` | string \| string[] | Entry type(s): `comment`, `review`, `commit`, `ci`, `event` |
+| `author` | string \| string[] | Filter by author (prefix with `!` to exclude) |
 | `states` | string[] | Filter by PR state: `open`, `closed`, `merged`, `draft` |
+| `state` | string \| string[] | Explicit state list (comma-separated allowed) |
+| `open` | boolean | Include open PRs |
+| `closed` | boolean | Include closed + merged PRs |
+| `draft` | boolean | Include draft PRs |
+| `active` | boolean | Include open + draft PRs |
 | `label` | string | Filter by label |
 | `since` | string | Time filter: `24h`, `7d`, etc. |
 | `limit` | number | Maximum results |
 | `offset` | number | Skip N results |
-| `stack_id` | string | Filter by Graphite stack |
-| `group_stack` | boolean | Group by stack |
-| `worklist` | boolean | Return aggregated per-PR summary |
+| `summary` | boolean | Return aggregated per-PR summary |
+| `summary_short` | boolean | Compact summary output (requires `summary`) |
+| `mine` | boolean | PRs authored by `user.github_username` |
+| `reviews` | boolean | PRs authored by others (review queue) |
+| `no_bots` | boolean | Exclude bot activity |
+| `all` | boolean | Include all cached repositories |
+| `refresh` | boolean \| "full" | Force sync before query |
+| `offline` | boolean | Use cache only (no network) |
 
-### sync
+Note: `mine` and `reviews` require `user.github_username` to be set in config.
 
-Fetch PR data from GitHub.
+### add
 
-```json
-{"action": "sync"}
-{"action": "sync", "repo": "org/repo"}
-{"action": "sync", "since": "7d", "full": false}
-```
-
-**Parameters:**
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `repo` | string | Repository to sync |
-| `since` | string | Only recent PRs |
-| `full` | boolean | Force full refresh |
-
-### status
-
-Get PR activity summary.
+Add content or metadata to PRs.
 
 ```json
-{"action": "status"}
-{"action": "status", "states": ["open"], "status_short": true}
-```
-
-**Parameters:**
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `repo` | string | Filter by repository |
-| `pr` | number | Filter by PR |
-| `states` | string[] | Filter by state |
-| `label` | string | Filter by label |
-| `since` | string | Time filter |
-| `status_short` | boolean | Compact output |
-
-### check
-
-Refresh staleness hints.
-
-```json
-{"action": "check"}
-{"action": "check", "repo": "org/repo"}
-```
-
-**Parameters:**
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `repo` | string | Repository to check |
-
-### comment
-
-Post a PR comment or reply.
-
-```json
-{"action": "comment", "pr": 42, "body": "Thanks for the review!"}
-{"action": "comment", "pr": 42, "body": "Fixed", "reply_to": "comment-123", "resolve": true}
+{"action": "add", "pr": 42, "body": "Thanks for the review!"}
+{"action": "add", "pr": 42, "body": "Fixed", "reply_to": "comment-123", "resolve": true}
+{"action": "add", "pr": 42, "review": "approve", "body": "LGTM"}
+{"action": "add", "pr": 42, "labels": ["bug", "priority-high"]}
 ```
 
 **Parameters:**
@@ -157,26 +120,69 @@ Post a PR comment or reply.
 |-----------|------|-------------|
 | `repo` | string | Repository |
 | `pr` | number | PR number (required) |
-| `body` | string | Comment text (required) |
+| `body` | string | Comment/review body |
 | `reply_to` | string | Comment ID to reply to |
 | `resolve` | boolean | Resolve thread after reply |
+| `review` | string | `approve`, `request-changes`, `comment` |
+| `labels` | string \| string[] | Labels to add |
+| `reviewer` | string \| string[] | Reviewers to request |
+| `assignee` | string \| string[] | Assignees to add |
 
-### resolve
+### close
 
-Resolve review threads.
+Resolve review comment threads.
 
 ```json
-{"action": "resolve", "comment_ids": ["comment-123", "comment-456"]}
-{"action": "resolve", "comment_ids": ["comment-123"], "repo": "org/repo", "pr": 42}
+{"action": "close", "comment_id": "comment-123"}
+{"action": "close", "comment_ids": ["comment-123", "comment-456"]}
 ```
 
-**Parameters:**
+### edit
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `comment_ids` | string[] | Comment IDs to resolve (required) |
-| `repo` | string | Repository (optional, for cache bypass) |
-| `pr` | number | PR number (optional, for cache bypass) |
+Update PR fields or state.
+
+```json
+{"action": "edit", "pr": 42, "title": "feat: update auth"}
+{"action": "edit", "pr": 42, "draft": true}
+{"action": "edit", "pr": 42, "milestone": "v1.0"}
+```
+
+### rm
+
+Remove metadata from PRs.
+
+```json
+{"action": "rm", "pr": 42, "labels": ["wip"]}
+{"action": "rm", "pr": 42, "assignee": "galligan"}
+{"action": "rm", "pr": 42, "milestone": true}
+```
+
+### status
+
+Get Firewatch state information (auth/config/cache).
+
+```json
+{"action": "status"}
+{"action": "status", "status_short": true}
+```
+
+### config
+
+Read Firewatch configuration (read-only).
+
+```json
+{"action": "config"}
+{"action": "config", "key": "user.github_username"}
+{"action": "config", "path": true}
+```
+
+### doctor
+
+Diagnose setup (auth, cache, repo, GitHub API).
+
+```json
+{"action": "doctor"}
+```
 
 ### schema
 
@@ -186,13 +192,8 @@ Get schema documentation.
 {"action": "schema"}
 {"action": "schema", "schema": "entry"}
 {"action": "schema", "schema": "worklist"}
+{"action": "schema", "schema": "config"}
 ```
-
-**Parameters:**
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `schema` | string | Schema name: `query`, `entry`, `worklist` |
 
 ### help
 
@@ -213,7 +214,7 @@ All actions return JSONL (newline-delimited JSON). Each line is a complete JSON 
 {"id":"review-456","repo":"org/repo","pr":42,"type":"review","state":"approved",...}
 ```
 
-### Worklist Output
+### Summary Output
 
 ```json
 {"repo":"org/repo","pr":42,"pr_title":"Feature","counts":{"comments":3,"reviews":1,...},...}
@@ -225,62 +226,9 @@ All actions return JSONL (newline-delimited JSON). Each line is a complete JSON 
 {"ok":true,"repo":"org/repo","pr":42,"comment_id":"IC_abc123"}
 ```
 
-## Agent Workflows
-
-### Discovery Flow
-
-1. Start with schema to understand fields:
-   ```json
-   {"action": "schema"}
-   ```
-
-2. Get current status:
-   ```json
-   {"action": "status", "status_short": true}
-   ```
-
-3. Query specific data:
-   ```json
-   {"action": "query", "type": "review", "states": ["open"]}
-   ```
-
-### Review Flow
-
-1. Check for pending reviews:
-   ```json
-   {"action": "query", "type": "review", "states": ["open"]}
-   ```
-
-2. Get specific PR details:
-   ```json
-   {"action": "query", "pr": 42}
-   ```
-
-3. Address feedback and resolve:
-   ```json
-   {"action": "comment", "pr": 42, "body": "Fixed in abc123", "reply_to": "comment-123", "resolve": true}
-   ```
-
-### Sync Flow
-
-1. Sync latest data:
-   ```json
-   {"action": "sync"}
-   ```
-
-2. Update staleness hints:
-   ```json
-   {"action": "check"}
-   ```
-
-3. Query with fresh data:
-   ```json
-   {"action": "query", "since": "24h"}
-   ```
-
 ## Auto-Sync Behavior
 
-When querying a repository with no cache, the MCP server automatically syncs before returning results. This makes the tool self-bootstrapping.
+The MCP server auto-syncs when cache data is missing or stale (configurable via `sync.stale_threshold`). Use `refresh` to force sync or `offline` to skip network calls.
 
 ## Authentication
 
@@ -291,31 +239,6 @@ The MCP server uses the same authentication chain as the CLI:
 3. `github_token` in config file
 
 Ensure one of these is configured before using the server.
-
-## Example Session
-
-```
-Agent: {"action": "schema"}
-Server: {"name":"FirewatchEntry","fields":{...}}
-
-Agent: {"action": "status", "states": ["open"], "status_short": true}
-Server: {"repo":"org/repo","pr":42,"pr_title":"Add feature","comments":3,"changes_requested":1}
-
-Agent: {"action": "query", "pr": 42, "type": "comment"}
-Server: {"id":"comment-123","body":"Consider error handling","file":"src/index.ts",...}
-{"id":"comment-456","body":"Naming could be clearer","file":"src/utils.ts",...}
-
-Agent: {"action": "comment", "pr": 42, "body": "Addressed all feedback", "reply_to": "comment-123", "resolve": true}
-Server: {"ok":true,"repo":"org/repo","pr":42,"comment_id":"PRRC_abc","resolved":true}
-```
-
-## Tips for Agents
-
-1. **Start with schema** - Understand available fields before querying
-2. **Use status_short** - Get a quick overview before diving deep
-3. **Filter server-side** - Use parameters instead of post-processing
-4. **Auto-sync works** - No need to explicitly sync for basic queries
-5. **Batch resolves** - Use `comment_ids` array for multiple threads
 
 ## See Also
 

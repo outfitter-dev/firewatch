@@ -5,7 +5,7 @@ import {
 } from "@outfitter/firewatch-core";
 import { Command } from "commander";
 
-import { parseRepoInput, resolveRepoOrThrow } from "../repo";
+import { parseRepoInput, parsePrNumber, resolveRepoOrThrow } from "../repo";
 import { writeJsonLine } from "../utils/json";
 import { shouldOutputJson } from "../utils/tty";
 
@@ -16,7 +16,6 @@ interface RmCommandOptions {
   assignee?: string[];
   milestone?: boolean;
   json?: boolean;
-  noJson?: boolean;
 }
 
 function collect(value: string, previous: string[] = []): string[] {
@@ -25,7 +24,7 @@ function collect(value: string, previous: string[] = []): string[] {
 
 export const rmCommand = new Command("rm")
   .description("Remove labels, reviewers, assignees, or milestone from PRs")
-  .argument("<pr>", "PR number", Number.parseInt)
+  .argument("<pr>", "PR number", parsePrNumber)
   .option("--repo <name>", "Repository (owner/repo format)")
   .option("--label <name>", "Remove label (repeatable)", collect)
   .option("--reviewer <user>", "Remove reviewer (repeatable)", collect)

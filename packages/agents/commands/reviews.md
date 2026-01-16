@@ -5,8 +5,8 @@ allowed-tools: Bash(fw *)
 
 # Pending Reviews
 
-## Review Comments (Last 24h)
-!`fw query --type review --since 24h 2>&1`
+## Review Activity (Last 24h)
+!`fw --type review --since 24h 2>&1`
 
 ## Summary
 

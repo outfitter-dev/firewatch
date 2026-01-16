@@ -10,8 +10,8 @@ allowed-tools: Bash(fw *)
 
 ## Available Plugin Commands
 
-- `/firewatch:status` - Show PR activity summary and worklist
-- `/firewatch:sync` - Sync PR activity from GitHub
+- `/firewatch:status` - Show PR activity summary
+- `/firewatch:sync` - Force a refresh before querying
 - `/firewatch:reviews` - Show pending reviews needing attention
 - `/firewatch:help` - This help message
 
@@ -21,13 +21,13 @@ Firewatch outputs JSONL for easy jq composition:
 
 ```bash
 # Get all review comments from last 24h
-fw query --type review --since 24h | jq '.body'
+fw --type review --since 24h | jq '.body'
 
 # Find PRs with changes requested
-fw status | jq 'select(.review_states.changes_requested > 0)'
+fw --summary | jq 'select(.review_states.changes_requested > 0)'
 
 # Group activity by author
-fw query --since 7d | jq -s 'group_by(.author) | map({author: .[0].author, count: length})'
+fw --since 7d | jq -s 'group_by(.author) | map({author: .[0].author, count: length})'
 ```
 
 Use `fw schema` to see all available fields.

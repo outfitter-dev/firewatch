@@ -18,7 +18,6 @@ interface ConfigCommandOptions {
   path?: boolean;
   local?: boolean;
   json?: boolean;
-  noJson?: boolean;
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {

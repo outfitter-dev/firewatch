@@ -11,8 +11,8 @@ Systematic review of PR activity to identify priorities and blockers.
 ## Triage Flow
 
 ```
-1. Sync latest data
-2. Get worklist overview
+1. Refresh data if needed
+2. Get summary overview
 3. Identify priorities by category
 4. Recommend actions
 ```
@@ -20,15 +20,14 @@ Systematic review of PR activity to identify priorities and blockers.
 ## Quick Triage
 
 ```bash
-# Sync and get overview
-fw sync
-fw status --short
+# Refresh and get overview
+fw --refresh --summary
 
 # Find PRs needing review response
-fw query --type review --since 24h | jq 'select(.state == "changes_requested")'
+fw --type review --since 24h | jq 'select(.state == "changes_requested")'
 
 # Find stale PRs (no activity in 3+ days)
-fw status | jq 'select(.last_activity_at < (now - 259200 | todate))'
+fw --summary | jq 'select(.last_activity_at < (now - 259200 | todate))'
 ```
 
 ## Priority Categories
@@ -72,11 +71,11 @@ Present findings as:
 If using Graphite stacks:
 
 ```bash
-# Show stack-aware status
-fw status --short | jq 'select(.stack_id)'
+# Show stack-aware summary
+fw --summary | jq 'select(.graphite != null)'
 
 # Find blocked stacks (lower PR has issues)
-fw status | jq 'select(.stack_position > 1 and .review_states.changes_requested > 0)'
+fw --summary | jq 'select(.graphite.stack_position > 1 and .review_states.changes_requested > 0)'
 ```
 
 Recommend addressing stack issues bottom-up.
