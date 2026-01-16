@@ -10,7 +10,11 @@ Situation report on PR activity. Quick scan first, then detailed check if anythi
 
 ## Pre-run Context
 
+### Open PRs (actionable)
 !`bun apps/cli/bin/fw.ts --refresh --open --summary --json 2>/dev/null | jq -c '{pr, title: .pr_title, state: .pr_state, stack_pos: .graphite.stack_position, comments: .counts.comments, reviews: .counts.reviews, changes_requested: .review_states.changes_requested}'`
+
+### Merged/Closed PRs with unresolved comments (orphaned)
+!`bun apps/cli/bin/fw.ts --orphaned --json 2>/dev/null | jq -c '{pr, pr_state, pr_title, file, body: .body[0:80]}' | head -10`
 
 ## Skill Context
 
