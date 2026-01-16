@@ -5,10 +5,17 @@
         "source": "github",
         "repo": "outfitter-dev/agents"
       }
+    },
+    "local": {
+      "source": {
+        "source": "directory",
+        "path": "./packages/agents"
+      }
     }
   },
   "enabledPlugins": {
     "baselayer@outfitter": true,
-    "agent-kit@outfitter": true
+    "agent-kit@outfitter": true,
+    "firewatch@local": true
   }
 }

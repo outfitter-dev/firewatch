@@ -1,8 +1,8 @@
 ---
-name: fw-cli-testing
-description: Parallel CLI stress testing using orchestrated subagents. Spawns specialized agents to test different CLI domains simultaneously, aggregating results into structured reports. Supports discovery mode (agents analyze CLI structure) and directive mode (runbooks specify tests). Use when stress testing the Firewatch CLI, validating commands, or running comprehensive test coverage.
-user-invocable: true
+name: cli-testing
+description: CLI testing guidance and patterns. Loaded by /ops/test/cli command or subagents for comprehensive testing.
 compatibility: Requires Bun runtime and firewatch project structure (apps/cli/)
+allowed-tools: Read Glob Grep Skill TodoWrite Bash(./.claude/scripts/run-tests.sh *) Bash(bun apps/cli/bin/fw.ts *)
 metadata:
   author: outfitter-dev
   version: "1.0"
@@ -292,8 +292,43 @@ After agents complete, aggregate into a summary:
 
 ## Agent Tips
 
-1. **Use `--help` liberally** — Every command should have help
-2. **Test exit codes** — `echo $?` after commands
-3. **Validate JSONL** — Pipe to `jq .` to check valid JSON
-4. **Document unexpected** — Even "works" can be WARN if surprising
-5. **Compare to docs** — Flag mismatches are common findings
+1. **Use `--help` liberally** - Every command should have help
+2. **Test exit codes** - `echo $?` after commands
+3. **Validate JSONL** - Pipe to `jq .` to check valid JSON
+4. **Document unexpected** - Even "works" can be WARN if surprising
+5. **Compare to docs** - Flag mismatches are common findings
+
+## Automated Script Testing
+
+For deterministic, CI-friendly testing, use the script runner instead of agent-based testing:
+
+```bash
+# Run specific category
+./.claude/scripts/run-tests.sh query-validation
+
+# Run all categories (~45 tests)
+./.claude/scripts/run-tests.sh --all
+```
+
+Or via command: `/ops/test/cli [category|--all]`
+
+### Script Test Categories
+
+| Category | Tests | Focus |
+|----------|-------|-------|
+| `query-validation` | ~9 | Root command filters, flag conflicts |
+| `mutation-validation` | ~12 | add/edit/rm/close validation rules |
+| `output-modes` | ~9 | --json, --short, schema variants |
+| `error-taxonomy` | ~6 | Error messages, exit codes |
+| `edge-cases` | ~9 | Boundaries, malformed input |
+
+### When to Use Script vs Agent Testing
+
+| Aspect | Script Tests | Agent Tests |
+|--------|-------------|-------------|
+| Speed | Fast (~10s) | Slower (parallel but heavier) |
+| Coverage | Fixed test cases | Discovery-based, adapts |
+| CI-friendly | Yes | Requires agent infrastructure |
+| Maintenance | Update script | Self-discovering |
+
+Use **script tests** for quick, reproducible validation. Use **agent tests** for comprehensive discovery and exploratory testing.
