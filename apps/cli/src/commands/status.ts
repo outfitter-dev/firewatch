@@ -1,18 +1,18 @@
-import { existsSync, readdirSync, statSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 
 import {
   GitHubClient,
   PATHS,
+  countEntries,
   detectAuth,
   detectRepo,
   ensureDirectories,
+  getAllSyncMeta,
   getConfigPaths,
+  getDatabase,
   getProjectConfigPath,
+  getRepos,
   loadConfig,
-  parseRepoCacheFilename,
-  readEntriesJsonl,
-  readJsonl,
-  type SyncMetadata,
 } from "@outfitter/firewatch-core";
 import { getGraphiteStacks } from "@outfitter/firewatch-core/plugins";
 import { Command } from "commander";
@@ -43,37 +43,36 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-async function getCacheSummary(): Promise<CacheSummary> {
-  if (!existsSync(PATHS.repos)) {
+function getCacheSummary(): CacheSummary {
+  // Check if database exists
+  if (!existsSync(PATHS.db)) {
     return { repos: 0, entries: 0, size_bytes: 0 };
   }
 
-  const files = readdirSync(PATHS.repos).filter((f) => f.endsWith(".jsonl"));
-  let repos = 0;
-  let entries = 0;
-  let sizeBytes = 0;
+  const db = getDatabase();
 
-  for (const file of files) {
-    const repo = parseRepoCacheFilename(file.replace(".jsonl", ""));
-    if (!repo) {
-      continue;
-    }
-    repos += 1;
-    const filePath = `${PATHS.repos}/${file}`;
-    const stats = statSync(filePath);
-    sizeBytes += stats.size;
-    const items = await readEntriesJsonl(filePath);
-    entries += items.length;
+  // Get repo count and entry count from SQLite
+  const repos = getRepos(db).length;
+  const entries = countEntries(db);
+
+  // Get database file size
+  let sizeBytes = 0;
+  try {
+    const stats = statSync(PATHS.db);
+    sizeBytes = stats.size;
+  } catch {
+    // File might not exist yet
   }
 
+  // Get last sync time from sync metadata
   let last_sync: string | undefined;
-  const meta = await readJsonl<SyncMetadata>(PATHS.meta);
-  for (const entry of meta) {
-    if (!entry.last_sync) {
+  const syncMeta = getAllSyncMeta(db);
+  for (const meta of syncMeta) {
+    if (!meta.last_sync) {
       continue;
     }
-    if (!last_sync || entry.last_sync > last_sync) {
-      last_sync = entry.last_sync;
+    if (!last_sync || meta.last_sync > last_sync) {
+      last_sync = meta.last_sync;
     }
   }
 
@@ -104,7 +103,7 @@ export const statusCommand = new Command("status")
         : false;
 
       const detected = await detectRepo();
-      const cache = await getCacheSummary();
+      const cache = getCacheSummary();
 
       const auth = await detectAuth(config.github_token);
       let authLogin: string | undefined;
