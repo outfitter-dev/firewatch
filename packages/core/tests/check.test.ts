@@ -225,7 +225,7 @@ test("checkRepo falls back to all commits when file lists are partial", async ()
   ]);
   await checkRepo(repo, {
     resolveCommitFiles: (commitId: string) =>
-      Promise.resolve(filesByCommit.get(commitId) ?? null),
+      Promise.resolve(filesByCommit.get(commitId) as string[] | null),
   });
 
   const updated = await readJsonl<FirewatchEntry>(getRepoCachePath(repo));

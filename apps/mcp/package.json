@@ -1,0 +1,25 @@
+{
+  "name": "@outfitter/firewatch-mcp",
+  "version": "0.1.0",
+  "description": "MCP server for Firewatch",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "bin": {
+    "fw-mcp": "./bin/fw-mcp.ts"
+  },
+  "scripts": {
+    "dev": "bun --watch bin/fw-mcp.ts",
+    "build": "bun build ./bin/fw-mcp.ts --outfile dist/fw-mcp.js",
+    "check": "bunx tsc -b"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@outfitter/firewatch-core": "workspace:*",
+    "zod": "^4.3.5"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}

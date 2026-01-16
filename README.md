@@ -243,6 +243,16 @@ Custom alias example:
 ./scripts/symlink-dev.sh fw-waymark
 ```
 
+## MCP Server
+
+Run the MCP server over stdio:
+
+```bash
+bun run --filter @outfitter/firewatch-mcp dev
+```
+
+The server exposes a single tool, `firewatch`, with an `action` parameter (e.g. `query`, `sync`, `status`, `comment`, `resolve`, `check`).
+
 ## License
 
 MIT
