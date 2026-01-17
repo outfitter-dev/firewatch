@@ -134,6 +134,8 @@ function reviewThreadEntries(
         url: pr.url,
         file: thread.path,
         line: thread.line ?? undefined,
+        // Track thread resolution state for orphaned comment detection
+        thread_resolved: thread.isResolved,
       });
     }
   }

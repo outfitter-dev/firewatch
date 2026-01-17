@@ -160,7 +160,8 @@ export async function checkRepoDb(
   let entriesUpdated = 0;
 
   // Track updates for batch processing
-  const updates: { id: string; activity: FileActivityAfter }[] = [];
+  const updates: { id: string; repo: string; activity: FileActivityAfter }[] =
+    [];
 
   for (const entry of entries) {
     if (entry.type !== "comment") {

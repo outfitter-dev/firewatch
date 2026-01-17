@@ -10,7 +10,6 @@ import {
   ensureDirectories,
   getAllSyncMeta,
   getDatabase,
-  getRepoCachePath,
   getSyncMeta,
   loadConfig,
   mergeExcludeAuthors,
@@ -60,6 +59,7 @@ interface RootCommandOptions {
   closed?: boolean;
   draft?: boolean;
   active?: boolean;
+  orphaned?: boolean;
   state?: string;
   type?: string;
   label?: string;
@@ -168,6 +168,24 @@ function resolveBotPatterns(config: FirewatchConfig): RegExp[] | undefined {
     }
   }
   return compiled.length > 0 ? compiled : undefined;
+}
+
+/**
+ * Resolve the effective since filter.
+ * Priority: explicit option > orphaned default (7d) > undefined
+ */
+function resolveSinceFilter(
+  since: string | undefined,
+  orphaned: boolean | undefined
+): Date | undefined {
+  const DEFAULT_ORPHANED_SINCE = "7d";
+  if (since) {
+    return parseSince(since);
+  }
+  if (orphaned) {
+    return parseSince(DEFAULT_ORPHANED_SINCE);
+  }
+  return undefined;
 }
 
 function resolveAuthorFilters(
@@ -391,6 +409,7 @@ program
   .option("--closed", "Include merged and closed PRs")
   .option("--draft", "Filter to draft PRs")
   .option("--active", "Alias for --open --draft")
+  .option("--orphaned", "Unresolved review comments on merged/closed PRs")
   .option("--state <states>", "Explicit comma-separated PR states")
   .option(
     "--type <types>",
@@ -431,6 +450,11 @@ program
 
       if (options.mine && options.reviews) {
         console.error("Cannot use both --mine and --reviews together.");
+        process.exit(1);
+      }
+
+      if (options.orphaned && options.open) {
+        console.error("--orphaned cannot be used with --open (orphaned implies merged/closed PRs).");
         process.exit(1);
       }
 
@@ -480,10 +504,14 @@ program
         ...(options.closed && { closed: true }),
         ...(options.draft && { draft: true }),
         ...(options.active && { active: true }),
+        ...(options.orphaned && { orphaned: true }),
       });
 
       const authorFilters = resolveAuthorFilters(options, config);
       const includeAuthors = authorFilters.includeAuthors;
+
+      // Resolve effective since: explicit option > orphaned default (7d) > undefined
+      const effectiveSince = resolveSinceFilter(options.since, options.orphaned);
 
       const entries = await queryEntries({
         filters: {
@@ -492,7 +520,7 @@ program
           ...(types.length > 0 && { type: types }),
           ...(states && { states }),
           ...(options.label && { label: options.label }),
-          ...(options.since && { since: parseSince(options.since) }),
+          ...(effectiveSince && { since: effectiveSince }),
           ...(authorFilters.excludeAuthors && {
             excludeAuthors: authorFilters.excludeAuthors,
           }),
@@ -500,6 +528,7 @@ program
           ...(authorFilters.botPatterns && {
             botPatterns: authorFilters.botPatterns,
           }),
+          ...(options.orphaned && { orphaned: true }),
         },
         ...(options.limit !== undefined && { limit: options.limit }),
         ...(options.offset !== undefined && { offset: options.offset }),
@@ -600,6 +629,14 @@ program.addCommand(configCommand);
 program.addCommand(doctorCommand);
 program.addCommand(schemaCommand);
 program.addCommand(mcpCommand);
+
+// Explicit help command since root action intercepts unknown args
+program
+  .command("help")
+  .description("Display help for fw")
+  .action(() => {
+    program.help();
+  });
 
 export { program };
 

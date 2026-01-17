@@ -11,7 +11,7 @@ import { Database } from "bun:sqlite";
  * Current schema version.
  * Increment this when making schema changes and add migration logic.
  */
-export const CURRENT_SCHEMA_VERSION = 1;
+export const CURRENT_SCHEMA_VERSION = 2;
 
 /**
  * Opens a SQLite database with optimal settings for Firewatch.
@@ -106,6 +106,7 @@ CREATE TABLE IF NOT EXISTS entries (
   url TEXT,
   file TEXT,
   line INTEGER,
+  thread_resolved INTEGER,
   graphite_json TEXT,
   file_activity_json TEXT,
   file_provenance_json TEXT,
@@ -126,6 +127,7 @@ CREATE INDEX IF NOT EXISTS idx_entries_repo_pr ON entries(repo, pr);
 CREATE INDEX IF NOT EXISTS idx_entries_type ON entries(type);
 CREATE INDEX IF NOT EXISTS idx_entries_created ON entries(created_at);
 CREATE INDEX IF NOT EXISTS idx_entries_author ON entries(author);
+CREATE INDEX IF NOT EXISTS idx_entries_thread_resolved ON entries(thread_resolved);
 CREATE INDEX IF NOT EXISTS idx_prs_state ON prs(repo, state);
 CREATE INDEX IF NOT EXISTS idx_prs_author ON prs(repo, author);
 `;
@@ -168,17 +170,19 @@ export function migrateSchema(db: Database, targetVersion: number): void {
   db.transaction(() => {
     let version = currentVersion;
 
-    // Add migration cases as schema evolves
-    // Example for future migrations:
-    // if (version === 1 && targetVersion >= 2) {
-    //   db.exec("ALTER TABLE entries ADD COLUMN new_field TEXT");
-    //   version = 2;
-    // }
-
     // For version 0 -> 1, we just create the schema
     if (version === 0 && targetVersion >= 1) {
       db.exec(SCHEMA_SQL);
       version = 1;
+    }
+
+    // Migration 1 -> 2: Add thread_resolved column for orphaned comment tracking
+    if (version === 1 && targetVersion >= 2) {
+      db.exec("ALTER TABLE entries ADD COLUMN thread_resolved INTEGER");
+      db.exec(
+        "CREATE INDEX IF NOT EXISTS idx_entries_thread_resolved ON entries(thread_resolved)"
+      );
+      version = 2;
     }
 
     setSchemaVersion(db, version);

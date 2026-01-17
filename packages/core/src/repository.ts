@@ -57,6 +57,7 @@ interface EntryRow {
   url: string | null;
   file: string | null;
   line: number | null;
+  thread_resolved: number | null;
   graphite_json: string | null;
   file_activity_json: string | null;
   file_provenance_json: string | null;
@@ -142,10 +143,25 @@ function getStatement(db: Database, name: string, sql: string): AnyStatement {
 // =============================================================================
 
 /**
+ * Serialize thread_resolved boolean to SQLite integer.
+ * true -> 1, false -> 0, undefined -> null
+ */
+function serializeThreadResolved(
+  value: boolean | undefined
+): number | null {
+  if (value === undefined) {
+    return null;
+  }
+  return value ? 1 : 0;
+}
+
+/**
  * Convert a FirewatchEntry to a database row.
  * Serializes nested objects to JSON.
  */
 function entryToRow(entry: FirewatchEntry): EntryRow {
+  const threadResolved = serializeThreadResolved(entry.thread_resolved);
+
   return {
     id: entry.id,
     repo: entry.repo,
@@ -161,6 +177,7 @@ function entryToRow(entry: FirewatchEntry): EntryRow {
     url: entry.url ?? null,
     file: entry.file ?? null,
     line: entry.line ?? null,
+    thread_resolved: threadResolved,
     graphite_json: entry.graphite ? JSON.stringify(entry.graphite) : null,
     file_activity_json: entry.file_activity_after
       ? JSON.stringify(entry.file_activity_after)
@@ -180,6 +197,64 @@ function derivePrState(prState: string, isDraft: boolean): PrState {
     return "draft";
   }
   return prState as PrState;
+}
+
+/**
+ * Apply optional simple fields from row to entry.
+ */
+function applyOptionalFields(entry: FirewatchEntry, row: EntryWithPRRow): void {
+  if (row.subtype) {
+    entry.subtype = row.subtype;
+  }
+  if (row.body) {
+    entry.body = row.body;
+  }
+  if (row.state) {
+    entry.state = row.state;
+  }
+  if (row.updated_at) {
+    entry.updated_at = row.updated_at;
+  }
+  if (row.url) {
+    entry.url = row.url;
+  }
+  if (row.file) {
+    entry.file = row.file;
+  }
+  if (row.line !== null) {
+    entry.line = row.line;
+  }
+  // Deserialize thread_resolved: 0/1 -> boolean, null -> undefined
+  if (row.thread_resolved !== null) {
+    entry.thread_resolved = row.thread_resolved === 1;
+  }
+}
+
+/**
+ * Apply optional JSON fields from row to entry.
+ */
+function applyJsonFields(entry: FirewatchEntry, row: EntryWithPRRow): void {
+  if (row.graphite_json) {
+    try {
+      entry.graphite = JSON.parse(row.graphite_json) as GraphiteMetadata;
+    } catch {
+      // Ignore parse errors
+    }
+  }
+  if (row.file_activity_json) {
+    try {
+      entry.file_activity_after = JSON.parse(row.file_activity_json) as FileActivityAfter;
+    } catch {
+      // Ignore parse errors
+    }
+  }
+  if (row.file_provenance_json) {
+    try {
+      entry.file_provenance = JSON.parse(row.file_provenance_json) as FileProvenance;
+    } catch {
+      // Ignore parse errors
+    }
+  }
 }
 
 /**
@@ -213,55 +288,8 @@ export function rowToEntry(row: EntryWithPRRow): FirewatchEntry {
     }
   }
 
-  // Optional entry fields
-  if (row.subtype) {
-    entry.subtype = row.subtype;
-  }
-  if (row.body) {
-    entry.body = row.body;
-  }
-  if (row.state) {
-    entry.state = row.state;
-  }
-  if (row.updated_at) {
-    entry.updated_at = row.updated_at;
-  }
-  if (row.url) {
-    entry.url = row.url;
-  }
-  if (row.file) {
-    entry.file = row.file;
-  }
-  if (row.line !== null) {
-    entry.line = row.line;
-  }
-
-  // Deserialize JSON fields
-  if (row.graphite_json) {
-    try {
-      entry.graphite = JSON.parse(row.graphite_json) as GraphiteMetadata;
-    } catch {
-      // Ignore parse errors
-    }
-  }
-  if (row.file_activity_json) {
-    try {
-      entry.file_activity_after = JSON.parse(
-        row.file_activity_json
-      ) as FileActivityAfter;
-    } catch {
-      // Ignore parse errors
-    }
-  }
-  if (row.file_provenance_json) {
-    try {
-      entry.file_provenance = JSON.parse(
-        row.file_provenance_json
-      ) as FileProvenance;
-    } catch {
-      // Ignore parse errors
-    }
-  }
+  applyOptionalFields(entry, row);
+  applyJsonFields(entry, row);
 
   return entry;
 }
@@ -318,9 +346,9 @@ function prMetadataToParams(pr: PRMetadata): Record<string, unknown> {
 const INSERT_ENTRY_SQL = `
   INSERT OR REPLACE INTO entries
   (id, repo, pr, type, subtype, author, body, state, created_at, updated_at,
-   captured_at, url, file, line, graphite_json, file_activity_json, file_provenance_json)
+   captured_at, url, file, line, thread_resolved, graphite_json, file_activity_json, file_provenance_json)
   VALUES ($id, $repo, $pr, $type, $subtype, $author, $body, $state, $created_at,
-          $updated_at, $captured_at, $url, $file, $line, $graphite_json,
+          $updated_at, $captured_at, $url, $file, $line, $thread_resolved, $graphite_json,
           $file_activity_json, $file_provenance_json)
 `;
 
@@ -347,6 +375,7 @@ export function insertEntry(db: Database, entry: FirewatchEntry): void {
     $url: row.url,
     $file: row.file,
     $line: row.line,
+    $thread_resolved: row.thread_resolved,
     $graphite_json: row.graphite_json,
     $file_activity_json: row.file_activity_json,
     $file_provenance_json: row.file_provenance_json,
@@ -382,6 +411,7 @@ export function insertEntries(db: Database, entries: FirewatchEntry[]): void {
         $url: row.url,
         $file: row.file,
         $line: row.line,
+        $thread_resolved: row.thread_resolved,
         $graphite_json: row.graphite_json,
         $file_activity_json: row.file_activity_json,
         $file_provenance_json: row.file_provenance_json,
@@ -505,6 +535,15 @@ function buildWhereClause(filters: QueryFilters): {
     params.$since = filters.since.toISOString();
   }
 
+  // Orphaned filter: unresolved review comments on merged/closed PRs
+  // Only include entries where thread_resolved is explicitly 0 (false)
+  // Entries with NULL thread_resolved are excluded (unknown state, needs re-sync)
+  if (filters.orphaned) {
+    conditions.push("e.thread_resolved = 0");
+    conditions.push("e.subtype = 'review_comment'");
+    conditions.push("p.state IN ('merged', 'closed')");
+  }
+
   return {
     sql: conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "",
     params,
@@ -525,7 +564,7 @@ export function queryEntries(
     SELECT
       e.id, e.repo, e.pr, e.type, e.subtype, e.author, e.body, e.state,
       e.created_at, e.updated_at, e.captured_at, e.url, e.file, e.line,
-      e.graphite_json, e.file_activity_json, e.file_provenance_json,
+      e.thread_resolved, e.graphite_json, e.file_activity_json, e.file_provenance_json,
       p.state AS pr_state, p.is_draft AS pr_is_draft,
       p.title AS pr_title, p.author AS pr_author,
       p.branch AS pr_branch, p.labels AS pr_labels
@@ -609,7 +648,7 @@ export function getEntry(
     SELECT
       e.id, e.repo, e.pr, e.type, e.subtype, e.author, e.body, e.state,
       e.created_at, e.updated_at, e.captured_at, e.url, e.file, e.line,
-      e.graphite_json, e.file_activity_json, e.file_provenance_json,
+      e.thread_resolved, e.graphite_json, e.file_activity_json, e.file_provenance_json,
       p.state AS pr_state, p.is_draft AS pr_is_draft,
       p.title AS pr_title, p.author AS pr_author,
       p.branch AS pr_branch, p.labels AS pr_labels

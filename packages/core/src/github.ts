@@ -62,6 +62,7 @@ query PRActivity($owner: String!, $repo: String!, $first: Int!, $after: String, 
         reviewThreads(first: 100) {
           nodes {
             id
+            isResolved
             path
             line
             comments(first: 50) {
@@ -379,6 +380,7 @@ export interface PRNode {
   reviewThreads: {
     nodes: {
       id: string;
+      isResolved: boolean;
       path: string;
       line: number | null;
       comments: {
