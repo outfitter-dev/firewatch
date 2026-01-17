@@ -1,23 +1,88 @@
 import type { Database } from "bun:sqlite";
-import envPaths from "env-paths";
+import { homedir } from "node:os";
 import { mkdirSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 
 import { closeDatabase, openDatabase } from "./db";
 
-const paths = envPaths("firewatch", { suffix: "" });
+/**
+ * Resolve paths with platform-aware strategy:
+ * 1. If XDG env vars are set, use them (respects user intent on any platform)
+ * 2. Windows: use AppData paths (LocalAppData for cache, AppData for config/data)
+ * 3. macOS without XDG: use ~/.firewatch/ (simple dotfile convention)
+ * 4. Linux/other: use XDG defaults (~/.config, ~/.cache, ~/.local/share)
+ */
+function resolvePaths(): { cache: string; config: string; data: string } {
+  const home = homedir();
+  const platform = process.platform;
+
+  // Check if user has XDG configured
+  const hasXdg =
+    process.env.XDG_CONFIG_HOME ||
+    process.env.XDG_CACHE_HOME ||
+    process.env.XDG_DATA_HOME;
+
+  // XDG takes priority on any platform when explicitly set
+  if (hasXdg) {
+    const config = process.env.XDG_CONFIG_HOME || `${home}/.config`;
+    const cache = process.env.XDG_CACHE_HOME || `${home}/.cache`;
+    const data = process.env.XDG_DATA_HOME || `${home}/.local/share`;
+
+    return {
+      config: `${config}/firewatch`,
+      cache: `${cache}/firewatch`,
+      data: `${data}/firewatch`,
+    };
+  }
+
+  // Windows: use AppData paths
+  if (platform === "win32") {
+    const appData = process.env.APPDATA || `${home}/AppData/Roaming`;
+    const localAppData =
+      process.env.LOCALAPPDATA || `${home}/AppData/Local`;
+
+    return {
+      config: `${appData}/firewatch`,
+      cache: `${localAppData}/firewatch`,
+      data: `${appData}/firewatch`,
+    };
+  }
+
+  // macOS without XDG: use ~/.firewatch/
+  if (platform === "darwin") {
+    const base = `${home}/.firewatch`;
+    return {
+      config: base,
+      cache: base,
+      data: base,
+    };
+  }
+
+  // Linux/other: XDG defaults
+  return {
+    config: `${home}/.config/firewatch`,
+    cache: `${home}/.cache/firewatch`,
+    data: `${home}/.local/share/firewatch`,
+  };
+}
+
+const paths = resolvePaths();
 
 /**
- * XDG-compliant paths for Firewatch data.
+ * Firewatch data paths.
+ * - Respects XDG env vars when set (any platform)
+ * - Windows: AppData/Roaming and AppData/Local
+ * - macOS without XDG: ~/.firewatch/
+ * - Linux: XDG defaults (~/.config, ~/.cache, ~/.local/share)
  */
 export const PATHS = {
-  /** Cache directory (~/.cache/firewatch) */
+  /** Cache directory */
   cache: paths.cache,
 
-  /** Config directory (~/.config/firewatch) */
+  /** Config directory */
   config: paths.config,
 
-  /** Data directory (~/.local/share/firewatch) */
+  /** Data directory */
   data: paths.data,
 
   /** Repository cache files */

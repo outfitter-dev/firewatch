@@ -14,18 +14,13 @@ import {
 } from "@outfitter/firewatch-core";
 
 const tempRoot = await mkdtemp(join(tmpdir(), "firewatch-cli-"));
-const paths =
-  process.platform === "darwin"
-    ? {
-        cache: join(tempRoot, "Library", "Caches", "firewatch"),
-        config: join(tempRoot, "Library", "Preferences", "firewatch"),
-        data: join(tempRoot, "Library", "Application Support", "firewatch"),
-      }
-    : {
-        cache: join(tempRoot, ".cache", "firewatch"),
-        config: join(tempRoot, ".config", "firewatch"),
-        data: join(tempRoot, ".local", "share", "firewatch"),
-      };
+
+// Test always sets XDG vars for spawned CLI, so use XDG paths
+const paths = {
+  cache: join(tempRoot, ".cache", "firewatch"),
+  config: join(tempRoot, ".config", "firewatch"),
+  data: join(tempRoot, ".local", "share", "firewatch"),
+};
 
 await mkdir(paths.cache, { recursive: true });
 await mkdir(paths.config, { recursive: true });
@@ -145,6 +140,10 @@ async function runCli(args: string[]): Promise<{ stdout: string; stderr: string;
     env: {
       ...process.env,
       HOME: tempRoot,
+      // Override XDG vars to use test paths (matches path computation above)
+      XDG_CONFIG_HOME: join(tempRoot, ".config"),
+      XDG_CACHE_HOME: join(tempRoot, ".cache"),
+      XDG_DATA_HOME: join(tempRoot, ".local", "share"),
     },
     stdout: "pipe",
     stderr: "pipe",
