@@ -1,4 +1,10 @@
 {
-  "spinnerTipsEnabled": false,
-  "outputStyle": "default"
+  "permissions": {
+    "allow": [
+      "mcp__plugin_episodic-memory_episodic-memory__read",
+      "mcp__linear__linear"
+    ]
+  },
+  "outputStyle": "default",
+  "spinnerTipsEnabled": false
 }
