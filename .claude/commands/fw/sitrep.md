@@ -10,7 +10,11 @@ Situation report on PR activity. Quick scan first, then detailed check if anythi
 
 ## Pre-run Context
 
+### Open PRs (actionable)
 !`bun apps/cli/bin/fw.ts --refresh --open --summary --json 2>/dev/null | jq -c '{pr, title: .pr_title, state: .pr_state, stack_pos: .graphite.stack_position, comments: .counts.comments, reviews: .counts.reviews, changes_requested: .review_states.changes_requested}'`
+
+### Merged/Closed PRs with unresolved comments (orphaned)
+!`bun apps/cli/bin/fw.ts --orphaned --json 2>/dev/null | jq -c '{pr, pr_state, pr_title, file, body: .body[0:80]}' | head -10`
 
 ## Skill Context
 
@@ -112,12 +116,21 @@ Based on findings:
 2. 🟡 Should-fix items (address if time permits)
 3. 🟢 Optional items (author's discretion)
 
-**Suggested actions:**
-- `/fw:yolo` — Fix everything and ship
-- `/fw:cleanup` — Just resolve already-addressed threads
-- "Focus on PR #N" — Work through one PR at a time
+**Use AskUserQuestion tool** to let the user choose next steps:
 
-**Ask user:** "How do you want to proceed?"
+```
+Question: "How do you want to proceed?"
+Header: "Next step"
+Options:
+  - label: "Fix all & ship"
+    description: "Address all feedback, resolve threads, commit, and submit (/fw:yolo)"
+  - label: "Resolve addressed"
+    description: "Just close threads that are already fixed (/fw:cleanup)"
+  - label: "Focus on blocking"
+    description: "Address only the 🔴 blocking items first"
+  - label: "Review later"
+    description: "Done for now, will revisit"
+```
 
 ### Phase 4: Loop (if user chooses to address)
 
