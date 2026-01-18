@@ -22,7 +22,9 @@ Configuration is loaded in order (later sources override earlier):
 
 ## Duration Formats
 
-Several configuration options and CLI flags accept duration strings:
+Duration formats vary by context:
+
+### Config durations (stale_threshold)
 
 | Format | Example | Description         |
 | ------ | ------- | ------------------- |
@@ -31,6 +33,17 @@ Several configuration options and CLI flags accept duration strings:
 | `Nh`   | `24h`   | Hours               |
 | `Nd`   | `7d`    | Days                |
 | `Nw`   | `2w`    | Weeks (N \* 7 days) |
+
+### CLI --since flag
+
+| Format | Example | Description         |
+| ------ | ------- | ------------------- |
+| `Nh`   | `24h`   | Hours               |
+| `Nd`   | `7d`    | Days                |
+| `Nw`   | `2w`    | Weeks (N \* 7 days) |
+| `Nm`   | `3m`    | **Months** (not minutes!) |
+
+> **Note:** The `--since` flag does NOT support seconds or minutes. Use `24h` for recent activity, not `30m` (which means 30 months).
 
 Duration is calculated backwards from now. For example, `--since 7d` means "activity from the last 7 days".
 

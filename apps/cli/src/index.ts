@@ -34,6 +34,7 @@ import {
   printActionableSummary,
 } from "./actionable";
 import { addCommand } from "./commands/add";
+import { cacheCommand } from "./commands/cache";
 import { closeCommand } from "./commands/close";
 import { configCommand } from "./commands/config";
 import { doctorCommand } from "./commands/doctor";
@@ -566,6 +567,9 @@ program
       }
 
       if (outputJson) {
+        if (filtered.length === 0 && process.stderr.isTTY) {
+          console.error("No entries matched the query filters.");
+        }
         for (const entry of filtered) {
           await writeJsonLine(entry);
         }
@@ -621,6 +625,7 @@ program
   });
 
 program.addCommand(addCommand);
+program.addCommand(cacheCommand);
 program.addCommand(closeCommand);
 program.addCommand(editCommand);
 program.addCommand(rmCommand);

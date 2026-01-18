@@ -52,9 +52,9 @@ fw [options]
 
 ### Time
 
-| Option                   | Description                            |
-| ------------------------ | -------------------------------------- |
-| `-s, --since <duration>` | Time window (`30m`, `24h`, `7d`, `1w`) |
+| Option                   | Description                                                             |
+| ------------------------ | ----------------------------------------------------------------------- |
+| `-s, --since <duration>` | Time window (h=hours, d=days, w=weeks, m=months). Examples: `24h`, `7d` |
 
 ### Sync/Cache
 
