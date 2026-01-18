@@ -8,7 +8,8 @@
   "type": "module",
   "scripts": {
     "dev": "bun --watch bin/fw.ts",
-    "build": "bun build ./bin/fw.ts --compile --outfile dist/fw",
+    "build": "bun build ./bin/fw.ts --compile --outfile dist/fw && bun scripts/copy-plugin.ts",
+    "build:binary": "bun build ./bin/fw.ts --compile --outfile dist/fw",
     "check": "bunx tsc -b"
   },
   "dependencies": {

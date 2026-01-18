@@ -35,6 +35,7 @@ import {
 } from "./actionable";
 import { addCommand } from "./commands/add";
 import { cacheCommand } from "./commands/cache";
+import { claudePluginCommand } from "./commands/claude-plugin";
 import { closeCommand } from "./commands/close";
 import { configCommand } from "./commands/config";
 import { doctorCommand } from "./commands/doctor";
@@ -626,6 +627,7 @@ program
 
 program.addCommand(addCommand);
 program.addCommand(cacheCommand);
+program.addCommand(claudePluginCommand);
 program.addCommand(closeCommand);
 program.addCommand(editCommand);
 program.addCommand(rmCommand);
