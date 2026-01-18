@@ -68,7 +68,7 @@ firewatch/
 │   └── mcp/           # MCP server for AI agents
 ├── packages/
 │   ├── core/          # Core library (auth, cache, sync, query)
-│   ├── agents/        # Agent utilities
+│   ├── claude-plugin/ # Local Claude Code plugin marketplace
 │   └── shared/        # Shared types and utilities
 ├── docs/              # Documentation
 └── scripts/           # Build and development scripts

@@ -4,6 +4,9 @@
   "description": "GitHub PR activity logger with JSONL output for jq workflows",
   "author": {
     "name": "Matt Galligan",
+    "email": "mg@outfitter.dev",
     "url": "https://github.com/galligan"
-  }
+  },
+  "repository": "https://github.com/outfitter-dev/firewatch",
+  "license": "MIT"
 }
