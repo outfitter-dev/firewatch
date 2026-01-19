@@ -5,6 +5,13 @@ import {
   type WorklistEntry,
 } from "@outfitter/firewatch-core";
 
+import {
+  type TreeNode,
+  renderCategory,
+  renderHeader,
+  truncate,
+} from "./utils/tree";
+
 export type ActionableCategory =
   | "unaddressed"
   | "changes_requested"
@@ -17,6 +24,7 @@ export interface AttentionItem {
   pr_title: string;
   pr_state: string;
   pr_author: string;
+  pr_branch: string;
   last_activity_at: string;
   reason: "changes_requested" | "no_reviews" | "stale";
   graphite?: WorklistEntry["graphite"];
@@ -26,6 +34,7 @@ export interface UnaddressedFeedback {
   repo: string;
   pr: number;
   pr_title: string;
+  pr_branch: string;
   comment_id: string;
   author: string;
   body?: string;
@@ -41,6 +50,7 @@ export interface ActionableItem {
   pr: number;
   pr_title: string;
   pr_author: string;
+  pr_branch: string;
   pr_state: string;
   description: string;
   count: number;
@@ -76,6 +86,20 @@ function isStaleItem(lastActivityAt: string): boolean {
   return lastActivity < threshold;
 }
 
+function formatAuthorSummary(feedbacks: UnaddressedFeedback[]): string {
+  const authorCounts = new Map<string, number>();
+  for (const fb of feedbacks) {
+    authorCounts.set(fb.author, (authorCounts.get(fb.author) ?? 0) + 1);
+  }
+  const sorted = [...authorCounts.entries()].toSorted((a, b) => b[1] - a[1]);
+  const display = sorted
+    .slice(0, 3)
+    .map(([author, count]) => `${author} (${count})`)
+    .join(", ");
+  const extra = sorted.length > 3 ? `, +${sorted.length - 3} more` : "";
+  return display + extra;
+}
+
 function toAttentionItem(
   item: WorklistEntry,
   reason: AttentionItem["reason"]
@@ -86,6 +110,7 @@ function toAttentionItem(
     pr_title: item.pr_title,
     pr_state: item.pr_state,
     pr_author: item.pr_author,
+    pr_branch: item.pr_branch,
     last_activity_at: item.last_activity_at,
     reason,
     ...(item.graphite && { graphite: item.graphite }),
@@ -166,6 +191,7 @@ export function identifyUnaddressedFeedback(
       repo: e.repo,
       pr: e.pr,
       pr_title: e.pr_title,
+      pr_branch: e.pr_branch,
       comment_id: e.id,
       author: e.author,
       ...(e.body && { body: e.body.slice(0, 200) }),
@@ -220,8 +246,9 @@ function buildActionableItems(
       pr: entry.pr,
       pr_title: entry.pr_title,
       pr_author: entry.pr_author,
+      pr_branch: entry.pr_branch,
       pr_state: entry.pr_state,
-      description: `${feedbacks.length} unaddressed review comment${feedbacks.length === 1 ? "" : "s"}`,
+      description: formatAuthorSummary(feedbacks),
       count: feedbacks.length,
       ...(entry.url && { url: entry.url }),
       ...(entry.graphite && { graphite: entry.graphite }),
@@ -246,6 +273,7 @@ function buildActionableItems(
       pr: item.pr,
       pr_title: item.pr_title,
       pr_author: item.pr_author,
+      pr_branch: item.pr_branch,
       pr_state: item.pr_state,
       description: "Changes requested",
       count: 1,
@@ -260,6 +288,7 @@ function buildActionableItems(
       pr: item.pr,
       pr_title: item.pr_title,
       pr_author: item.pr_author,
+      pr_branch: item.pr_branch,
       pr_state: item.pr_state,
       description: "Awaiting first review",
       count: 1,
@@ -274,6 +303,7 @@ function buildActionableItems(
       pr: item.pr,
       pr_title: item.pr_title,
       pr_author: item.pr_author,
+      pr_branch: item.pr_branch,
       pr_state: item.pr_state,
       description: "No recent activity",
       count: 1,
@@ -348,15 +378,43 @@ const CATEGORY_ORDER: ActionableCategory[] = [
   "stale",
 ];
 
-export function printActionableSummary(summary: ActionableSummary): void {
-  console.log(`\n=== Firewatch: ${summary.repo} ===`);
+function formatPrLine(item: ActionableItem): string {
+  const branchTrunc = truncate(item.pr_branch, 20);
+  const titleTrunc = truncate(item.pr_title, 40);
+  return `#${item.pr} [${branchTrunc}] ${titleTrunc}`;
+}
 
+function itemsToTreeNodes(items: ActionableItem[], limit = 5): TreeNode[] {
+  const nodes: TreeNode[] = [];
+
+  for (const item of items.slice(0, limit)) {
+    nodes.push({
+      content: formatPrLine(item),
+      detail: item.description,
+    });
+  }
+
+  if (items.length > limit) {
+    nodes.push({ content: `+${items.length - limit} more` });
+  }
+
+  return nodes;
+}
+
+export function printActionableSummary(summary: ActionableSummary): void {
+  // Build header
+  const headerParts = ["Firewatch", summary.repo];
   if (summary.perspective) {
     const perspectiveLabel =
       summary.perspective === "mine" ? "My PRs" : "To Review";
-    console.log(
-      `Perspective: ${perspectiveLabel}${summary.username ? ` (${summary.username})` : ""}`
-    );
+    headerParts.push(perspectiveLabel);
+  }
+  headerParts.push(`${summary.counts.total} actionable`);
+
+  const headerLines = renderHeader(headerParts, 50);
+  console.log("");
+  for (const line of headerLines) {
+    console.log(line);
   }
 
   if (summary.counts.total === 0) {
@@ -364,8 +422,7 @@ export function printActionableSummary(summary: ActionableSummary): void {
     return;
   }
 
-  console.log(`\nTotal: ${summary.counts.total} actionable items`);
-
+  // Group items by category
   const byCategory = new Map<ActionableCategory, ActionableItem[]>();
   for (const item of summary.items) {
     const list = byCategory.get(item.category) ?? [];
@@ -373,6 +430,7 @@ export function printActionableSummary(summary: ActionableSummary): void {
     byCategory.set(item.category, list);
   }
 
+  // Render each category
   for (const category of CATEGORY_ORDER) {
     const items = byCategory.get(category);
     if (!items || items.length === 0) {
@@ -380,22 +438,12 @@ export function printActionableSummary(summary: ActionableSummary): void {
     }
 
     const label = CATEGORY_LABELS[category];
-    console.log(`\n${label} (${items.length}):`);
+    const treeNodes = itemsToTreeNodes(items);
+    const categoryLines = renderCategory(label, items.length, treeNodes);
 
-    for (const item of items.slice(0, 5)) {
-      const stackInfo =
-        item.graphite?.stack_position && item.graphite?.stack_size
-          ? ` [${item.graphite.stack_position}/${item.graphite.stack_size}]`
-          : "";
-      const titleTrunc =
-        item.pr_title.length > 50
-          ? `${item.pr_title.slice(0, 47)}...`
-          : item.pr_title;
-      console.log(`  #${item.pr}${stackInfo} ${titleTrunc}`);
-      console.log(`     ${item.description}`);
-    }
-    if (items.length > 5) {
-      console.log(`  +${items.length - 5} more`);
+    console.log("");
+    for (const line of categoryLines) {
+      console.log(line);
     }
   }
 }
