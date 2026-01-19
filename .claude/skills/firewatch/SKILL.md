@@ -48,14 +48,14 @@ fw --type comment --limit 1
 
 ### Entry Types
 
-| Type | Subtype | Meaning |
-|------|---------|---------|
-| `comment` | `review_comment` | Inline code comment (actionable) |
-| `comment` | `issue_comment` | General PR comment |
-| `review` | — | Review submission (approve/request changes) |
-| `commit` | — | Commit pushed to PR branch |
-| `ci` | — | CI/CD status check |
-| `event` | — | Lifecycle event (opened, closed, merged) |
+| Type      | Subtype          | Meaning                                     |
+| --------- | ---------------- | ------------------------------------------- |
+| `comment` | `review_comment` | Inline code comment (actionable)            |
+| `comment` | `issue_comment`  | General PR comment                          |
+| `review`  | —                | Review submission (approve/request changes) |
+| `commit`  | —                | Commit pushed to PR branch                  |
+| `ci`      | —                | CI/CD status check                          |
+| `event`   | —                | Lifecycle event (opened, closed, merged)    |
 
 ## Querying
 
@@ -157,6 +157,7 @@ fw --type comment | jq 'select(.file_activity_after.modified == false)'
 ```
 
 The `file_activity_after` field shows:
+
 - `modified` — Whether file was changed after the comment
 - `commits_touching_file` — How many commits touched the file
 - `latest_commit` — SHA of the most recent commit to the file
@@ -210,40 +211,40 @@ For detailed Graphite workflows (querying stacks, cross-PR fixes, commit pattern
 
 ## Command Reference
 
-| Command | Purpose |
-|---------|---------|
-| `fw [options]` | Query cached entries (auto-syncs if stale) |
-| `fw --refresh` | Force sync before query |
-| `fw --summary` | Aggregate into per-PR summaries |
-| `fw add <pr> [body]` | Post a comment or add metadata |
-| `fw close <id>...` | Resolve review threads |
-| `fw check` | Refresh staleness hints |
-| `fw status` | Firewatch state info |
-| `fw doctor` | Diagnose auth/cache/repo issues |
-| `fw schema <type>` | Print JSON schema |
+| Command              | Purpose                                    |
+| -------------------- | ------------------------------------------ |
+| `fw [options]`       | Query cached entries (auto-syncs if stale) |
+| `fw --refresh`       | Force sync before query                    |
+| `fw --summary`       | Aggregate into per-PR summaries            |
+| `fw add <pr> [body]` | Post a comment or add metadata             |
+| `fw close <id>...`   | Resolve review threads                     |
+| `fw check`           | Refresh staleness hints                    |
+| `fw status`          | Firewatch state info                       |
+| `fw doctor`          | Diagnose auth/cache/repo issues            |
+| `fw schema <type>`   | Print JSON schema                          |
 
 ### Query Options
 
-| Option | Description |
-|--------|-------------|
-| `--type <type>` | Filter by entry type |
+| Option               | Description                 |
+| -------------------- | --------------------------- |
+| `--type <type>`      | Filter by entry type        |
 | `--since <duration>` | Time filter (24h, 7d, etc.) |
-| `--prs <numbers>` | Filter by PR number(s) |
-| `--author <name>` | Filter by author |
-| `--open` | Open PRs only |
-| `--active` | Open or draft PRs |
-| `--mine` | PRs assigned to me |
-| `--reviews` | PRs I need to review |
-| `--summary` | Aggregate to per-PR summary |
+| `--prs <numbers>`    | Filter by PR number(s)      |
+| `--author <name>`    | Filter by author            |
+| `--open`             | Open PRs only               |
+| `--active`           | Open or draft PRs           |
+| `--mine`             | PRs assigned to me          |
+| `--reviews`          | PRs I need to review        |
+| `--summary`          | Aggregate to per-PR summary |
 
 ### Add Options
 
-| Option | Description |
-|--------|-------------|
-| `--reply <id>` | Reply to a specific comment |
-| `--resolve` | Resolve the thread after posting |
+| Option            | Description                                    |
+| ----------------- | ---------------------------------------------- |
+| `--reply <id>`    | Reply to a specific comment                    |
+| `--resolve`       | Resolve the thread after posting               |
 | `--review <type>` | Add review (approve, request-changes, comment) |
-| `--label <name>` | Add label (repeatable) |
+| `--label <name>`  | Add label (repeatable)                         |
 
 ## Patterns
 

@@ -14,6 +14,7 @@ import { constants as fsConstants } from "node:fs";
 import { access } from "node:fs/promises";
 
 import { writeJsonLine } from "../utils/json";
+import { MARKERS, renderHeader } from "../utils/tree";
 import { shouldOutputJson } from "../utils/tty";
 
 interface DoctorCommandOptions {
@@ -138,27 +139,45 @@ async function checkRepoDetection(): Promise<CheckResult> {
   };
 }
 
-async function checkGraphite(): Promise<CheckResult> {
+async function checkGraphiteCli(): Promise<CheckResult> {
   try {
-    const stacks = await getGraphiteStacks();
-    if (!stacks) {
+    const result = await Bun.$`gt --version`.nothrow().quiet();
+    if (result.exitCode !== 0) {
       return {
-        name: "Graphite CLI available",
+        name: "Graphite CLI",
         ok: false,
-        message: "gt not available or no stacks found",
+        message: "gt not found",
+        hint: "Install from https://graphite.dev/docs/installing-the-cli",
       };
     }
+    const version = result.text().trim();
     return {
-      name: "Graphite CLI available",
+      name: "Graphite CLI",
       ok: true,
-      message: `${stacks.length} stack(s) detected`,
+      message: version,
     };
-  } catch (error) {
+  } catch {
     return {
-      name: "Graphite CLI available",
+      name: "Graphite CLI",
       ok: false,
-      message: error instanceof Error ? error.message : String(error),
+      message: "gt not found",
+      hint: "Install from https://graphite.dev/docs/installing-the-cli",
     };
+  }
+}
+
+async function getGraphiteStackInfo(): Promise<{
+  available: boolean;
+  stackCount: number;
+}> {
+  try {
+    const stacks = await getGraphiteStacks();
+    return {
+      available: stacks !== null,
+      stackCount: stacks?.length ?? 0,
+    };
+  } catch {
+    return { available: false, stackCount: 0 };
   }
 }
 
@@ -180,8 +199,10 @@ export const doctorCommand = new Command("doctor")
         await checkConfigParse(),
         await checkCacheWritable(),
         await checkRepoDetection(),
-        await checkGraphite(),
+        await checkGraphiteCli(),
       ];
+
+      const graphiteInfo = await getGraphiteStackInfo();
 
       const okCount = checks.filter((check) => check.ok).length;
       const failCount = checks.length - okCount;
@@ -190,26 +211,38 @@ export const doctorCommand = new Command("doctor")
         await writeJsonLine({
           ok: failCount === 0,
           checks,
+          graphite: graphiteInfo,
           counts: { ok: okCount, failed: failCount },
         });
         return;
       }
 
-      console.log("Checking firewatch health...\n");
+      // Render header
+      const headerLines = renderHeader(["Firewatch Health Check"], 24);
+      for (const line of headerLines) {
+        console.log(line);
+      }
+      console.log("");
+
+      // Render checks as simple left-aligned list
       for (const check of checks) {
-        const status = check.ok ? "OK " : "FAIL";
+        const marker = check.ok ? MARKERS.pass : MARKERS.fail;
         const detail = check.message ? `: ${check.message}` : "";
-        console.log(`${status} ${check.name}${detail}`);
+        console.log(`${marker} ${check.name}${detail}`);
         if (!check.ok && check.hint) {
-          console.log(`  -> ${check.hint}`);
+          console.log(`  ${check.hint}`);
         }
       }
 
-      if (failCount === 0) {
-        console.log("\nAll systems operational");
-      } else {
-        console.log(`\n${failCount} issue${failCount === 1 ? "" : "s"} found`);
+      // Show Graphite stack info if CLI is available
+      const graphiteCheck = checks.find((c) => c.name === "Graphite CLI");
+      if (graphiteCheck?.ok && graphiteInfo.stackCount > 0) {
+        console.log(`  ${graphiteInfo.stackCount} active stack(s)`);
       }
+
+      // Summary
+      console.log("");
+      console.log(`${okCount} passed, ${failCount} failed`);
     } catch (error) {
       console.error(
         "Doctor failed:",

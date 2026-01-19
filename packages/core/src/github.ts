@@ -8,6 +8,13 @@ const GITHUB_GRAPHQL_ENDPOINT = "https://api.github.com/graphql";
 const GITHUB_REST_ENDPOINT = "https://api.github.com";
 
 /**
+ * GitHub PR states as returned by the GraphQL API.
+ * This is the single source of truth for valid PR states from GitHub.
+ */
+export const GITHUB_PR_STATES = ["OPEN", "CLOSED", "MERGED"] as const;
+export type GitHubPRState = (typeof GITHUB_PR_STATES)[number];
+
+/**
  * GraphQL query for fetching PRs with all activity.
  * Fetches reviews, comments, and commits in a single request.
  */
@@ -346,7 +353,7 @@ interface MarkPullRequestReadyData {
 export interface PRNode {
   number: number;
   title: string;
-  state: "OPEN" | "CLOSED" | "MERGED";
+  state: GitHubPRState;
   isDraft: boolean;
   author: { login: string } | null;
   headRefName: string;
@@ -499,10 +506,10 @@ export class GitHubClient {
     options: {
       first?: number;
       after?: string | null;
-      states?: ("OPEN" | "CLOSED" | "MERGED")[];
+      states?: GitHubPRState[];
     } = {}
   ): Promise<PRActivityData> {
-    const { first = 50, after = null, states = ["OPEN", "CLOSED"] } = options;
+    const { first = 50, after = null, states = [...GITHUB_PR_STATES] } = options;
 
     const response = await this.query<PRActivityData>(PR_ACTIVITY_QUERY, {
       owner,

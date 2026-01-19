@@ -1,5 +1,3 @@
-import { existsSync, statSync } from "node:fs";
-
 import {
   GitHubClient,
   PATHS,
@@ -16,6 +14,7 @@ import {
 } from "@outfitter/firewatch-core";
 import { getGraphiteStacks } from "@outfitter/firewatch-core/plugins";
 import { Command } from "commander";
+import { existsSync, statSync } from "node:fs";
 
 import { version } from "../../package.json";
 import { writeJsonLine } from "../utils/json";
@@ -93,7 +92,10 @@ export const statusCommand = new Command("status")
     try {
       await ensureDirectories();
       const config = await loadConfig();
-      const outputJson = shouldOutputJson(options, config.output?.default_format);
+      const outputJson = shouldOutputJson(
+        options,
+        config.output?.default_format
+      );
 
       const configPaths = await getConfigPaths();
       const projectPath = await getProjectConfigPath();
@@ -186,9 +188,7 @@ export const statusCommand = new Command("status")
       console.log(
         `Repo:      ${detected.repo ?? "none"}${detected.source ? ` (${detected.source})` : ""}`
       );
-      console.log(
-        `Graphite:  ${graphiteAvailable ? "enabled" : "disabled"}`
-      );
+      console.log(`Graphite:  ${graphiteAvailable ? "enabled" : "disabled"}`);
 
       console.log("\nCache:");
       console.log(`  Repos:     ${cache.repos}`);
