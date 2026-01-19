@@ -1352,7 +1352,13 @@ firewatch_add - Add comments and metadata
 }
 
 export function createServer(): McpServer {
-  const server = new McpServer({ name: "firewatch", version: mcpVersion });
+  const server = new McpServer(
+    { name: "firewatch", version: mcpVersion },
+    {
+      instructions:
+        "Query GitHub PR activity including reviews, comments, commits, and CI status. Use when checking PR status, finding review comments, querying activity, resolving feedback, or working with GitHub pull requests. Outputs JSONL for jq composition.",
+    }
+  );
 
   // firewatch_query - Query cached PR activity
   server.tool(
