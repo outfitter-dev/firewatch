@@ -11,13 +11,8 @@ const tempRoot = await mkdtemp(join(tmpdir(), "firewatch-query-"));
 const { closeFirewatchDb, ensureDirectories, getDatabase, PATHS } =
   await import("../src/cache");
 const { queryEntries } = await import("../src/query");
-const {
-  insertEntries,
-  setSyncMeta,
-  updatePRState,
-  upsertPRs,
-  clearRepo,
-} = await import("../src/repository");
+const { insertEntries, setSyncMeta, updatePRState, upsertPRs, clearRepo } =
+  await import("../src/repository");
 
 // Close any existing db connection before setting up test paths
 // This is needed because the db singleton might be pointing to a different path
@@ -136,8 +131,16 @@ upsertPRs(db, [
   },
 ]);
 insertEntries(db, [...entriesA, ...entriesB]);
-setSyncMeta(db, { repo: repoA, last_sync: "2025-01-15T00:00:00Z", pr_count: 2 });
-setSyncMeta(db, { repo: repoB, last_sync: "2025-01-15T00:00:00Z", pr_count: 1 });
+setSyncMeta(db, {
+  repo: repoA,
+  last_sync: "2025-01-15T00:00:00Z",
+  pr_count: 2,
+});
+setSyncMeta(db, {
+  repo: repoB,
+  last_sync: "2025-01-15T00:00:00Z",
+  pr_count: 1,
+});
 
 test("queryEntries filters by repo substring", async () => {
   const results = await queryEntries({ filters: { repo: "firewatch" } });

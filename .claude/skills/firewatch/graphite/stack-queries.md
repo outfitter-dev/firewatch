@@ -25,12 +25,12 @@ Each entry gains a `graphite` object:
 }
 ```
 
-| Field | Meaning |
-|-------|---------|
-| `stack_id` | Unique identifier for the stack |
+| Field            | Meaning                                       |
+| ---------------- | --------------------------------------------- |
+| `stack_id`       | Unique identifier for the stack               |
 | `stack_position` | Position in stack (1 = base, closest to main) |
-| `stack_size` | Total PRs in the stack |
-| `parent_pr` | PR number of the parent (downstack) |
+| `stack_size`     | Total PRs in the stack                        |
+| `parent_pr`      | PR number of the parent (downstack)           |
 
 ### File Provenance
 

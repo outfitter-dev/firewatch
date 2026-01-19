@@ -1,8 +1,3 @@
-import { afterAll, expect, test } from "bun:test";
-import { mkdir, mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-
 import {
   closeDatabase,
   insertEntries,
@@ -12,6 +7,10 @@ import {
   type FirewatchEntry,
   type PRMetadata,
 } from "@outfitter/firewatch-core";
+import { afterAll, expect, test } from "bun:test";
+import { mkdir, mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 const tempRoot = await mkdtemp(join(tmpdir(), "firewatch-cli-"));
 const paths =
@@ -138,7 +137,9 @@ afterAll(async () => {
   await rm(tempRoot, { recursive: true, force: true });
 });
 
-async function runCli(args: string[]): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+async function runCli(
+  args: string[]
+): Promise<{ stdout: string; stderr: string; exitCode: number }> {
   const proc = Bun.spawn({
     cmd: [process.execPath, "apps/cli/bin/fw.ts", ...args],
     cwd: process.cwd(),

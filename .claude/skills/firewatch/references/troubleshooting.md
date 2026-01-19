@@ -11,6 +11,7 @@ fw doctor
 ```
 
 This checks:
+
 - Authentication status
 - Cache integrity
 - Repository detection
@@ -33,16 +34,19 @@ Quick view of cache state and recent sync info.
 **Solutions:**
 
 1. Check `gh` CLI is authenticated:
+
    ```bash
    gh auth status
    ```
 
 2. If not, authenticate:
+
    ```bash
    gh auth login
    ```
 
 3. Or set token in environment:
+
    ```bash
    export GITHUB_TOKEN=ghp_...
    ```
@@ -79,6 +83,7 @@ Quick view of cache state and recent sync info.
 **Symptoms:** Sync completes but cache is empty
 
 **Causes:**
+
 - Wrong repository
 - No open PRs
 - All PRs older than sync window
@@ -86,12 +91,14 @@ Quick view of cache state and recent sync info.
 **Solutions:**
 
 1. Verify correct repo:
+
    ```bash
    fw status
    git remote -v
    ```
 
 2. Check for closed PRs:
+
    ```bash
    fw --closed
    ```
@@ -108,11 +115,13 @@ Quick view of cache state and recent sync info.
 **Solutions:**
 
 1. Check repo name is correct:
+
    ```bash
    git remote -v
    ```
 
 2. Verify you have access to the repo:
+
    ```bash
    gh repo view owner/repo
    ```
@@ -129,6 +138,7 @@ Quick view of cache state and recent sync info.
 **Solutions:**
 
 1. Force fresh sync:
+
    ```bash
    fw --refresh full
    ```
@@ -146,6 +156,7 @@ Quick view of cache state and recent sync info.
 **Symptoms:** Query returns empty
 
 **Causes:**
+
 - Filters too narrow
 - Cache is empty
 - Wrong PR number
@@ -153,11 +164,13 @@ Quick view of cache state and recent sync info.
 **Solutions:**
 
 1. Check cache has data:
+
    ```bash
    fw --limit 5
    ```
 
 2. Remove filters to broaden:
+
    ```bash
    fw --prs PR_NUMBER  # Just PR filter
    ```
@@ -174,10 +187,12 @@ Quick view of cache state and recent sync info.
 **Solutions:**
 
 For Graphite metadata:
+
 - Ensure you're in a repo with Graphite stacks (`gt state`)
 - Re-sync: `fw --refresh`
 
 For file activity:
+
 - This field is populated based on commit activity after the comment
 - Re-sync to update: `fw --refresh`
 
@@ -186,12 +201,14 @@ For file activity:
 **Symptoms:** `parse error` or `unexpected token`
 
 **Common causes:**
+
 - Empty output (no matching entries)
 - Malformed jq expression
 
 **Solutions:**
 
 1. Check there's output:
+
    ```bash
    fw --limit 1
    ```
@@ -212,11 +229,13 @@ For file activity:
 **Solutions:**
 
 1. Verify the ID exists:
+
    ```bash
    fw | jq 'select(.id == "IC_...")'
    ```
 
 2. Check it's a review comment (not issue comment):
+
    ```bash
    fw | jq 'select(.id == "IC_...") | .subtype'
    ```
@@ -231,6 +250,7 @@ For file activity:
 **Symptoms:** Resolve command fails with permission error
 
 **Causes:**
+
 - Not a thread (regular issue comment)
 - Don't have write access
 - Thread already resolved
@@ -238,6 +258,7 @@ For file activity:
 **Solutions:**
 
 1. Verify it's a review thread:
+
    ```bash
    fw | jq 'select(.id == "IC_...") | {subtype, type}'
    ```
@@ -256,11 +277,13 @@ For file activity:
 **Solutions:**
 
 1. Ensure Graphite CLI is installed:
+
    ```bash
    gt --version
    ```
 
 2. Re-sync (Graphite metadata is auto-detected):
+
    ```bash
    fw --refresh
    ```
@@ -277,6 +300,7 @@ For file activity:
 **Solutions:**
 
 1. Check stack state:
+
    ```bash
    gt log --files FILE_PATH
    ```
@@ -294,6 +318,7 @@ For file activity:
 
 1. Resolve conflicts in the failing PR
 2. Complete the rebase:
+
    ```bash
    git add .
    gt restack --continue
@@ -312,6 +337,7 @@ For file activity:
 Default: `~/.cache/firewatch/`
 
 Check location:
+
 ```bash
 fw status
 ```

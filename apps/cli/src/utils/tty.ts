@@ -56,73 +56,14 @@ export function shouldOutputJson(
   return false;
 }
 
-/**
- * Determine if color should be used.
- * Respects NO_COLOR, FORCE_COLOR, and TERM=dumb conventions.
- */
-export function shouldUseColor(): boolean {
-  if (process.env.NO_COLOR) {
-    return false;
-  }
-  if (process.env.FORCE_COLOR) {
-    return true;
-  }
-  if (process.env.TERM === "dumb") {
-    return false;
-  }
-  return process.stdout.isTTY ?? false;
-}
-
-// Simple ANSI color helpers (no dependencies)
-const wrap =
-  (open: string, close: string) =>
-  (text: string): string =>
-    shouldUseColor() ? `${open}${text}${close}` : text;
-
-const RESET = "\u001B[0m";
-
-export const colors = {
-  green: wrap("\u001B[32m", RESET),
-  yellow: wrap("\u001B[33m", RESET),
-  red: wrap("\u001B[31m", RESET),
-  cyan: wrap("\u001B[36m", RESET),
-  blue: wrap("\u001B[34m", RESET),
-  magenta: wrap("\u001B[35m", RESET),
-  dim: wrap("\u001B[2m", RESET),
-  bold: wrap("\u001B[1m", RESET),
-};
-
-/**
- * State color mapping for PR states
- */
-export function getStateColor(state: string): (text: string) => string {
-  switch (state.toLowerCase()) {
-    case "open":
-      return colors.green;
-    case "draft":
-      return colors.yellow;
-    case "merged":
-      return colors.cyan;
-    case "closed":
-      return colors.dim;
-    default:
-      return (s: string) => s;
-  }
-}
-
-/**
- * Status color mapping for CI status
- */
-export function getStatusColor(status: string): (text: string) => string {
-  switch (status.toLowerCase()) {
-    case "success":
-      return colors.green;
-    case "failure":
-      return colors.red;
-    default:
-      return colors.yellow;
-  }
-}
+// Re-export color utilities from centralized color module
+export {
+  c as colors,
+  getAnsis,
+  getStateColor,
+  getStatusColor,
+  resetColorInstance,
+} from "./color";
 
 /**
  * Truncate and pad text for table alignment

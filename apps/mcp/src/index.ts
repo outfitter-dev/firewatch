@@ -1,5 +1,5 @@
-import { constants as fsConstants } from "node:fs";
-import { access } from "node:fs/promises";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
   GitHubClient,
   PATHS,
@@ -25,17 +25,18 @@ import {
   type WorklistEntry,
 } from "@outfitter/firewatch-core";
 import {
+  getGraphiteStacks,
+  graphitePlugin,
+} from "@outfitter/firewatch-core/plugins";
+import {
   CONFIG_SCHEMA_DOC,
   ENTRY_SCHEMA_DOC,
   WORKLIST_SCHEMA_DOC,
 } from "@outfitter/firewatch-core/schema";
-import {
-  getGraphiteStacks,
-  graphitePlugin,
-} from "@outfitter/firewatch-core/plugins";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { constants as fsConstants } from "node:fs";
+import { access } from "node:fs/promises";
 import { z } from "zod";
+
 import { version as mcpVersion } from "../package.json";
 import {
   buildQueryContext,
@@ -63,7 +64,11 @@ const FirewatchParamsShape = {
   repo: z.string().optional(),
   pr: z.number().int().positive().optional(),
   prs: z
-    .union([z.number().int().positive(), z.array(z.number().int().positive()), z.string()])
+    .union([
+      z.number().int().positive(),
+      z.array(z.number().int().positive()),
+      z.string(),
+    ])
     .optional(),
   type: z
     .union([
@@ -73,9 +78,7 @@ const FirewatchParamsShape = {
     ])
     .optional(),
   author: z.union([z.string(), z.array(z.string())]).optional(),
-  states: z
-    .array(z.enum(["open", "closed", "merged", "draft"]))
-    .optional(),
+  states: z.array(z.enum(["open", "closed", "merged", "draft"])).optional(),
   state: z.union([z.string(), z.array(z.string())]).optional(),
   open: z.boolean().optional(),
   closed: z.boolean().optional(),
@@ -101,9 +104,7 @@ const FirewatchParamsShape = {
   resolve: z.boolean().optional(),
   comment_ids: z.array(z.string()).optional(),
   comment_id: z.string().optional(),
-  review: z
-    .enum(["approve", "request-changes", "comment"])
-    .optional(),
+  review: z.enum(["approve", "request-changes", "comment"]).optional(),
   reviewer: z.union([z.string(), z.array(z.string())]).optional(),
   assignee: z.union([z.string(), z.array(z.string())]).optional(),
   labels: z.union([z.string(), z.array(z.string())]).optional(),
@@ -159,9 +160,7 @@ function toStringList(value?: string | string[]): string[] {
     .filter(Boolean);
 }
 
-function toNumberList(
-  value?: number | number[] | string
-): number[] {
+function toNumberList(value?: number | number[] | string): number[] {
   if (value === undefined) {
     return [];
   }
@@ -277,9 +276,10 @@ function resolveLabelFilter(
   return labels[0];
 }
 
-function resolveAuthorLists(
-  value: FirewatchParams["author"]
-): { include: string[]; exclude: string[] } {
+function resolveAuthorLists(value: FirewatchParams["author"]): {
+  include: string[];
+  exclude: string[];
+} {
   const authors = toStringList(value);
   const include: string[] = [];
   const exclude: string[] = [];
@@ -596,16 +596,20 @@ async function handleQuery(params: FirewatchParams): Promise<McpToolResult> {
   }
 
   if (params.orphaned && params.open) {
-    throw new Error("Cannot use orphaned with open (orphaned implies merged/closed PRs).");
+    throw new Error(
+      "Cannot use orphaned with open (orphaned implies merged/closed PRs)."
+    );
   }
 
   const states = resolveStates(params);
   const labelFilter = resolveLabelFilter(params.label);
   const typeList = resolveTypeList(params.type);
-  const prList = [...toNumberList(params.prs), ...(params.pr ? [params.pr] : [])];
-  const { include: includeAuthors, exclude: excludeAuthors } = resolveAuthorLists(
-    params.author
-  );
+  const prList = [
+    ...toNumberList(params.prs),
+    ...(params.pr ? [params.pr] : []),
+  ];
+  const { include: includeAuthors, exclude: excludeAuthors } =
+    resolveAuthorLists(params.author);
 
   const { wantsSummary, wantsSummaryShort } = resolveSummaryFlags(params);
 
@@ -616,7 +620,9 @@ async function handleQuery(params: FirewatchParams): Promise<McpToolResult> {
 
     const repos = resolveSyncRepos(params, config, detected.repo);
     if (repos.length === 0) {
-      throw new Error("No repository detected. Provide repo or configure repos.");
+      throw new Error(
+        "No repository detected. Provide repo or configure repos."
+      );
     }
 
     const syncOptions = {
@@ -649,8 +655,7 @@ async function handleQuery(params: FirewatchParams): Promise<McpToolResult> {
     cacheOptions
   );
 
-  const excludeBots =
-    params.no_bots ?? config.filters?.exclude_bots ?? false;
+  const excludeBots = params.no_bots ?? config.filters?.exclude_bots ?? false;
   const configExclusions = config.filters?.exclude_authors ?? [];
   const botPatterns = (config.filters?.bot_patterns ?? [])
     .map((pattern) => {
@@ -689,12 +694,12 @@ async function handleQuery(params: FirewatchParams): Promise<McpToolResult> {
   if (params.mine || params.reviews) {
     const username = config.user?.github_username;
     if (!username) {
-      throw new Error("user.github_username must be set for mine/reviews filters.");
+      throw new Error(
+        "user.github_username must be set for mine/reviews filters."
+      );
     }
     filtered = filtered.filter((entry) =>
-      params.mine
-        ? entry.pr_author === username
-        : entry.pr_author !== username
+      params.mine ? entry.pr_author === username : entry.pr_author !== username
     );
   }
 
@@ -785,7 +790,9 @@ async function loadTargetsFromCache(
       throw new Error(`Comment ${commentId} not found in cache.`);
     }
     if (entry.type !== "comment" || entry.subtype !== "review_comment") {
-      throw new Error(`Comment ${commentId} is not a review comment thread entry.`);
+      throw new Error(
+        `Comment ${commentId} is not a review comment thread entry.`
+      );
     }
     targets.push({ repo: entry.repo, pr: entry.pr, commentId });
   }
@@ -821,7 +828,9 @@ async function resolveTargets(
     for (const target of group) {
       const threadId = threadMap.get(target.commentId);
       if (!threadId) {
-        throw new Error(`No review thread found for comment ${target.commentId}.`);
+        throw new Error(
+          `No review thread found for comment ${target.commentId}.`
+        );
       }
       await client.resolveReviewThread(threadId);
       outputs.push({
@@ -872,7 +881,9 @@ async function handleAdd(params: FirewatchParams): Promise<McpToolResult> {
   const hasReview = Boolean(params.review);
 
   if (hasReview && hasMetadata) {
-    throw new Error("Review actions cannot be combined with label/reviewer/assignee updates.");
+    throw new Error(
+      "Review actions cannot be combined with label/reviewer/assignee updates."
+    );
   }
 
   if (!hasReview && !hasMetadata && !params.body) {
@@ -968,7 +979,8 @@ async function handleAdd(params: FirewatchParams): Promise<McpToolResult> {
 }
 
 async function handleClose(params: FirewatchParams): Promise<McpToolResult> {
-  const ids = params.comment_ids ?? (params.comment_id ? [params.comment_id] : []);
+  const ids =
+    params.comment_ids ?? (params.comment_id ? [params.comment_id] : []);
   if (ids.length === 0) {
     throw new Error("close requires comment_id or comment_ids.");
   }
@@ -1144,10 +1156,7 @@ async function handleRm(params: FirewatchParams): Promise<McpToolResult> {
   );
 }
 
-function getConfigValue(
-  config: FirewatchConfig,
-  key: string
-): unknown {
+function getConfigValue(config: FirewatchConfig, key: string): unknown {
   const normalized = key.replaceAll("-", "_");
   const segments = normalized.split(".");
   let current: unknown = config;
@@ -1265,8 +1274,7 @@ async function handleDoctor(params: FirewatchParams): Promise<McpToolResult> {
     });
   }
 
-  const graphiteEnabled =
-    detected.repo && (await getGraphiteStacks()) !== null;
+  const graphiteEnabled = detected.repo && (await getGraphiteStacks()) !== null;
 
   const output = {
     ok: issues.length === 0,

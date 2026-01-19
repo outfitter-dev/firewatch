@@ -25,11 +25,13 @@ fw --summary --open
 ```
 
 This shows per-PR summaries with:
+
 - Comment and review counts
 - Review states (approved, changes requested)
 - Latest activity timestamp
 
 For JSON output for further processing:
+
 ```bash
 fw --summary --open --json
 ```
@@ -37,16 +39,19 @@ fw --summary --open --json
 ### Step 3: Prioritize by Urgency
 
 **Changes requested (address first):**
+
 ```bash
 fw --summary | jq 'select(.review_states.changes_requested > 0)'
 ```
 
 **Awaiting your review:**
+
 ```bash
 fw --reviews --summary
 ```
 
 **Stale PRs (no activity in 3+ days):**
+
 ```bash
 fw --summary | jq 'select(
   (.last_activity_at | fromdateiso8601) < (now - 259200)
@@ -56,11 +61,13 @@ fw --summary | jq 'select(
 ### Step 4: Check Your PRs for Feedback
 
 **Comments on your PRs from others:**
+
 ```bash
 fw --type comment --mine | jq 'select(.author != .pr_author)'
 ```
 
 **Review comments needing attention:**
+
 ```bash
 fw --type comment --mine | jq 'select(
   .subtype == "review_comment" and
@@ -78,6 +85,7 @@ fw status --short
 ```
 
 Or detailed breakdown:
+
 ```bash
 fw --summary | jq '{
   pr,
@@ -122,16 +130,17 @@ fw --refresh --summary --open && fw status --short
 
 ### Summary Categories
 
-| Category | Meaning | Action |
-|----------|---------|--------|
+| Category          | Meaning              | Action                       |
+| ----------------- | -------------------- | ---------------------------- |
 | Changes Requested | Reviewer wants fixes | Address feedback immediately |
-| Awaiting Review | No reviews yet | Ping reviewers or wait |
-| Stale | No activity 3+ days | Follow up or close |
-| Has Comments | Comments to address | Implement and resolve |
+| Awaiting Review   | No reviews yet       | Ping reviewers or wait       |
+| Stale             | No activity 3+ days  | Follow up or close           |
+| Has Comments      | Comments to address  | Implement and resolve        |
 
 ### Status Short Format
 
 The `--short` flag shows:
+
 - PR number and title
 - Current state (open/draft/merged/closed)
 - Last activity timestamp

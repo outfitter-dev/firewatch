@@ -19,6 +19,7 @@ fw | jq 'select(.type == "review" and .state == "approved")'
 ### Streaming Mode (default)
 
 Process each entry independently:
+
 ```bash
 fw | jq 'select(.type == "review")'
 ```
@@ -26,6 +27,7 @@ fw | jq 'select(.type == "review")'
 ### Slurp Mode (-s)
 
 Load all entries into array for aggregation:
+
 ```bash
 fw | jq -s 'group_by(.type) | map({type: .[0].type, count: length})'
 ```
@@ -33,6 +35,7 @@ fw | jq -s 'group_by(.type) | map({type: .[0].type, count: length})'
 ### Raw Output (-r)
 
 Output without JSON quoting (for piping):
+
 ```bash
 fw | jq -r '.id'
 ```

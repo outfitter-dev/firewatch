@@ -9,6 +9,7 @@ argument-hint: ""
 Fix all outstanding feedback, resolve threads, commit, and submit the stack.
 
 ⚠️ **This is an aggressive workflow.** It will:
+
 1. Identify all actionable feedback
 2. Dispatch agents to implement fixes
 3. Resolve comment threads
@@ -26,6 +27,7 @@ Load skill: firewatch
 ```
 
 For Graphite stack workflows, reference:
+
 - `.claude/skills/firewatch/graphite/commit-workflow.md` — `gt modify` vs `gt amend -a`
 - `.claude/skills/firewatch/graphite/cross-pr-fixes.md` — File provenance and fixing in the right PR
 
@@ -39,10 +41,12 @@ Run `/fw:sitrep` analysis (Phases 1-2 from sitrep.md):
 2. If anything needs attention, get detailed categorization
 
 Use sitrep's categorization system:
+
 - **Type:** 🧠 Logic, ✨ Style, 🤓 Nit
 - **Severity:** 🔴 Blocking, 🟡 Should fix, 🟢 Optional
 
 Capture:
+
 - All open PRs in the stack
 - All actionable comments with type/severity
 - Any "changes requested" reviews
@@ -54,16 +58,18 @@ Present the attack plan to user:
 
 **Found N actionable items across M PRs:**
 
-| PR | File | Type | Severity | Issue |
-|----|------|------|----------|-------|
-| #102 | auth.ts:42 | 🧠 Logic | 🔴 | Add error handling |
-| #102 | auth.ts:58 | ✨ Style | 🟡 | Consider rate limiting |
-| #103 | config.ts:18 | 🧠 Logic | 🔴 | Validate input |
+| PR   | File         | Type     | Severity | Issue                  |
+| ---- | ------------ | -------- | -------- | ---------------------- |
+| #102 | auth.ts:42   | 🧠 Logic | 🔴       | Add error handling     |
+| #102 | auth.ts:58   | ✨ Style | 🟡       | Consider rate limiting |
+| #103 | config.ts:18 | 🧠 Logic | 🔴       | Validate input         |
 
 **Cross-PR fixes needed:**
+
 - Comment on #103 → fix in #101 (file originated there)
 
 **Proposed approach:**
+
 1. Dispatch agents to fix each file (bottom-up for stacks)
 2. Resolve threads after fixes verified
 3. `gt amend -a` to capture changes across stack
@@ -86,6 +92,7 @@ If confirmed, dispatch specialized agents for each fix:
 - For cross-PR fixes, ensure agent works in the origin branch
 
 **Dispatch pattern:**
+
 ```
 Task: Fix auth.ts feedback
 Agent: senior-dev
@@ -100,6 +107,7 @@ Prompt: |
 ### Phase 4: Verify
 
 After agents complete:
+
 1. Review each fix
 2. Run tests: `bun test`
 3. Run type check: `bun run check`
@@ -109,11 +117,13 @@ If any fail, iterate with agents until passing.
 ### Phase 5: Resolve Threads
 
 For each addressed comment:
+
 ```bash
 bun apps/cli/bin/fw.ts add PR "Fixed" --reply COMMENT_ID --resolve
 ```
 
 Or bulk resolve:
+
 ```bash
 bun apps/cli/bin/fw.ts close ID1 ID2 ID3
 ```
@@ -123,16 +133,19 @@ bun apps/cli/bin/fw.ts close ID1 ID2 ID3
 **Important:** When subagents make cross-stack changes, use `gt amend -a` to place changes in appropriate branches. See `.claude/skills/firewatch/graphite/commit-workflow.md` for details.
 
 Stage and amend all changes (distributes to appropriate branches):
+
 ```bash
 gt amend -a
 ```
 
 Restack to propagate changes:
+
 ```bash
 gt restack
 ```
 
 Submit the entire stack:
+
 ```bash
 gt submit --stack
 ```
@@ -141,24 +154,27 @@ gt submit --stack
 
 **YOLO Complete** 🚀
 
-| Metric | Count |
-|--------|-------|
-| Issues fixed | N |
-| Threads resolved | M |
-| PRs updated | K |
+| Metric           | Count |
+| ---------------- | ----- |
+| Issues fixed     | N     |
+| Threads resolved | M     |
+| PRs updated      | K     |
 
 **Stack submitted:**
+
 - PR #101 — Base changes ✅
 - PR #102 — API layer ✅
 - PR #103 — UI updates ✅
 
 **Remaining items** (if any):
+
 - Questions needing human response
 - Items explicitly skipped
 
 ## Abort Conditions
 
 Stop and ask user if:
+
 - Tests fail after 2 fix attempts
 - Type errors can't be resolved
 - A fix would require significant refactoring
