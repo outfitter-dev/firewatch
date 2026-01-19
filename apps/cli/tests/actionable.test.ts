@@ -45,6 +45,7 @@ test("identifyUnaddressedFeedback ignores comments with newer commits or file up
       pr_author: "carol",
       pr_branch: "feat/cache",
       type: "comment",
+      subtype: "review_comment",
       author: "dave",
       file: "src/cache.ts",
       file_activity_after: {
@@ -63,6 +64,7 @@ test("identifyUnaddressedFeedback ignores comments with newer commits or file up
       pr_author: "emma",
       pr_branch: "feat/cli",
       type: "comment",
+      subtype: "review_comment",
       author: "frank",
       file: "src/index.ts",
       file_activity_after: {
@@ -83,6 +85,7 @@ test("identifyUnaddressedFeedback ignores comments with newer commits or file up
       pr_author: "gina",
       pr_branch: "feat/actionable",
       type: "comment",
+      subtype: "review_comment",
       author: "henry",
       file: "src/actionable.ts",
       created_at: "2025-01-04T03:00:00.000Z",
@@ -140,7 +143,9 @@ test("buildActionableSummary groups categories and respects perspective", () => 
       pr_author: "alice",
       pr_branch: "feat/stack",
       type: "comment",
+      subtype: "review_comment",
       author: "bob",
+      file: "src/stack.ts",
       created_at: nowIso,
       captured_at: nowIso,
     },
