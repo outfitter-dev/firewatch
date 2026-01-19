@@ -22,8 +22,19 @@ function collect(value: string, previous: string[] = []): string[] {
   return [...previous, value];
 }
 
+function printDeprecationWarning(): void {
+  console.error(
+    "\u001B[33mWarning: 'fw rm' is deprecated. Use instead:\u001B[0m"
+  );
+  console.error(
+    "  fw pr edit <pr> --remove-label X --remove-reviewer Y --remove-assignee Z"
+  );
+  console.error("  fw pr edit <pr> --remove-milestone");
+  console.error("");
+}
+
 export const rmCommand = new Command("rm")
-  .description("Remove labels, reviewers, assignees, or milestone from PRs")
+  .description("Remove labels, reviewers, assignees, or milestone from PRs (deprecated)")
   .argument("<pr>", "PR number", parsePrNumber)
   .option("--repo <name>", "Repository (owner/repo format)")
   .option("--label <name>", "Remove label (repeatable)", collect)
@@ -33,6 +44,7 @@ export const rmCommand = new Command("rm")
   .option("--json", "Force JSON output")
   .option("--no-json", "Force human-readable output")
   .action(async (pr: number, options: RmCommandOptions) => {
+    printDeprecationWarning();
     try {
       const labels = options.label ?? [];
       const reviewers = options.reviewer ?? [];
