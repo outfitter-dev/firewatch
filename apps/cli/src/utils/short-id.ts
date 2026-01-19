@@ -2,17 +2,18 @@ import { createHash } from "node:crypto";
 
 /**
  * Short ID configuration
+ * 5 chars = 16^5 = 1,048,576 possibilities (vs 65,536 for 4 chars)
  */
-const SHORT_ID_LENGTH = 4;
+const SHORT_ID_LENGTH = 5;
 
 /**
- * Generate a deterministic 4-character short ID from a GitHub comment ID.
+ * Generate a deterministic 5-character short ID from a GitHub comment ID.
  * The hash includes the repo to avoid collisions across different repos.
- * Short IDs are prefixed with @ when displayed (e.g., @a7f3).
+ * Short IDs are prefixed with `@` when displayed (e.g., `@a7f3c`).
  *
  * @param commentId - Full GitHub comment ID (e.g., "IC_kwDOQ...")
  * @param repo - Repository in owner/repo format
- * @returns 4-character hex string (without @ prefix)
+ * @returns 5-character hex string (without `@` prefix)
  */
 export function generateShortId(commentId: string, repo: string): string {
   return createHash("sha256")
@@ -22,21 +23,21 @@ export function generateShortId(commentId: string, repo: string): string {
 }
 
 /**
- * Check if a string looks like a short ID (4-character hex string, optionally prefixed with @).
+ * Check if a string looks like a short ID (5-character hex string, optionally prefixed with `@`).
  */
 export function isShortId(id: string): boolean {
-  return /^@?[a-f0-9]{4}$/i.test(id);
+  return /^@?[a-f0-9]{5}$/i.test(id);
 }
 
 /**
- * Strip the @ prefix from a short ID if present.
+ * Strip the `@` prefix from a short ID if present.
  */
 export function stripShortIdPrefix(id: string): string {
   return id.startsWith("@") ? id.slice(1) : id;
 }
 
 /**
- * Format a short ID with the @ prefix for display.
+ * Format a short ID with the `@` prefix for display.
  */
 export function formatShortId(id: string): string {
   const stripped = stripShortIdPrefix(id);
@@ -104,7 +105,7 @@ export function registerShortId(
 
 /**
  * Look up a full ID from a short ID.
- * Accepts short IDs with or without @ prefix.
+ * Accepts short IDs with or without `@` prefix.
  * Returns null if not found in cache.
  */
 export function resolveShortId(shortId: string): ShortIdMapping | null {
