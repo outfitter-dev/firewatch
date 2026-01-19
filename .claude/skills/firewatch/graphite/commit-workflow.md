@@ -4,14 +4,15 @@ How to commit changes when working in Graphite stacks.
 
 ## The Key Distinction
 
-| Scenario | Command | Behavior |
-|----------|---------|----------|
-| Single branch changes | `gt modify` | Amends the current branch's commit |
-| Cross-stack changes | `gt amend -a` | Places changes in appropriate branches across the stack |
+| Scenario              | Command       | Behavior                                                |
+| --------------------- | ------------- | ------------------------------------------------------- |
+| Single branch changes | `gt modify`   | Amends the current branch's commit                      |
+| Cross-stack changes   | `gt amend -a` | Places changes in appropriate branches across the stack |
 
 ## When to Use `gt modify`
 
 Use `gt modify` when:
+
 - You're making changes to a **single PR/branch** in the stack
 - All your changes belong to the current branch only
 - You're working manually on one branch at a time
@@ -30,6 +31,7 @@ gt restack
 ## When to Use `gt amend -a`
 
 Use `gt amend -a` when:
+
 - **Subagents** are implementing fixes that touch multiple branches
 - Changes span multiple PRs in the stack
 - You want Graphite to automatically place changes in the right branches
@@ -106,6 +108,7 @@ gt continue
 ```
 
 If conflicts persist:
+
 - Consider fixing in a lower PR first
 - Use `gt abort` to cancel and try a different approach
 

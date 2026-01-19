@@ -1,5 +1,3 @@
-import { existsSync, readdirSync } from "node:fs";
-
 import {
   ENTRY_TYPES,
   GitHubClient,
@@ -26,13 +24,11 @@ import {
   graphitePlugin,
 } from "@outfitter/firewatch-core/plugins";
 import { Command } from "commander";
+import { existsSync, readdirSync } from "node:fs";
 import ora from "ora";
 
 import { version } from "../package.json";
-import {
-  buildActionableSummary,
-  printActionableSummary,
-} from "./actionable";
+import { buildActionableSummary, printActionableSummary } from "./actionable";
 import { addCommand } from "./commands/add";
 import { cacheCommand } from "./commands/cache";
 import { claudePluginCommand } from "./commands/claude-plugin";
@@ -44,12 +40,12 @@ import { mcpCommand } from "./commands/mcp";
 import { rmCommand } from "./commands/rm";
 import { schemaCommand } from "./commands/schema";
 import { statusCommand } from "./commands/status";
-import { outputWorklist } from "./worklist";
 import { validateRepoFormat } from "./repo";
 import { ensureGraphiteMetadata } from "./stack";
 import { writeJsonLine } from "./utils/json";
 import { resolveStates } from "./utils/states";
 import { shouldOutputJson } from "./utils/tty";
+import { outputWorklist } from "./worklist";
 
 interface RootCommandOptions {
   prs?: string | boolean;
@@ -307,9 +303,7 @@ async function ensureRepoCache(
       ...(options.full && { full: true }),
       plugins,
     });
-    spinner.succeed(
-      `Synced ${repo} (${result.entriesAdded} entries)`
-    );
+    spinner.succeed(`Synced ${repo} (${result.entriesAdded} entries)`);
   } catch (error) {
     spinner.fail(
       `Sync failed: ${error instanceof Error ? error.message : error}`
@@ -380,8 +374,7 @@ async function ensureFreshRepos(
 
     const hasCache = hasRepoCache(repo);
     const lastSync = meta.get(repo)?.last_sync;
-    const needsSync =
-      forceRefresh || !hasCache || isStale(lastSync, threshold);
+    const needsSync = forceRefresh || !hasCache || isStale(lastSync, threshold);
 
     if (!needsSync) {
       continue;
@@ -437,11 +430,10 @@ program
     applyGlobalOptions(options);
 
     try {
-      if (
-        typeof options.refresh === "string" &&
-        options.refresh !== "full"
-      ) {
-        console.error("Invalid --refresh value. Use --refresh or --refresh full.");
+      if (typeof options.refresh === "string" && options.refresh !== "full") {
+        console.error(
+          "Invalid --refresh value. Use --refresh or --refresh full."
+        );
         process.exit(1);
       }
 
@@ -456,7 +448,9 @@ program
       }
 
       if (options.orphaned && options.open) {
-        console.error("--orphaned cannot be used with --open (orphaned implies merged/closed PRs).");
+        console.error(
+          "--orphaned cannot be used with --open (orphaned implies merged/closed PRs)."
+        );
         process.exit(1);
       }
 
@@ -498,7 +492,12 @@ program
         config,
         detected.repo ?? null
       );
-      await ensureFreshRepos(reposToSync, options, config, detected.repo ?? null);
+      await ensureFreshRepos(
+        reposToSync,
+        options,
+        config,
+        detected.repo ?? null
+      );
 
       const states = resolveStates({
         ...(options.state && { state: options.state }),
@@ -513,7 +512,10 @@ program
       const includeAuthors = authorFilters.includeAuthors;
 
       // Resolve effective since: explicit option > orphaned default (7d) > undefined
-      const effectiveSince = resolveSinceFilter(options.since, options.orphaned);
+      const effectiveSince = resolveSinceFilter(
+        options.since,
+        options.orphaned
+      );
 
       const entries = await queryEntries({
         filters: {
@@ -548,7 +550,9 @@ program
       if (options.mine || options.reviews) {
         const username = config.user?.github_username;
         if (!username) {
-          console.error("Set user.github_username in config for --mine/--reviews.");
+          console.error(
+            "Set user.github_username in config for --mine/--reviews."
+          );
           process.exit(1);
         }
 
@@ -610,10 +614,7 @@ program
         );
         printActionableSummary(reviewSummary);
       } else {
-        const summary = buildActionableSummary(
-          repoLabel,
-          actionableEntries
-        );
+        const summary = buildActionableSummary(repoLabel, actionableEntries);
         printActionableSummary(summary);
       }
     } catch (error) {

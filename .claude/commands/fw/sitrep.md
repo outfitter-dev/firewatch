@@ -19,6 +19,7 @@ Load skill: firewatch
 ```
 
 For Graphite stack workflows, reference:
+
 - `.claude/skills/firewatch/graphite/stack-queries.md`
 - `.claude/skills/firewatch/graphite/cross-pr-fixes.md`
 
@@ -32,13 +33,14 @@ Parse the pre-run context. Produce a one-glance summary:
 
 **If no argument**, scan all open PRs:
 
-| PR | Title | State | Comments | Reviews | Attention? |
-|----|-------|-------|----------|---------|------------|
-| #101 | Base changes | open | 0 | ✅ approved | — |
-| #102 | API layer | open | 3 | ⏳ pending | **Yes** |
-| #103 | UI updates | open | 1 | ❌ changes requested | **Yes** |
+| PR   | Title        | State | Comments | Reviews              | Attention? |
+| ---- | ------------ | ----- | -------- | -------------------- | ---------- |
+| #101 | Base changes | open  | 0        | ✅ approved          | —          |
+| #102 | API layer    | open  | 3        | ⏳ pending           | **Yes**    |
+| #103 | UI updates   | open  | 1        | ❌ changes requested | **Yes**    |
 
 **Quick verdict:**
+
 - ✅ **All clear** — No actionable feedback. Done.
 - ⚠️ **N items need attention** — Proceed to Phase 2.
 
@@ -69,6 +71,7 @@ Categorize each comment by **type** and **severity**:
 | 🟢 | Optional | Nice to have, author's discretion |
 
 **Heuristics:**
+
 - "Bug", "Issue", "Blocking", "Must" → 🔴
 - "Should", "Please", "Consider" (for logic) → 🟡
 - "Nit", "Minor", "Optional", "Consider" (for style) → 🟢
@@ -81,17 +84,17 @@ Group findings by PR, sorted by stack position (if applicable):
 
 **PR #102 — API layer** (stack position 2)
 
-| File | Line | Type | Severity | Author | Summary |
-|------|------|------|----------|--------|---------|
-| auth.ts | 42 | 🧠 Logic | 🔴 | @reviewer | Add error handling for token refresh |
-| auth.ts | 58 | ✨ Style | 🟡 | @reviewer | Consider rate limiting |
-| types.ts | 12 | 🤓 Nit | 🟢 | @other | Typo in type name |
+| File     | Line | Type     | Severity | Author    | Summary                              |
+| -------- | ---- | -------- | -------- | --------- | ------------------------------------ |
+| auth.ts  | 42   | 🧠 Logic | 🔴       | @reviewer | Add error handling for token refresh |
+| auth.ts  | 58   | ✨ Style | 🟡       | @reviewer | Consider rate limiting               |
+| types.ts | 12   | 🤓 Nit   | 🟢       | @other    | Typo in type name                    |
 
 **PR #103 — UI updates** (stack position 3)
 
-| File | Line | Type | Severity | Author | Summary |
-|------|------|------|----------|--------|---------|
-| config.ts | 18 | 🧠 Logic | 🔴 | @reviewer | Validate input before use |
+| File      | Line | Type     | Severity | Author    | Summary                   |
+| --------- | ---- | -------- | -------- | --------- | ------------------------- |
+| config.ts | 18   | 🧠 Logic | 🔴       | @reviewer | Validate input before use |
 
 #### Check File Provenance (Graphite stacks)
 
@@ -108,11 +111,13 @@ If found, note: "⚠️ Comment on PR #X but file originated in PR #Y — fix in
 Based on findings:
 
 **Priority order:**
+
 1. 🔴 Blocking items (must address)
 2. 🟡 Should-fix items (address if time permits)
 3. 🟢 Optional items (author's discretion)
 
 **Suggested actions:**
+
 - `/fw:yolo` — Fix everything and ship
 - `/fw:cleanup` — Just resolve already-addressed threads
 - "Focus on PR #N" — Work through one PR at a time

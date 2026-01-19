@@ -106,7 +106,8 @@ async function installPlugin(pluginPath: string): Promise<void> {
   console.log(`Registering marketplace at: ${pluginPath}`);
 
   // Add marketplace
-  const marketplaceResult = await $`claude plugin marketplace add ${pluginPath}`.quiet();
+  const marketplaceResult =
+    await $`claude plugin marketplace add ${pluginPath}`.quiet();
   if (marketplaceResult.exitCode === 0) {
     console.log("Marketplace registered");
   } else {
@@ -149,7 +150,10 @@ async function uninstallPlugin(): Promise<void> {
     console.log("Plugin removed");
   } else {
     const stderr = pluginResult.stderr.toString().trim();
-    const isNotInstalled = stderr.includes("not found") || stderr.includes("not installed") || !stderr;
+    const isNotInstalled =
+      stderr.includes("not found") ||
+      stderr.includes("not installed") ||
+      !stderr;
     if (isNotInstalled) {
       console.log("Plugin was not installed");
     } else {
@@ -158,7 +162,8 @@ async function uninstallPlugin(): Promise<void> {
   }
 
   console.log(`Removing marketplace: ${MARKETPLACE_NAME}`);
-  const marketplaceResult = await $`claude plugin marketplace remove ${MARKETPLACE_NAME}`.quiet();
+  const marketplaceResult =
+    await $`claude plugin marketplace remove ${MARKETPLACE_NAME}`.quiet();
   if (marketplaceResult.exitCode === 0) {
     console.log("Marketplace removed");
   } else {
@@ -196,7 +201,9 @@ async function checkPluginStatus(): Promise<void> {
     console.log("Run 'fw claude-plugin' to install");
   } else {
     console.log("\nStatus: Partial installation");
-    console.log("Run 'fw claude-plugin --uninstall' then 'fw claude-plugin' to fix");
+    console.log(
+      "Run 'fw claude-plugin --uninstall' then 'fw claude-plugin' to fix"
+    );
   }
 }
 
@@ -209,7 +216,9 @@ export const claudePluginCommand = new Command("claude-plugin")
       // Check claude CLI is available
       const hasClaudeCli = await checkClaudeCli();
       if (!hasClaudeCli) {
-        console.error("Claude CLI not found. Install it from: https://claude.ai/code");
+        console.error(
+          "Claude CLI not found. Install it from: https://claude.ai/code"
+        );
         process.exit(1);
       }
 
