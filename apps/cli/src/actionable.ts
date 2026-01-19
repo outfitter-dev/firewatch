@@ -149,9 +149,20 @@ export function identifyAttentionItems(worklist: WorklistEntry[]): {
   return { changes_requested, unreviewed, stale };
 }
 
+/**
+ * Identify feedback that needs attention.
+ *
+ * @param entries - Firewatch entries to analyze
+ * @param options - Optional filtering options
+ * @param options.ackedIds - Set of comment IDs that have been acknowledged (will be excluded)
+ * @returns Array of unaddressed feedback items
+ */
 export function identifyUnaddressedFeedback(
-  entries: FirewatchEntry[]
+  entries: FirewatchEntry[],
+  options?: { ackedIds?: Set<string> }
 ): UnaddressedFeedback[] {
+  const ackedIds = options?.ackedIds;
+
   // Only include review_comment subtype (inline code comments), not issue_comment (top-level PR comments)
   const commentEntries = entries.filter(
     (e) => e.type === "comment" && e.subtype === "review_comment"
@@ -185,6 +196,11 @@ export function identifyUnaddressedFeedback(
       // If we have thread resolution state, use it directly
       if (comment.thread_resolved !== undefined) {
         return !comment.thread_resolved;
+      }
+
+      // Exclude acknowledged comments
+      if (ackedIds?.has(comment.id)) {
+        return false;
       }
 
       // Fallback heuristics when thread_resolved is not available

@@ -202,8 +202,19 @@ function validateOptions(
   }
 }
 
+function printDeprecationWarning(): void {
+  console.error(
+    "\u001B[33mWarning: 'fw add' is deprecated. Use these alternatives:\u001B[0m"
+  );
+  console.error("  Comments:  fw pr comment <pr> \"text\"");
+  console.error("  Reviews:   fw pr review <pr> --approve");
+  console.error("  Replies:   fw fb <comment-id> \"text\"");
+  console.error("  Metadata:  fw pr edit <pr> --add-label X --add-reviewer Y");
+  console.error("");
+}
+
 export const addCommand = new Command("add")
-  .description("Add comments, reviews, or metadata to PRs")
+  .description("Add comments, reviews, or metadata to PRs (deprecated)")
   .argument("<pr>", "PR number", parsePrNumber)
   .argument("[body]", "Comment or review body")
   .option("--repo <name>", "Repository (owner/repo format)")
@@ -221,6 +232,7 @@ export const addCommand = new Command("add")
       body: string | undefined,
       options: AddCommandOptions
     ) => {
+      printDeprecationWarning();
       try {
         const labels = options.label ?? [];
         const reviewers = options.reviewer ?? [];

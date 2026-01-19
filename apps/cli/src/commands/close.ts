@@ -116,13 +116,22 @@ async function resolveTargets(
   return hadError;
 }
 
+function printDeprecationWarning(): void {
+  console.error(
+    "\u001B[33mWarning: 'fw close' is deprecated. Use instead:\u001B[0m"
+  );
+  console.error("  fw fb <comment-id> --resolve");
+  console.error("");
+}
+
 export const closeCommand = new Command("close")
-  .description("Resolve review comment threads")
+  .description("Resolve review comment threads (deprecated)")
   .argument("<commentIds...>", "Review comment IDs to resolve")
   .option("--repo <name>", "Repository (owner/repo format)")
   .option("--json", "Force JSON output")
   .option("--no-json", "Force human-readable output")
   .action(async (commentIds: string[], options: CloseCommandOptions) => {
+    printDeprecationWarning();
     try {
       if (commentIds.length === 0) {
         console.error("No comment IDs provided.");

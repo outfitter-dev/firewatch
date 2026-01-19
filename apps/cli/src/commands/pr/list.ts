@@ -27,29 +27,15 @@ import { Command } from "commander";
 import { existsSync, readdirSync } from "node:fs";
 import ora from "ora";
 
-import { version } from "../package.json";
-import { buildActionableSummary, printActionableSummary } from "./actionable";
-import { addCommand } from "./commands/add";
-import { cacheCommand } from "./commands/cache";
-import { claudePluginCommand } from "./commands/claude-plugin";
-import { closeCommand } from "./commands/close";
-import { configCommand } from "./commands/config";
-import { doctorCommand } from "./commands/doctor";
-import { editCommand } from "./commands/edit";
-import { fbCommand } from "./commands/fb";
-import { mcpCommand } from "./commands/mcp";
-import { prCommand } from "./commands/pr";
-import { rmCommand } from "./commands/rm";
-import { schemaCommand } from "./commands/schema";
-import { statusCommand } from "./commands/status";
-import { validateRepoFormat } from "./repo";
-import { ensureGraphiteMetadata } from "./stack";
-import { writeJsonLine } from "./utils/json";
-import { resolveStates } from "./utils/states";
-import { shouldOutputJson } from "./utils/tty";
-import { outputWorklist } from "./worklist";
+import { buildActionableSummary, printActionableSummary } from "../../actionable";
+import { validateRepoFormat } from "../../repo";
+import { ensureGraphiteMetadata } from "../../stack";
+import { writeJsonLine } from "../../utils/json";
+import { resolveStates } from "../../utils/states";
+import { shouldOutputJson } from "../../utils/tty";
+import { outputWorklist } from "../../worklist";
 
-interface RootCommandOptions {
+interface ListCommandOptions {
   prs?: string | boolean;
   repo?: string;
   all?: boolean;
@@ -78,7 +64,7 @@ interface RootCommandOptions {
 
 const DEFAULT_STALE_THRESHOLD = "5m";
 
-function applyGlobalOptions(options: RootCommandOptions): void {
+function applyGlobalOptions(options: ListCommandOptions): void {
   if (options.noColor) {
     process.env.NO_COLOR = "1";
   }
@@ -189,7 +175,7 @@ function resolveSinceFilter(
 }
 
 function resolveAuthorFilters(
-  options: RootCommandOptions,
+  options: ListCommandOptions,
   config: FirewatchConfig
 ): {
   includeAuthors: string[];
@@ -229,7 +215,7 @@ function listCachedRepos(): string[] {
 }
 
 function resolveRepoFilter(
-  options: RootCommandOptions,
+  options: ListCommandOptions,
   detectedRepo: string | null
 ): string | undefined {
   if (options.repo) {
@@ -243,7 +229,7 @@ function resolveRepoFilter(
 }
 
 function resolveReposToSync(
-  options: RootCommandOptions,
+  options: ListCommandOptions,
   config: FirewatchConfig,
   detectedRepo: string | null
 ): string[] {
@@ -340,7 +326,7 @@ function hasRepoCache(repo: string): boolean {
 
 async function ensureFreshRepos(
   repos: string[],
-  options: RootCommandOptions,
+  options: ListCommandOptions,
   config: FirewatchConfig,
   detectedRepo: string | null
 ): Promise<void> {
@@ -388,15 +374,8 @@ async function ensureFreshRepos(
   }
 }
 
-const program = new Command();
-program.enablePositionalOptions();
-
-program
-  .name("fw")
-  .description(
-    "GitHub PR activity logger with pure JSONL output for jq-based workflows"
-  )
-  .version(version)
+export const listCommand = new Command("list")
+  .description("List PRs and activity (default: current repo)")
   .option("--prs [numbers]", "Filter to PR domain, optionally specific PRs")
   .option("--repo <name>", "Filter to specific repository")
   .option("-a, --all", "Include all cached repos")
@@ -428,7 +407,7 @@ program
   .option("--no-json", "Force human-readable output")
   .option("--debug", "Enable debug logging")
   .option("--no-color", "Disable color output")
-  .action(async (options: RootCommandOptions) => {
+  .action(async (options: ListCommandOptions) => {
     applyGlobalOptions(options);
 
     try {
@@ -593,10 +572,9 @@ program
           repoLabel,
           actionableEntries,
           perspective,
-          username,
-          options.orphaned
+          username
         );
-        await printActionableSummary(summary);
+        printActionableSummary(summary);
         return;
       }
 
@@ -605,28 +583,20 @@ program
           repoLabel,
           actionableEntries,
           "mine",
-          username,
-          options.orphaned
+          username
         );
-        await printActionableSummary(mineSummary);
+        printActionableSummary(mineSummary);
 
         const reviewSummary = buildActionableSummary(
           repoLabel,
           actionableEntries,
           "reviews",
-          username,
-          options.orphaned
+          username
         );
-        await printActionableSummary(reviewSummary);
+        printActionableSummary(reviewSummary);
       } else {
-        const summary = buildActionableSummary(
-          repoLabel,
-          actionableEntries,
-          undefined,
-          undefined,
-          options.orphaned
-        );
-        await printActionableSummary(summary);
+        const summary = buildActionableSummary(repoLabel, actionableEntries);
+        printActionableSummary(summary);
       }
     } catch (error) {
       console.error(
@@ -636,31 +606,3 @@ program
       process.exit(1);
     }
   });
-
-program.addCommand(prCommand);
-program.addCommand(fbCommand);
-program.addCommand(addCommand);
-program.addCommand(cacheCommand);
-program.addCommand(claudePluginCommand);
-program.addCommand(closeCommand);
-program.addCommand(editCommand);
-program.addCommand(rmCommand);
-program.addCommand(statusCommand);
-program.addCommand(configCommand);
-program.addCommand(doctorCommand);
-program.addCommand(schemaCommand);
-program.addCommand(mcpCommand);
-
-// Explicit help command since root action intercepts unknown args
-program
-  .command("help")
-  .description("Display help for fw")
-  .action(() => {
-    program.help();
-  });
-
-export { program };
-
-export function run(): void {
-  program.parse();
-}

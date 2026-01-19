@@ -226,6 +226,17 @@ mutation MarkPullRequestReadyForReview($pullRequestId: ID!) {
 }
 `;
 
+const ADD_REACTION_MUTATION = `
+mutation AddReaction($subjectId: ID!, $content: ReactionContent!) {
+  addReaction(input: { subjectId: $subjectId, content: $content }) {
+    reaction {
+      id
+      content
+    }
+  }
+}
+`;
+
 /**
  * GraphQL response types.
  */
@@ -349,6 +360,40 @@ interface MarkPullRequestReadyData {
     } | null;
   } | null;
 }
+
+interface AddReactionData {
+  addReaction: {
+    reaction: {
+      id: string;
+      content: string;
+    } | null;
+  } | null;
+}
+
+interface CommentReactionsData {
+  nodes: Array<{
+    __typename?: string;
+    id?: string;
+    reactions?: {
+      nodes: {
+        user: { login: string } | null;
+      }[];
+    };
+  } | null>;
+}
+
+/**
+ * GitHub reaction content types.
+ */
+export type ReactionContent =
+  | "THUMBS_UP"
+  | "THUMBS_DOWN"
+  | "LAUGH"
+  | "HOORAY"
+  | "CONFUSED"
+  | "HEART"
+  | "ROCKET"
+  | "EYES";
 
 export interface PRNode {
   number: number;
@@ -892,5 +937,30 @@ export class GitHubClient {
       // Return empty array on error - caller will treat as "no file data"
       return [];
     }
+  }
+
+  /**
+   * Add a reaction to a comment or issue.
+   *
+   * @param subjectId - The GraphQL node ID of the comment/issue to react to
+   * @param content - The reaction type (e.g., "THUMBS_UP")
+   * @returns The created reaction ID
+   */
+  async addReaction(
+    subjectId: string,
+    content: ReactionContent
+  ): Promise<{ id: string; content: string }> {
+    const response = await this.query<AddReactionData>(ADD_REACTION_MUTATION, {
+      subjectId,
+      content,
+    });
+
+    const data = GitHubClient.unwrap(response);
+    const reaction = data.addReaction?.reaction;
+    if (!reaction) {
+      throw new Error("No reaction returned from GitHub API");
+    }
+
+    return { id: reaction.id, content: reaction.content };
   }
 }

@@ -78,6 +78,7 @@ export {
   type GraphQLResponse,
   type PRActivityData,
   type PRNode,
+  type ReactionContent,
 } from "./github";
 
 // Sync
@@ -118,6 +119,18 @@ export {
   saveConfig,
   serializeConfigObject,
 } from "./config";
+
+// Ack (acknowledgement storage)
+export {
+  addAck,
+  addAcks,
+  clearAcks,
+  getAckedIds,
+  getAckFilePath,
+  isAcked,
+  readAcks,
+  type AckRecord,
+} from "./ack";
 
 // Re-export schemas
 export * from "./schema";
