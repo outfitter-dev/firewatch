@@ -100,7 +100,7 @@ afterAll(async () => {
   await rm(tempRoot, { recursive: true, force: true });
 });
 
-async function callTool(args: Record<string, unknown>) {
+async function callTool(name: string, args: Record<string, unknown>) {
   const server = createServer();
   const [clientTransport, serverTransport] =
     InMemoryTransport.createLinkedPair();
@@ -110,7 +110,7 @@ async function callTool(args: Record<string, unknown>) {
   await client.connect(clientTransport);
 
   const result = await client.callTool({
-    name: "firewatch",
+    name,
     arguments: args,
   });
 
@@ -120,9 +120,8 @@ async function callTool(args: Record<string, unknown>) {
   return result;
 }
 
-test("mcp tool query returns jsonl entries", async () => {
-  const result = await callTool({
-    action: "query",
+test("mcp tool firewatch_query returns jsonl entries", async () => {
+  const result = await callTool("firewatch_query", {
     repo,
     type: "comment",
     offline: true,
@@ -140,9 +139,8 @@ test("mcp tool query returns jsonl entries", async () => {
   expect(lines[0]?.id).toBe("mcp-comment-1");
 });
 
-test("mcp tool query summary short returns per-PR summary", async () => {
-  const result = await callTool({
-    action: "query",
+test("mcp tool firewatch_query summary short returns per-PR summary", async () => {
+  const result = await callTool("firewatch_query", {
     repo,
     summary_short: true,
     offline: true,
