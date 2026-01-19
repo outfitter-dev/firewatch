@@ -34,6 +34,7 @@ import { claudePluginCommand } from "./commands/claude-plugin";
 import { closeCommand } from "./commands/close";
 import { configCommand } from "./commands/config";
 import { doctorCommand } from "./commands/doctor";
+import { examplesCommand } from "./commands/examples";
 import { fbCommand } from "./commands/fb";
 import { mcpCommand } from "./commands/mcp";
 import { prCommand } from "./commands/pr";
@@ -425,6 +426,15 @@ program
   .option("--no-json", "Force human-readable output")
   .option("--debug", "Enable debug logging")
   .option("--no-color", "Disable color output")
+  .addHelpText(
+    "after",
+    `
+Examples:
+  fw --summary                    Per-PR rollup
+  fw --type comment --since 24h   Recent comments
+  fw --mine                       Activity on my PRs
+  fw examples                     Common jq patterns (escaping tips)`
+  )
   .action(async (options: RootCommandOptions) => {
     applyGlobalOptions(options);
 
@@ -643,6 +653,7 @@ program.addCommand(statusCommand);
 program.addCommand(configCommand);
 program.addCommand(doctorCommand);
 program.addCommand(schemaCommand);
+program.addCommand(examplesCommand);
 program.addCommand(mcpCommand);
 
 // Explicit help command since root action intercepts unknown args
