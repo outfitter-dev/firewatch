@@ -585,7 +585,8 @@ export const listCommand = new Command("list")
           repoLabel,
           actionableEntries,
           perspective,
-          username
+          username,
+          options.orphaned
         );
         printActionableSummary(summary);
         return;
@@ -596,7 +597,8 @@ export const listCommand = new Command("list")
           repoLabel,
           actionableEntries,
           "mine",
-          username
+          username,
+          options.orphaned
         );
         printActionableSummary(mineSummary);
 
@@ -604,11 +606,18 @@ export const listCommand = new Command("list")
           repoLabel,
           actionableEntries,
           "reviews",
-          username
+          username,
+          options.orphaned
         );
         printActionableSummary(reviewSummary);
       } else {
-        const summary = buildActionableSummary(repoLabel, actionableEntries);
+        const summary = buildActionableSummary(
+          repoLabel,
+          actionableEntries,
+          undefined,
+          undefined,
+          options.orphaned
+        );
         printActionableSummary(summary);
       }
     } catch (error) {

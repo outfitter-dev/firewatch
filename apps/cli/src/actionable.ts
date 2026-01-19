@@ -195,15 +195,15 @@ export function identifyUnaddressedFeedback(
 
   return commentEntries
     .filter((comment) => {
+      // Exclude acknowledged comments first (takes precedence over all other checks)
+      if (ackedIds?.has(comment.id)) {
+        return false;
+      }
+
       // For review comments, thread_resolved is the authoritative signal
       // If we have thread resolution state, use it directly
       if (comment.thread_resolved !== undefined) {
         return !comment.thread_resolved;
-      }
-
-      // Exclude acknowledged comments
-      if (ackedIds?.has(comment.id)) {
-        return false;
       }
 
       // Fallback heuristics when thread_resolved is not available

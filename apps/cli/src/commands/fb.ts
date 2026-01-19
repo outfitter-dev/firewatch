@@ -25,7 +25,6 @@ import {
   formatShortId,
   generateShortId,
   resolveShortId,
-  stripShortIdPrefix,
 } from "../utils/short-id";
 import { shouldOutputJson } from "../utils/tty";
 
