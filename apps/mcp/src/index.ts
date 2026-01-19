@@ -35,94 +35,88 @@ import {
 } from "@outfitter/firewatch-core/schema";
 import { constants as fsConstants } from "node:fs";
 import { access } from "node:fs/promises";
-import { z } from "zod";
-
 import { version as mcpVersion } from "../package.json";
 import {
   buildQueryContext,
   buildQueryOptions,
   resolveQueryOutput,
 } from "./query";
-
-const ActionSchema = z.enum([
-  "query",
-  "add",
-  "close",
-  "edit",
-  "rm",
-  "status",
-  "config",
-  "doctor",
-  "schema",
-  "help",
-]);
+import {
+  type AddParams,
+  AddParamsShape,
+  type AdminParams,
+  AdminParamsShape,
+  type PrParams,
+  PrParamsShape,
+  type QueryParams,
+  QueryParamsShape,
+  type ReviewParams,
+  ReviewParamsShape,
+  type StatusParams,
+  StatusParamsShape,
+  TOOL_DESCRIPTIONS,
+} from "./schemas";
 
 type SchemaName = "query" | "entry" | "worklist" | "config";
 
-const FirewatchParamsShape = {
-  action: ActionSchema,
-  repo: z.string().optional(),
-  pr: z.number().int().positive().optional(),
-  prs: z
-    .union([
-      z.number().int().positive(),
-      z.array(z.number().int().positive()),
-      z.string(),
-    ])
-    .optional(),
-  type: z
-    .union([
-      z.enum(["comment", "review", "commit", "ci", "event"]),
-      z.array(z.enum(["comment", "review", "commit", "ci", "event"])),
-      z.string(),
-    ])
-    .optional(),
-  author: z.union([z.string(), z.array(z.string())]).optional(),
-  states: z.array(z.enum(["open", "closed", "merged", "draft"])).optional(),
-  state: z.union([z.string(), z.array(z.string())]).optional(),
-  open: z.boolean().optional(),
-  closed: z.boolean().optional(),
-  draft: z.boolean().optional(),
-  active: z.boolean().optional(),
-  label: z.string().optional(),
-  since: z.string().optional(),
-  limit: z.number().int().positive().optional(),
-  offset: z.number().int().nonnegative().optional(),
-  summary: z.boolean().optional(),
-  summary_short: z.boolean().optional(),
-  orphaned: z.boolean().optional(),
-  status_short: z.boolean().optional(),
-  short: z.boolean().optional(),
-  all: z.boolean().optional(),
-  mine: z.boolean().optional(),
-  reviews: z.boolean().optional(),
-  no_bots: z.boolean().optional(),
-  offline: z.boolean().optional(),
-  refresh: z.union([z.boolean(), z.literal("full")]).optional(),
-  body: z.string().optional(),
-  reply_to: z.string().optional(),
-  resolve: z.boolean().optional(),
-  comment_ids: z.array(z.string()).optional(),
-  comment_id: z.string().optional(),
-  review: z.enum(["approve", "request-changes", "comment"]).optional(),
-  reviewer: z.union([z.string(), z.array(z.string())]).optional(),
-  assignee: z.union([z.string(), z.array(z.string())]).optional(),
-  labels: z.union([z.string(), z.array(z.string())]).optional(),
-  title: z.string().optional(),
-  base: z.string().optional(),
-  milestone: z.union([z.string(), z.boolean()]).optional(),
-  ready: z.boolean().optional(),
-  local: z.boolean().optional(),
-  path: z.boolean().optional(),
-  key: z.string().optional(),
-  value: z.string().optional(),
-  fix: z.boolean().optional(),
-  schema: z.enum(["query", "entry", "worklist", "config"]).optional(),
-};
-
-const FirewatchParamsSchema = z.object(FirewatchParamsShape);
-
-type FirewatchParams = z.infer<typeof FirewatchParamsSchema>;
+// Legacy type for internal handler compatibility
+// Using `| undefined` explicitly for exactOptionalPropertyTypes compatibility
+interface FirewatchParams {
+  action?: string | undefined;
+  repo?: string | undefined;
+  pr?: number | undefined;
+  prs?: number | number[] | string | undefined;
+  type?:
+    | "comment"
+    | "review"
+    | "commit"
+    | "ci"
+    | "event"
+    | ("comment" | "review" | "commit" | "ci" | "event")[]
+    | string
+    | undefined;
+  author?: string | string[] | undefined;
+  states?: ("open" | "closed" | "merged" | "draft")[] | undefined;
+  state?: string | string[] | undefined;
+  open?: boolean | undefined;
+  closed?: boolean | undefined;
+  draft?: boolean | undefined;
+  active?: boolean | undefined;
+  label?: string | undefined;
+  since?: string | undefined;
+  limit?: number | undefined;
+  offset?: number | undefined;
+  summary?: boolean | undefined;
+  summary_short?: boolean | undefined;
+  orphaned?: boolean | undefined;
+  status_short?: boolean | undefined;
+  short?: boolean | undefined;
+  all?: boolean | undefined;
+  mine?: boolean | undefined;
+  reviews?: boolean | undefined;
+  no_bots?: boolean | undefined;
+  offline?: boolean | undefined;
+  refresh?: boolean | "full" | undefined;
+  body?: string | undefined;
+  reply_to?: string | undefined;
+  resolve?: boolean | undefined;
+  comment_ids?: string[] | undefined;
+  comment_id?: string | undefined;
+  review?: "approve" | "request-changes" | "comment" | undefined;
+  reviewer?: string | string[] | undefined;
+  assignee?: string | string[] | undefined;
+  labels?: string | string[] | undefined;
+  title?: string | undefined;
+  base?: string | undefined;
+  milestone?: string | boolean | undefined;
+  ready?: boolean | undefined;
+  local?: boolean | undefined;
+  path?: boolean | undefined;
+  key?: string | undefined;
+  value?: string | undefined;
+  fix?: boolean | undefined;
+  schema?: "query" | "entry" | "worklist" | "config" | undefined;
+}
 
 interface McpToolResult {
   [key: string]: unknown;
@@ -1325,46 +1319,138 @@ function schemaDoc(name: SchemaName | undefined): object {
 }
 
 function buildHelpText(): string {
-  return `Firewatch MCP\n\nActions:\n- query: filter cached entries (summary/summary_short for worklist)\n- add: add comment/reply/review or metadata\n- close: resolve review threads\n- edit: update PR fields or draft/ready\n- rm: remove labels/reviewers/assignees/milestone\n- status: firewatch state info (status_short for compact)\n- config: view config (read-only)\n- doctor: diagnose auth/cache/repo\n- schema: output schema docs\n- help: this message\n\nExample:\n{"action":"query","since":"24h","type":"review"}\n{"action":"query","summary":true,"summary_short":true}\n{"action":"status","status_short":true}`;
+  return `Firewatch MCP Tools
+
+firewatch_query - Query cached PR activity
+  Filter by: since, type, pr, author, state, label
+  Options: summary=true (per-PR aggregation), summary_short=true (compact)
+  Example: {"since":"24h","type":"review","summary":true}
+
+firewatch_status - Show cache and auth status
+  Options: short=true (compact output)
+
+firewatch_admin - Administrative operations
+  action="config" - View configuration
+  action="doctor" - Diagnose issues
+  action="schema" - Output field documentation
+  action="help" - This message
+
+firewatch_pr - Edit PR fields or remove metadata
+  action="edit" - Update title, body, base, draft/ready, milestone
+  action="rm" - Remove labels, reviewers, assignees, milestone
+
+firewatch_review - Submit PR reviews
+  review: "approve" | "request-changes" | "comment"
+  body: optional review body
+
+firewatch_add - Add comments and metadata
+  body: comment text
+  reply_to: thread reply (comment ID)
+  resolve: close thread after reply
+  comment_id(s): resolve threads by ID
+  labels/reviewer/assignee: add metadata`;
 }
-
-const TOOL_DESCRIPTION = `GitHub PR activity query tool. Outputs JSONL for jq.
-
-START HERE: Call with {"action":"schema"} to get field names for jq filters.
-
-Actions: query (filter entries), add (comment/reply/review/metadata), close (resolve threads), edit, rm, status (state info), config (read-only), doctor (diagnostics), schema, help.
-
-Common: query with since="24h", type="review", summary=true for aggregated view.`;
 
 export function createServer(): McpServer {
   const server = new McpServer({ name: "firewatch", version: mcpVersion });
 
-  server.tool("firewatch", TOOL_DESCRIPTION, FirewatchParamsShape, (params) => {
-    switch (params.action) {
-      case "query":
-        return handleQuery(params);
-      case "status":
-        return handleStatus(params);
-      case "add":
-        return handleAdd(params);
-      case "close":
-        return handleClose(params);
-      case "edit":
-        return handleEdit(params);
-      case "rm":
-        return handleRm(params);
-      case "config":
-        return handleConfig(params);
-      case "doctor":
-        return handleDoctor(params);
-      case "schema":
-        return textResult(JSON.stringify(schemaDoc(params.schema), null, 2));
-      case "help":
-        return textResult(buildHelpText());
-      default:
-        return textResult("Unknown action");
+  // firewatch_query - Query cached PR activity
+  server.tool(
+    "firewatch_query",
+    TOOL_DESCRIPTIONS.query,
+    QueryParamsShape,
+    (params: QueryParams) => handleQuery(params)
+  );
+
+  // firewatch_status - Show cache and auth status
+  server.tool(
+    "firewatch_status",
+    TOOL_DESCRIPTIONS.status,
+    StatusParamsShape,
+    (params: StatusParams) => handleStatus(params)
+  );
+
+  // firewatch_admin - Config, doctor, schema, help
+  server.tool(
+    "firewatch_admin",
+    TOOL_DESCRIPTIONS.admin,
+    AdminParamsShape,
+    (params: AdminParams) => {
+      switch (params.action) {
+        case "config":
+          return handleConfig(params);
+        case "doctor":
+          return handleDoctor(params);
+        case "schema":
+          return textResult(JSON.stringify(schemaDoc(params.schema), null, 2));
+        case "help":
+          return textResult(buildHelpText());
+      }
     }
-  });
+  );
+
+  // firewatch_pr - Edit PR fields, manage labels/reviewers/assignees
+  server.tool(
+    "firewatch_pr",
+    TOOL_DESCRIPTIONS.pr,
+    PrParamsShape,
+    (params: PrParams) => {
+      if (params.action === "edit") {
+        // Handle metadata additions via edit
+        const hasMetadata =
+          params.labels ||
+          params.label ||
+          params.reviewer ||
+          params.assignee;
+        if (hasMetadata && !params.title && !params.body && !params.base && !params.draft && !params.ready && !params.milestone) {
+          // Pure metadata add
+          return handleAdd({
+            pr: params.pr,
+            repo: params.repo,
+            labels: params.labels,
+            label: params.label,
+            reviewer: params.reviewer,
+            assignee: params.assignee,
+          });
+        }
+        return handleEdit(params);
+      }
+      return handleRm(params);
+    }
+  );
+
+  // firewatch_review - Submit PR reviews
+  server.tool(
+    "firewatch_review",
+    TOOL_DESCRIPTIONS.review,
+    ReviewParamsShape,
+    (params: ReviewParams) =>
+      handleAdd({
+        pr: params.pr,
+        repo: params.repo,
+        review: params.review,
+        body: params.body,
+      })
+  );
+
+  // firewatch_add - Add comments and resolve threads
+  server.tool(
+    "firewatch_add",
+    TOOL_DESCRIPTIONS.add,
+    AddParamsShape,
+    (params: AddParams) => {
+      // Handle close (resolve) operations
+      const ids = params.comment_ids ?? (params.comment_id ? [params.comment_id] : []);
+      if (ids.length > 0 && !params.body && !params.reply_to) {
+        return handleClose({
+          comment_ids: ids,
+          repo: params.repo,
+          pr: params.pr,
+        });
+      }
+      return handleAdd(params);
+    }
+  );
 
   return server;
 }
