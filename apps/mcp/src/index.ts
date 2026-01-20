@@ -22,6 +22,8 @@ import {
   getProjectConfigPath,
   getRepos,
   getSyncMeta,
+  isCommentEntry,
+  isReviewComment,
   isShortId,
   loadConfig,
   mergeExcludeAuthors,
@@ -1312,10 +1314,7 @@ function identifyUnaddressedFeedback(
   entries: FirewatchEntry[],
   ackedIds: Set<string>
 ): UnaddressedFeedback[] {
-  // Only include review_comment subtype (inline code comments)
-  const commentEntries = entries.filter(
-    (e) => e.type === "comment" && e.subtype === "review_comment"
-  );
+  const commentEntries = entries.filter(isCommentEntry);
 
   // Build commit map for fallback heuristics
   const commitsByRepoPr = new Map<string, FirewatchEntry[]>();
@@ -1354,18 +1353,29 @@ function identifyUnaddressedFeedback(
         return false;
       }
 
-      // Thread resolution is authoritative
-      if (comment.thread_resolved !== undefined) {
+      // Thread resolution is authoritative for review comments
+      if (isReviewComment(comment) && comment.thread_resolved !== undefined) {
         return !comment.thread_resolved;
       }
 
-      // Fallback heuristics
-      if (!comment.file) {
-        return !hasLaterCommit(comment.repo, comment.pr, comment.created_at);
+      // Treat 👍 from PR author as acknowledgement
+      if (comment.reactions?.thumbs_up_by?.length) {
+        const author = comment.pr_author.toLowerCase();
+        const acked = comment.reactions.thumbs_up_by.some(
+          (login) => login.toLowerCase() === author
+        );
+        if (acked) {
+          return false;
+        }
       }
 
+      // Fallback heuristics
       if (comment.file_activity_after) {
         return !comment.file_activity_after.modified;
+      }
+
+      if (!comment.file) {
+        return !hasLaterCommit(comment.repo, comment.pr, comment.created_at);
       }
 
       return !hasLaterCommit(comment.repo, comment.pr, comment.created_at);

@@ -1,5 +1,7 @@
 import {
   buildWorklist,
+  isCommentEntry,
+  isReviewComment,
   sortWorklist,
   type FirewatchEntry,
   type WorklistEntry,
@@ -166,10 +168,7 @@ export function identifyUnaddressedFeedback(
   // Default to open/draft PRs (actionable feedback), but allow override for bulk-ack scenarios
   const allowedStates = options?.prStates ?? new Set(["open", "draft"]);
 
-  // Only include review_comment subtype (inline code comments), not issue_comment (top-level PR comments)
-  const commentEntries = entries.filter(
-    (e) => e.type === "comment" && e.subtype === "review_comment"
-  );
+  const commentEntries = entries.filter(isCommentEntry);
 
   // Use repo:pr composite key for cross-repo safety
   const commitsByRepoPr = new Map<string, FirewatchEntry[]>();
@@ -201,18 +200,28 @@ export function identifyUnaddressedFeedback(
       }
 
       // For review comments, thread_resolved is the authoritative signal
-      // If we have thread resolution state, use it directly
-      if (comment.thread_resolved !== undefined) {
+      if (isReviewComment(comment) && comment.thread_resolved !== undefined) {
         return !comment.thread_resolved;
       }
 
-      // Fallback heuristics when thread_resolved is not available
-      if (!comment.file) {
-        return !hasLaterCommit(comment.repo, comment.pr, comment.created_at);
+      // Treat 👍 from PR author as acknowledgement
+      if (comment.reactions?.thumbs_up_by?.length) {
+        const author = comment.pr_author.toLowerCase();
+        const acked = comment.reactions.thumbs_up_by.some(
+          (login) => login.toLowerCase() === author
+        );
+        if (acked) {
+          return false;
+        }
       }
 
+      // Fallback heuristics when thread_resolved is not available
       if (comment.file_activity_after) {
         return !comment.file_activity_after.modified;
+      }
+
+      if (!comment.file) {
+        return !hasLaterCommit(comment.repo, comment.pr, comment.created_at);
       }
 
       return !hasLaterCommit(comment.repo, comment.pr, comment.created_at);
@@ -378,11 +387,14 @@ export function buildActionableSummary(
   entries: FirewatchEntry[],
   perspective?: "mine" | "reviews",
   username?: string,
-  includeOrphaned = false
+  includeOrphaned = false,
+  options: { ackedIds?: Set<string> } = {}
 ): ActionableSummary {
   const worklist = sortWorklist(buildWorklist(entries));
   const attention = identifyAttentionItems(worklist);
-  const unaddressedFeedback = identifyUnaddressedFeedback(entries);
+  const unaddressedFeedback = identifyUnaddressedFeedback(entries, {
+    ackedIds: options.ackedIds,
+  });
   let items = buildActionableItems(
     entries,
     attention,
