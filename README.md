@@ -75,9 +75,8 @@ github_username = "galligan"
 auto_sync = true
 stale_threshold = "5m"
 
-[filters]
-exclude_bots = true
-exclude_authors = ["dependabot", "renovate"]
+# [filters]
+# exclude_authors = ["specific-account"]  # exclude specific accounts if needed
 
 [output]
 default_format = "human"

@@ -11,19 +11,12 @@ export const DEFAULT_BOT_PATTERNS = [
 ];
 
 /**
- * Known bot accounts that don't match patterns.
- * These are explicitly listed because they don't follow standard naming.
+ * Accounts that are commonly excluded by default.
+ * Note: AI code reviewers (coderabbitai, greptile-apps, chatgpt-codex-connector)
+ * are intentionally NOT included here - they provide valuable review feedback.
+ * Users can add specific accounts to their own exclude list if needed.
  */
-export const DEFAULT_EXCLUDE_AUTHORS = [
-  "coderabbitai",
-  "greptile-apps",
-  "chatgpt-codex-connector",
-  "dependabot",
-  "renovate",
-  "codecov",
-  "netlify",
-  "vercel",
-];
+export const DEFAULT_EXCLUDE_AUTHORS: string[] = [];
 
 /**
  * Check if an author matches bot patterns.

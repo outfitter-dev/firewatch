@@ -63,5 +63,5 @@ fw config --edit
 fw config --path
 
 # Write to project config
-fw config --local filters.exclude_bots true
+fw config --local sync.stale_threshold "2m"
 ```
