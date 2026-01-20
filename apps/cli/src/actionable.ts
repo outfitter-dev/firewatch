@@ -300,22 +300,22 @@ function buildActionableItems(
   const changesRequestedItems = attention.changes_requested
     .filter(
       (item) =>
-        !unaddressedItems.some(
-          (i) => i.repo === item.repo && i.pr === item.pr
-        )
+        !unaddressedItems.some((i) => i.repo === item.repo && i.pr === item.pr)
     )
-    .map((item): ActionableItem => ({
-      category: "changes_requested",
-      repo: item.repo,
-      pr: item.pr,
-      pr_title: item.pr_title,
-      pr_author: item.pr_author,
-      pr_branch: item.pr_branch,
-      pr_state: item.pr_state,
-      description: "Changes requested",
-      count: 1,
-      ...(item.graphite && { graphite: item.graphite }),
-    }));
+    .map(
+      (item): ActionableItem => ({
+        category: "changes_requested",
+        repo: item.repo,
+        pr: item.pr,
+        pr_title: item.pr_title,
+        pr_author: item.pr_author,
+        pr_branch: item.pr_branch,
+        pr_state: item.pr_state,
+        description: "Changes requested",
+        count: 1,
+        ...(item.graphite && { graphite: item.graphite }),
+      })
+    );
 
   // Build awaiting_review items
   const awaitingReviewItems = attention.unreviewed.map(
@@ -334,18 +334,20 @@ function buildActionableItems(
   );
 
   // Build stale items
-  const staleItems = attention.stale.map((item): ActionableItem => ({
-    category: "stale",
-    repo: item.repo,
-    pr: item.pr,
-    pr_title: item.pr_title,
-    pr_author: item.pr_author,
-    pr_branch: item.pr_branch,
-    pr_state: item.pr_state,
-    description: "No recent activity",
-    count: 1,
-    ...(item.graphite && { graphite: item.graphite }),
-  }));
+  const staleItems = attention.stale.map(
+    (item): ActionableItem => ({
+      category: "stale",
+      repo: item.repo,
+      pr: item.pr,
+      pr_title: item.pr_title,
+      pr_author: item.pr_author,
+      pr_branch: item.pr_branch,
+      pr_state: item.pr_state,
+      description: "No recent activity",
+      count: 1,
+      ...(item.graphite && { graphite: item.graphite }),
+    })
+  );
 
   return [
     ...unaddressedItems,

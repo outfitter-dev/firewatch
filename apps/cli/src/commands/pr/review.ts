@@ -26,7 +26,9 @@ const EVENT_LABELS: Record<ReviewEvent, string> = {
   comment: "Commented on",
 };
 
-function determineReviewEvent(options: ReviewCommandOptions): ReviewEvent | null {
+function determineReviewEvent(
+  options: ReviewCommandOptions
+): ReviewEvent | null {
   const flags = [options.approve, options.requestChanges, options.comment];
   const setCount = flags.filter(Boolean).length;
 
@@ -71,7 +73,8 @@ function validateReviewOptions(
   }
 
   if ((event === "request-changes" || event === "comment") && !options.body) {
-    const flagName = event === "request-changes" ? "request-changes" : "comment";
+    const flagName =
+      event === "request-changes" ? "request-changes" : "comment";
     return { valid: false, error: `--body is required for --${flagName}.` };
   }
 
@@ -85,7 +88,10 @@ export const reviewCommand = new Command("review")
   .option("-a, --approve", "Approve the PR")
   .option("-r, --request-changes", "Request changes")
   .option("-c, --comment", "Leave a comment review (no approval/changes)")
-  .option("-b, --body <text>", "Review body (required for --request-changes and --comment)")
+  .option(
+    "-b, --body <text>",
+    "Review body (required for --request-changes and --comment)"
+  )
   .option("--json", "Force JSON output")
   .option("--no-json", "Force human-readable output")
   .action(async (pr: number, options: ReviewCommandOptions) => {
@@ -111,9 +117,18 @@ export const reviewCommand = new Command("review")
       }
 
       const client = new GitHubClient(auth.token);
-      const outputJson = shouldOutputJson(options, config.output?.default_format);
+      const outputJson = shouldOutputJson(
+        options,
+        config.output?.default_format
+      );
 
-      const review = await client.addReview(owner, name, pr, event, options.body);
+      const review = await client.addReview(
+        owner,
+        name,
+        pr,
+        event,
+        options.body
+      );
 
       const payload = {
         ok: true,

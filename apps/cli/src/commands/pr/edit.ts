@@ -93,7 +93,12 @@ async function applyMilestoneEdits(
   const changes: Partial<EditResult> = {};
 
   if (options.milestone) {
-    await ctx.client.setMilestone(ctx.owner, ctx.name, ctx.pr, options.milestone);
+    await ctx.client.setMilestone(
+      ctx.owner,
+      ctx.name,
+      ctx.pr,
+      options.milestone
+    );
     changes.milestone = options.milestone;
   }
 
@@ -112,7 +117,11 @@ async function applyDraftState(
   const changes: Partial<EditResult> = {};
 
   if (options.draft || options.ready) {
-    const prId = await ctx.client.fetchPullRequestId(ctx.owner, ctx.name, ctx.pr);
+    const prId = await ctx.client.fetchPullRequestId(
+      ctx.owner,
+      ctx.name,
+      ctx.pr
+    );
 
     if (options.draft) {
       await ctx.client.convertPullRequestToDraft(prId);
@@ -158,12 +167,22 @@ async function applyReviewerEdits(
   const removeReviewers = options.removeReviewer ?? [];
 
   if (addReviewers.length > 0) {
-    await ctx.client.requestReviewers(ctx.owner, ctx.name, ctx.pr, addReviewers);
+    await ctx.client.requestReviewers(
+      ctx.owner,
+      ctx.name,
+      ctx.pr,
+      addReviewers
+    );
     changes.reviewers_added = addReviewers;
   }
 
   if (removeReviewers.length > 0) {
-    await ctx.client.removeReviewers(ctx.owner, ctx.name, ctx.pr, removeReviewers);
+    await ctx.client.removeReviewers(
+      ctx.owner,
+      ctx.name,
+      ctx.pr,
+      removeReviewers
+    );
     changes.reviewers_removed = removeReviewers;
   }
 
@@ -184,7 +203,12 @@ async function applyAssigneeEdits(
   }
 
   if (removeAssignees.length > 0) {
-    await ctx.client.removeAssignees(ctx.owner, ctx.name, ctx.pr, removeAssignees);
+    await ctx.client.removeAssignees(
+      ctx.owner,
+      ctx.name,
+      ctx.pr,
+      removeAssignees
+    );
     changes.assignees_removed = removeAssignees;
   }
 
@@ -194,18 +218,18 @@ async function applyAssigneeEdits(
 function hasAnyEdit(options: EditCommandOptions): boolean {
   return Boolean(
     options.title ||
-      options.body ||
-      options.base ||
-      options.milestone ||
-      options.removeMilestone ||
-      options.draft ||
-      options.ready ||
-      (options.addLabel && options.addLabel.length > 0) ||
-      (options.removeLabel && options.removeLabel.length > 0) ||
-      (options.addReviewer && options.addReviewer.length > 0) ||
-      (options.removeReviewer && options.removeReviewer.length > 0) ||
-      (options.addAssignee && options.addAssignee.length > 0) ||
-      (options.removeAssignee && options.removeAssignee.length > 0)
+    options.body ||
+    options.base ||
+    options.milestone ||
+    options.removeMilestone ||
+    options.draft ||
+    options.ready ||
+    (options.addLabel && options.addLabel.length > 0) ||
+    (options.removeLabel && options.removeLabel.length > 0) ||
+    (options.addReviewer && options.addReviewer.length > 0) ||
+    (options.removeReviewer && options.removeReviewer.length > 0) ||
+    (options.addAssignee && options.addAssignee.length > 0) ||
+    (options.removeAssignee && options.removeAssignee.length > 0)
   );
 }
 
@@ -287,12 +311,16 @@ export const editCommand = new Command("edit")
       }
 
       if (options.milestone && options.removeMilestone) {
-        console.error("Cannot use --milestone and --remove-milestone together.");
+        console.error(
+          "Cannot use --milestone and --remove-milestone together."
+        );
         process.exit(1);
       }
 
       if (!hasAnyEdit(options)) {
-        console.error("No edits specified. Use --help to see available options.");
+        console.error(
+          "No edits specified. Use --help to see available options."
+        );
         process.exit(1);
       }
 
