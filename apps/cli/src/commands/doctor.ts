@@ -13,12 +13,12 @@ import { Command } from "commander";
 import { constants as fsConstants } from "node:fs";
 import { access } from "node:fs/promises";
 
-import { writeJsonLine } from "../utils/json";
+import { outputStructured } from "../utils/json";
 import { MARKERS, renderHeader } from "../utils/tree";
 import { shouldOutputJson } from "../utils/tty";
 
 interface DoctorCommandOptions {
-  json?: boolean;
+  jsonl?: boolean;
   fix?: boolean;
 }
 
@@ -183,8 +183,8 @@ async function getGraphiteStackInfo(): Promise<{
 
 export const doctorCommand = new Command("doctor")
   .description("Diagnose Firewatch setup")
-  .option("--json", "Force JSON output")
-  .option("--no-json", "Force human-readable output")
+  .option("--jsonl", "Force structured output")
+  .option("--no-jsonl", "Force human-readable output")
   .option("--fix", "Attempt to fix issues automatically")
   .action(async (options: DoctorCommandOptions) => {
     try {
@@ -208,12 +208,15 @@ export const doctorCommand = new Command("doctor")
       const failCount = checks.length - okCount;
 
       if (shouldOutputJson(options, config.output?.default_format)) {
-        await writeJsonLine({
-          ok: failCount === 0,
-          checks,
-          graphite: graphiteInfo,
-          counts: { ok: okCount, failed: failCount },
-        });
+        await outputStructured(
+          {
+            ok: failCount === 0,
+            checks,
+            graphite: graphiteInfo,
+            counts: { ok: okCount, failed: failCount },
+          },
+          "jsonl"
+        );
         return;
       }
 

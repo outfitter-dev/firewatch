@@ -5,6 +5,7 @@ import {
 } from "@outfitter/firewatch-core";
 
 import { ensureGraphiteMetadata } from "./stack";
+import { outputStructured } from "./utils/json";
 
 export async function outputWorklist(
   entries: FirewatchEntry[]
@@ -16,9 +17,7 @@ export async function outputWorklist(
     return false;
   }
 
-  for (const item of worklist) {
-    console.log(JSON.stringify(item));
-  }
+  await outputStructured(worklist, "jsonl");
 
   return true;
 }

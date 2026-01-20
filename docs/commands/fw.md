@@ -11,7 +11,7 @@ fw [options]
 ## Description
 
 - Shows actionable items when running interactively
-- Outputs JSONL when piped or when `--json` is set
+- Outputs JSONL when piped or when `--jsonl` is set
 - Auto-syncs when cache is missing or stale (configurable)
 
 ## Options
@@ -73,11 +73,11 @@ fw [options]
 
 ### Output
 
-| Option       | Description                           |
-| ------------ | ------------------------------------- |
-| `--summary`  | Aggregate entries into per-PR summary |
-| `-j, --json` | Force JSON output                     |
-| `--no-json`  | Force human-readable output           |
+| Option        | Description                           |
+| ------------- | ------------------------------------- |
+| `--summary`   | Aggregate entries into per-PR summary |
+| `-j, --jsonl` | Force structured output               |
+| `--no-jsonl`  | Force human-readable output           |
 | `--debug`    | Enable debug logging                  |
 | `--no-color` | Disable color output                  |
 
@@ -102,7 +102,7 @@ fw --reviews
 # Recent activity
 fw --since 24h
 
-# All repos, last 7 days, JSON output
+# All repos, last 7 days, JSONL output
 fw -a -s 7d -j
 
 # Per-PR summary

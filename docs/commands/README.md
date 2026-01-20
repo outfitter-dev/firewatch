@@ -28,7 +28,7 @@ The root `fw` command auto-syncs when cache data is missing or stale. Control th
 
 ### Output Format
 
-- JSONL when stdout is not a TTY or when `--json` is set
+- JSONL when stdout is not a TTY or when `--jsonl` is set
 - Human-readable output when in a TTY (configurable via `output.default_format`)
 
 ### Repo Detection

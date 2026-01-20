@@ -6,7 +6,7 @@ import {
 import { Command } from "commander";
 
 import { parseRepoInput, parsePrNumber, resolveRepoOrThrow } from "../../repo";
-import { writeJsonLine } from "../../utils/json";
+import { outputStructured } from "../../utils/json";
 import { shouldOutputJson } from "../../utils/tty";
 
 interface EditCommandOptions {
@@ -24,7 +24,7 @@ interface EditCommandOptions {
   removeReviewer?: string[];
   addAssignee?: string[];
   removeAssignee?: string[];
-  json?: boolean;
+  jsonl?: boolean;
 }
 
 function collect(value: string, previous: string[] = []): string[] {
@@ -300,8 +300,8 @@ export const editCommand = new Command("edit")
   .option("--remove-reviewer <user>", "Remove reviewer (repeatable)", collect)
   .option("--add-assignee <user>", "Add assignee (repeatable)", collect)
   .option("--remove-assignee <user>", "Remove assignee (repeatable)", collect)
-  .option("--json", "Force JSON output")
-  .option("--no-json", "Force human-readable output")
+  .option("--jsonl", "Force structured output")
+  .option("--no-jsonl", "Force human-readable output")
   .action(async (pr: number, options: EditCommandOptions) => {
     try {
       // Validate conflicting options
@@ -364,7 +364,7 @@ export const editCommand = new Command("edit")
       };
 
       if (ctx.outputJson) {
-        await writeJsonLine(result);
+        await outputStructured(result, "jsonl");
       } else {
         console.log(formatHumanOutput(result));
       }

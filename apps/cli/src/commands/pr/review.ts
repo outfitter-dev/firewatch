@@ -6,7 +6,7 @@ import {
 import { Command } from "commander";
 
 import { parseRepoInput, parsePrNumber, resolveRepoOrThrow } from "../../repo";
-import { writeJsonLine } from "../../utils/json";
+import { outputStructured } from "../../utils/json";
 import { shouldOutputJson } from "../../utils/tty";
 
 type ReviewEvent = "approve" | "request-changes" | "comment";
@@ -17,7 +17,7 @@ interface ReviewCommandOptions {
   requestChanges?: boolean;
   comment?: boolean;
   body?: string;
-  json?: boolean;
+  jsonl?: boolean;
 }
 
 const EVENT_LABELS: Record<ReviewEvent, string> = {
@@ -92,8 +92,8 @@ export const reviewCommand = new Command("review")
     "-b, --body <text>",
     "Review body (required for --request-changes and --comment)"
   )
-  .option("--json", "Force JSON output")
-  .option("--no-json", "Force human-readable output")
+  .option("--jsonl", "Force structured output")
+  .option("--no-jsonl", "Force human-readable output")
   .action(async (pr: number, options: ReviewCommandOptions) => {
     try {
       const rawEvent = determineReviewEvent(options);
@@ -140,7 +140,7 @@ export const reviewCommand = new Command("review")
       };
 
       if (outputJson) {
-        await writeJsonLine(payload);
+        await outputStructured(payload, "jsonl");
       } else {
         console.log(`${EVENT_LABELS[event]} ${repo}#${pr}.`);
         if (review?.url) {

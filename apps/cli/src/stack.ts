@@ -7,6 +7,8 @@ import {
   type GraphiteStack,
 } from "@outfitter/firewatch-core/plugins";
 
+import { outputStructured } from "./utils/json";
+
 interface StackGroup {
   stack_id: string;
   entries: FirewatchEntry[];
@@ -110,9 +112,7 @@ export async function outputStackedEntries(
     return false;
   }
 
-  for (const group of groups) {
-    console.log(JSON.stringify(group));
-  }
+  await outputStructured(groups, "jsonl");
 
   return true;
 }
