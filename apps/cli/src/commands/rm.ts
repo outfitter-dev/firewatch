@@ -34,7 +34,9 @@ function printDeprecationWarning(): void {
 }
 
 export const rmCommand = new Command("rm")
-  .description("Remove labels, reviewers, assignees, or milestone from PRs (deprecated)")
+  .description(
+    "Remove labels, reviewers, assignees, or milestone from PRs (deprecated)"
+  )
   .argument("<pr>", "PR number", parsePrNumber)
   .option("--repo <name>", "Repository (owner/repo format)")
   .option("--label <name>", "Remove label (repeatable)", collect)

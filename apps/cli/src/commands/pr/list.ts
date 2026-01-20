@@ -27,7 +27,10 @@ import { Command } from "commander";
 import { existsSync, readdirSync } from "node:fs";
 import ora from "ora";
 
-import { buildActionableSummary, printActionableSummary } from "../../actionable";
+import {
+  buildActionableSummary,
+  printActionableSummary,
+} from "../../actionable";
 import { validateRepoFormat } from "../../repo";
 import { ensureGraphiteMetadata } from "../../stack";
 import { writeJsonLine } from "../../utils/json";

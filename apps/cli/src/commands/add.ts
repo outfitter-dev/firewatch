@@ -206,9 +206,9 @@ function printDeprecationWarning(): void {
   console.error(
     "\u001B[33mWarning: 'fw add' is deprecated. Use these alternatives:\u001B[0m"
   );
-  console.error("  Comments:  fw pr comment <pr> \"text\"");
+  console.error('  Comments:  fw pr comment <pr> "text"');
   console.error("  Reviews:   fw pr review <pr> --approve");
-  console.error("  Replies:   fw fb <comment-id> \"text\"");
+  console.error('  Replies:   fw fb <comment-id> "text"');
   console.error("  Metadata:  fw pr edit <pr> --add-label X --add-reviewer Y");
   console.error("");
 }

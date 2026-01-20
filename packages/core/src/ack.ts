@@ -46,7 +46,10 @@ export async function getAckedIds(repo?: string): Promise<Set<string>> {
 /**
  * Check if a comment has been acknowledged.
  */
-export async function isAcked(commentId: string, repo?: string): Promise<boolean> {
+export async function isAcked(
+  commentId: string,
+  repo?: string
+): Promise<boolean> {
   const ackedIds = await getAckedIds(repo);
   return ackedIds.has(commentId);
 }

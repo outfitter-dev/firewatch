@@ -554,7 +554,11 @@ export class GitHubClient {
       states?: GitHubPRState[];
     } = {}
   ): Promise<PRActivityData> {
-    const { first = 50, after = null, states = [...GITHUB_PR_STATES] } = options;
+    const {
+      first = 50,
+      after = null,
+      states = [...GITHUB_PR_STATES],
+    } = options;
 
     const response = await this.query<PRActivityData>(PR_ACTIVITY_QUERY, {
       owner,

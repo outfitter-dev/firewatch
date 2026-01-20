@@ -39,7 +39,10 @@ export const commentCommand = new Command("comment")
       }
 
       const client = new GitHubClient(auth.token);
-      const outputJson = shouldOutputJson(options, config.output?.default_format);
+      const outputJson = shouldOutputJson(
+        options,
+        config.output?.default_format
+      );
 
       const prId = await client.fetchPullRequestId(owner, name, pr);
       const comment = await client.addIssueComment(prId, body);
