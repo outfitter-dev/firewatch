@@ -116,6 +116,8 @@ export type PrParams = z.infer<typeof PrParamsSchema>;
 export const StatusParamsShape = {
   short: z.boolean().optional(),
   status_short: z.boolean().optional(), // Alias for short (consistency)
+  /** Re-check auth and enable write tools if authenticated */
+  recheck_auth: z.boolean().optional(),
 };
 
 export const StatusParamsSchema = z.object(StatusParamsShape);
@@ -157,7 +159,8 @@ export const TOOL_DESCRIPTIONS = {
     "Query cached PR activity. Filter by time (since), type (review/comment/commit), PR number, author, or state. Use summary=true for per-PR aggregation.",
   fb: "Unified feedback operations. PR-level: {pr} lists needs-attention, {pr, body} adds comment, {pr, ack} bulk acks. Comment-level: {id} views, {id, body} replies, {id, resolve} resolves, {id, ack} acks.",
   pr: "PR mutations. Actions: edit (title/body/base/draft/ready/milestone/labels/reviewers/assignees), rm (remove labels/reviewers/assignees/milestone), review (approve/request-changes/comment).",
-  status: "Cache and auth status. Use short=true for compact output.",
+  status:
+    "Cache and auth status. Use short=true for compact output. Use recheck_auth=true to re-verify auth and enable write tools.",
   doctor: "Diagnose auth, cache, and repo issues. Use fix=true to auto-repair.",
   help: "Usage documentation. Use schema to show field definitions, config_key to show setting value, config_path for config file location.",
 };

@@ -152,6 +152,18 @@ function jsonLines(items: unknown[]): string {
   return items.map((item) => JSON.stringify(item)).join("\n");
 }
 
+/** Check if params contain any PR edit fields (title, body, base, draft, ready, milestone) */
+function hasEditFields(params: PrParams): boolean {
+  return !!(
+    params.title ||
+    params.body ||
+    params.base ||
+    params.draft ||
+    params.ready ||
+    params.milestone
+  );
+}
+
 const ENTRY_TYPES = ["comment", "review", "commit", "ci", "event"] as const;
 const ENTRY_TYPE_SET = new Set<string>(ENTRY_TYPES);
 const PR_STATES = ["open", "closed", "merged", "draft"] as const;
@@ -968,15 +980,7 @@ async function handleEdit(params: FirewatchParams): Promise<McpToolResult> {
     throw new Error("edit milestone requires a string name.");
   }
 
-  const hasEdit =
-    params.title ||
-    params.body ||
-    params.base ||
-    milestoneName ||
-    params.draft ||
-    params.ready;
-
-  if (!hasEdit) {
+  if (!hasEditFields(params)) {
     throw new Error("edit requires at least one field.");
   }
 
@@ -1902,7 +1906,7 @@ export class FirewatchMCPServer {
       "fw_status",
       TOOL_DESCRIPTIONS.status,
       StatusParamsShape,
-      (params: StatusParams) => handleStatus(params)
+      this.handleStatusWithRecheck.bind(this)
     );
 
     // fw_doctor - Diagnose and fix issues
@@ -1939,6 +1943,37 @@ export class FirewatchMCPServer {
   }
 
   /**
+   * Handle status tool requests with optional auth recheck.
+   * Allows clients to trigger auth re-verification to enable write tools.
+   */
+  private async handleStatusWithRecheck(
+    params: StatusParams
+  ): Promise<McpToolResult> {
+    // If recheck_auth is requested, verify auth and possibly enable write tools
+    if (params.recheck_auth) {
+      const authResult = await this.verifyAuthAndEnableWriteTools();
+      // Include auth recheck result in status output
+      const status = await handleStatus(params);
+      // Append auth recheck info to response
+      if (status.content[0]?.type === "text") {
+        const original = JSON.parse(status.content[0].text);
+        const enhanced = {
+          ...original,
+          auth_recheck: {
+            authenticated: authResult.authenticated,
+            tools_enabled: authResult.toolsEnabled,
+            ...(authResult.source && { source: authResult.source }),
+            ...(authResult.error && { error: authResult.error }),
+          },
+        };
+        return textResult(JSON.stringify(enhanced));
+      }
+      return status;
+    }
+    return handleStatus(params);
+  }
+
+  /**
    * Register write tools that require authentication.
    * Called after auth verification succeeds.
    */
@@ -1950,7 +1985,12 @@ export class FirewatchMCPServer {
       PrParamsShape,
       (params: PrParams) => {
         if (params.action === "review") {
-          // Submit PR review
+          // Submit PR review - validate review type is provided
+          if (!params.review) {
+            throw new Error(
+              "action=review requires review type (approve, request-changes, comment)."
+            );
+          }
           return handleAdd({
             pr: params.pr,
             repo: params.repo,
