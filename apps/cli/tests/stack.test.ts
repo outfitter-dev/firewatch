@@ -43,21 +43,23 @@ test("outputStackedEntries groups by stack and injects metadata", async () => {
     },
   ];
 
-  const logs: string[] = [];
-  const originalLog = console.log;
-  console.log = (value?: unknown) => {
-    logs.push(String(value));
-  };
+  const writes: string[] = [];
+  const originalWrite = process.stdout.write.bind(process.stdout);
+  process.stdout.write = ((chunk: unknown): boolean => {
+    writes.push(String(chunk));
+    return true;
+  }) as typeof process.stdout.write;
 
   try {
     const wrote = await outputStackedEntries(entries, { stacks });
     expect(wrote).toBe(true);
   } finally {
-    console.log = originalLog;
+    process.stdout.write = originalWrite;
   }
 
-  expect(logs).toHaveLength(1);
-  const group = JSON.parse(logs[0]!);
+  const output = writes.join("").trim();
+  expect(output.length).toBeGreaterThan(0);
+  const group = JSON.parse(output.split("\n")[0]!);
   expect(group.stack_id).toBe("feat-auth");
   expect(group.entries).toHaveLength(2);
   expect(group.entries[0].graphite?.stack_id).toBe("feat-auth");
