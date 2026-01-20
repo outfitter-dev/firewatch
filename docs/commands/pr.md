@@ -78,22 +78,24 @@ Edit PR metadata with `gh pr edit`-aligned flags. Supports adding and removing l
 
 ### Options
 
-| Option                  | Description                      |
-| ----------------------- | -------------------------------- |
-| `--title <text>`        | Change PR title                  |
-| `--body <text>`         | Change PR description            |
-| `--base <branch>`       | Change base branch               |
-| `--milestone <name>`    | Set milestone                    |
-| `--draft`               | Convert to draft                 |
-| `--ready`               | Mark ready for review            |
-| `--add-label <name>`    | Add label (repeatable)           |
-| `--remove-label <name>` | Remove label (repeatable)        |
-| `--add-reviewer <user>` | Add reviewer (repeatable)        |
-| `--remove-reviewer <user>` | Remove reviewer (repeatable)  |
-| `--add-assignee <user>` | Add assignee (repeatable)        |
-| `--remove-assignee <user>` | Remove assignee (repeatable)  |
-| `--repo <name>`         | Target repository                |
-| `--json`                | Force JSON output                |
+| Option                     | Description                  |
+| -------------------------- | ---------------------------- |
+| `--title <text>`           | Change PR title              |
+| `--body <text>`            | Change PR description        |
+| `--base <branch>`          | Change base branch           |
+| `--milestone <name>`       | Set milestone                |
+| `--remove-milestone`       | Clear milestone              |
+| `--draft`                  | Convert to draft             |
+| `--ready`                  | Mark ready for review        |
+| `--add-label <name>`       | Add label (repeatable)       |
+| `--remove-label <name>`    | Remove label (repeatable)    |
+| `--add-reviewer <user>`    | Add reviewer (repeatable)    |
+| `--remove-reviewer <user>` | Remove reviewer (repeatable) |
+| `--add-assignee <user>`    | Add assignee (repeatable)    |
+| `--remove-assignee <user>` | Remove assignee (repeatable) |
+| `--repo <name>`            | Target repository            |
+| `--json`                   | Force JSON output            |
+| `--no-json`                | Force human-readable output  |
 
 ### Examples
 
@@ -128,10 +130,11 @@ fw pr comment <pr> <body>
 
 ### Options
 
-| Option          | Description               |
-| --------------- | ------------------------- |
-| `--repo <name>` | Target repository         |
-| `--json`        | Force JSON output         |
+| Option          | Description                 |
+| --------------- | --------------------------- |
+| `--repo <name>` | Target repository           |
+| `--json`        | Force JSON output           |
+| `--no-json`     | Force human-readable output |
 
 ### Examples
 
@@ -157,14 +160,15 @@ fw pr review <pr> [options]
 
 ### Options
 
-| Option              | Description               |
-| ------------------- | ------------------------- |
-| `--approve`         | Approve the PR            |
-| `--request-changes` | Request changes           |
-| `--comment`         | Comment without approval  |
-| `-b, --body <text>` | Review body               |
-| `--repo <name>`     | Target repository         |
-| `--json`            | Force JSON output         |
+| Option                  | Description                 |
+| ----------------------- | --------------------------- |
+| `-a, --approve`         | Approve the PR              |
+| `-r, --request-changes` | Request changes             |
+| `-c, --comment`         | Comment without approval    |
+| `-b, --body <text>`     | Review body                 |
+| `--repo <name>`         | Target repository           |
+| `--json`                | Force JSON output           |
+| `--no-json`             | Force human-readable output |
 
 ### Examples
 
@@ -178,16 +182,3 @@ fw pr review 23 --request-changes -b "Please add error handling"
 # Comment-only review
 fw pr review 23 --comment -b "Looking good so far"
 ```
----
-
-## Deprecation Notice
-
-The following commands are deprecated and will be removed in a future version:
-
-| Deprecated         | Use Instead                                |
-| ------------------ | ------------------------------------------ |
-| `fw add <pr> body` | `fw pr comment <pr> body`                  |
-| `fw add --review`  | `fw pr review <pr> --approve`              |
-| `fw add --label`   | `fw pr edit <pr> --add-label`              |
-| `fw edit`          | `fw pr edit`                               |
-| `fw rm --label`    | `fw pr edit <pr> --remove-label`           |
