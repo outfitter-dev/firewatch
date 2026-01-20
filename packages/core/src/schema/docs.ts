@@ -4,6 +4,11 @@ export const ENTRY_SCHEMA_DOC = {
     "Denormalized PR activity record. Each JSONL line stands alone and is jq-friendly.",
   fields: {
     id: { type: "string", description: "Unique entry ID" },
+    short_id: {
+      type: "string",
+      optional: true,
+      description: "Short @id for comment entries",
+    },
     repo: { type: "string", description: "owner/repo" },
     pr: { type: "number", description: "PR number" },
     pr_title: { type: "string" },
