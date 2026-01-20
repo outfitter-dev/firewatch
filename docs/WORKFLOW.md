@@ -45,7 +45,7 @@ fw --since 24h | jq 'select(.type == "review" and .state == "approved")'
 fw --type review | jq 'select(.state == "changes_requested") | {repo, pr, pr_title, author, url}'
 
 # Comment count by author for a specific PR
-fw --prs 42 | jq -s 'group_by(.author) | map({author: .[0].author, count: length})'
+fw --pr 42 | jq -s 'group_by(.author) | map({author: .[0].author, count: length})'
 
 # Latest activity per PR
 fw --since 7d | jq -s 'sort_by(.created_at) | group_by(.pr) | map(.[-1]) | .[] | {repo, pr, type, author, created_at}'

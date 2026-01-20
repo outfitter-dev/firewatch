@@ -22,13 +22,13 @@ Systematic workflow for addressing PR review feedback.
 
 ```bash
 # Get all review comments for a PR
-fw --prs 123 --type review
+fw --pr 123 --type review
 
 # Get unresolved comments (review_comment subtype)
-fw --prs 123 --type comment | jq 'select(.subtype == "review_comment")'
+fw --pr 123 --type comment | jq 'select(.subtype == "review_comment")'
 
 # Check for staleness hints if present
-fw --prs 123 --type comment | jq 'select(.file_activity_after.modified == false)'
+fw --pr 123 --type comment | jq 'select(.file_activity_after.modified == false)'
 ```
 
 ## Comment Categories

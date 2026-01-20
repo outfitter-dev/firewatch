@@ -68,7 +68,7 @@ Filter cached PR activity entries.
 ```json
 {"action": "query", "since": "24h"}
 {"action": "query", "type": "review", "author": "alice"}
-{"action": "query", "prs": "23,34", "summary": true}
+{"action": "query", "pr": "23,34", "summary": true}
 {"action": "query", "states": ["open", "draft"], "limit": 10}
 {"action": "query", "summary": true, "summary_short": true}
 ```

@@ -51,7 +51,7 @@ import { shouldOutputJson } from "./utils/tty";
 import { outputWorklist } from "./worklist";
 
 interface RootCommandOptions {
-  prs?: string | boolean;
+  pr?: string | boolean;
   repo?: string;
   all?: boolean;
   mine?: boolean;
@@ -102,7 +102,7 @@ function parseCsvList(value?: string): string[] {
     .filter(Boolean);
 }
 
-function parsePrs(value: string | boolean | undefined): number[] {
+function parsePrList(value: string | boolean | undefined): number[] {
   if (!value || value === true) {
     return [];
   }
@@ -398,7 +398,7 @@ program
     "GitHub PR activity logger with pure JSONL output for jq-based workflows"
   )
   .version(version)
-  .option("--prs [numbers]", "Filter to PR domain, optionally specific PRs")
+  .option("--pr [numbers]", "Filter to PR domain, optionally specific PRs")
   .option("--repo <name>", "Filter to specific repository")
   .option("-a, --all", "Include all cached repos")
   .option("--mine", "Items on PRs assigned to me")
@@ -474,9 +474,9 @@ Examples:
         process.exit(1);
       }
 
-      let prs: number[] = [];
+      let prList: number[] = [];
       try {
-        prs = parsePrs(options.prs);
+        prList = parsePrList(options.pr);
       } catch (error) {
         console.error(error instanceof Error ? error.message : error);
         process.exit(1);
@@ -532,7 +532,9 @@ Examples:
       const entries = await queryEntries({
         filters: {
           ...(repoFilter && { repo: repoFilter }),
-          ...(prs.length > 0 && { prs }),
+          ...(prList.length > 0 && {
+            pr: prList.length === 1 ? prList[0] : prList,
+          }),
           ...(types.length > 0 && { type: types }),
           ...(states && { states }),
           ...(options.label && { label: options.label }),

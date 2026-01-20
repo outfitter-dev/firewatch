@@ -77,8 +77,7 @@ type SchemaName = "query" | "entry" | "worklist" | "config";
 interface FirewatchParams {
   action?: string | undefined;
   repo?: string | undefined;
-  pr?: number | undefined;
-  prs?: number | number[] | string | undefined;
+  pr?: number | number[] | string | undefined;
   type?:
     | "comment"
     | "review"
@@ -197,6 +196,16 @@ function toNumberList(value?: number | number[] | string): number[] {
   }
 
   return results;
+}
+
+function requirePrNumber(
+  value: FirewatchParams["pr"],
+  action: string
+): number {
+  if (typeof value !== "number" || Number.isNaN(value) || value <= 0) {
+    throw new Error(`${action} requires pr.`);
+  }
+  return value;
 }
 
 function resolveStates(params: FirewatchParams): PrState[] {
@@ -667,10 +676,7 @@ async function handleQuery(params: FirewatchParams): Promise<McpToolResult> {
   const states = resolveStates(params);
   const labelFilter = resolveLabelFilter(params.label);
   const typeList = resolveTypeList(params.type);
-  const prList = [
-    ...toNumberList(params.prs),
-    ...(params.pr ? [params.pr] : []),
-  ];
+  const prList = toNumberList(params.pr);
   const { include: includeAuthors, exclude: excludeAuthors } =
     resolveAuthorLists(params.author);
 
@@ -695,10 +701,12 @@ async function handleQuery(params: FirewatchParams): Promise<McpToolResult> {
     await performSync(repos, config, detected.repo, syncOptions);
   }
 
+  const prFilter =
+    prList.length > 1 ? prList : prList.length === 1 ? prList[0] : undefined;
+
   const queryParams = {
     repo: params.all ? undefined : params.repo,
-    pr: prList.length === 1 ? prList[0] : undefined,
-    prs: prList.length > 1 ? prList : undefined,
+    ...(prFilter !== undefined && { pr: prFilter }),
     type: typeList.length > 0 ? typeList : undefined,
     states,
     label: labelFilter,
@@ -833,13 +841,11 @@ async function handleStatus(params: FirewatchParams): Promise<McpToolResult> {
 }
 
 async function handleAdd(params: FirewatchParams): Promise<McpToolResult> {
-  if (!params.pr) {
-    throw new Error("add requires pr.");
-  }
-
   if (params.resolve && !params.reply_to) {
     throw new Error("resolve requires reply_to.");
   }
+
+  const pr = requirePrNumber(params.pr, "add");
 
   const repo = (await resolveRepo(params.repo)) ?? null;
   if (!repo) {
@@ -884,7 +890,7 @@ async function handleAdd(params: FirewatchParams): Promise<McpToolResult> {
     const review = await client.addReview(
       owner,
       name,
-      params.pr,
+      pr,
       params.review!,
       params.body
     );
@@ -892,7 +898,7 @@ async function handleAdd(params: FirewatchParams): Promise<McpToolResult> {
       JSON.stringify({
         ok: true,
         repo,
-        pr: params.pr,
+        pr,
         review: params.review,
         ...(review?.id && { review_id: review.id }),
         ...(review?.url && { url: review.url }),
@@ -902,20 +908,20 @@ async function handleAdd(params: FirewatchParams): Promise<McpToolResult> {
 
   if (hasMetadata) {
     if (labels.length > 0) {
-      await client.addLabels(owner, name, params.pr, labels);
+      await client.addLabels(owner, name, pr, labels);
     }
     if (reviewers.length > 0) {
-      await client.requestReviewers(owner, name, params.pr, reviewers);
+      await client.requestReviewers(owner, name, pr, reviewers);
     }
     if (assignees.length > 0) {
-      await client.addAssignees(owner, name, params.pr, assignees);
+      await client.addAssignees(owner, name, pr, assignees);
     }
 
     return textResult(
       JSON.stringify({
         ok: true,
         repo,
-        pr: params.pr,
+        pr,
         ...(labels.length > 0 && { labels_added: labels }),
         ...(reviewers.length > 0 && { reviewers_added: reviewers }),
         ...(assignees.length > 0 && { assignees_added: assignees }),
@@ -928,7 +934,7 @@ async function handleAdd(params: FirewatchParams): Promise<McpToolResult> {
   if (params.reply_to) {
     // Resolve short ID to full comment ID if needed
     const replyToId = await resolveCommentIdFromShortId(params.reply_to, repo);
-    const threadMap = await client.fetchReviewThreadMap(owner, name, params.pr);
+    const threadMap = await client.fetchReviewThreadMap(owner, name, pr);
     const threadId = threadMap.get(replyToId);
     if (!threadId) {
       throw new Error(`No review thread found for comment ${params.reply_to}.`);
@@ -943,7 +949,7 @@ async function handleAdd(params: FirewatchParams): Promise<McpToolResult> {
       JSON.stringify({
         ok: true,
         repo,
-        pr: params.pr,
+        pr,
         comment_id: reply.id,
         reply_to: replyToId,
         ...(params.resolve && { resolved: true }),
@@ -952,14 +958,14 @@ async function handleAdd(params: FirewatchParams): Promise<McpToolResult> {
     );
   }
 
-  const prId = await client.fetchPullRequestId(owner, name, params.pr);
+  const prId = await client.fetchPullRequestId(owner, name, pr);
   const comment = await client.addIssueComment(prId, body);
 
   return textResult(
     JSON.stringify({
       ok: true,
       repo,
-      pr: params.pr,
+      pr,
       comment_id: comment.id,
       ...(comment.url && { url: comment.url }),
     })
@@ -967,13 +973,11 @@ async function handleAdd(params: FirewatchParams): Promise<McpToolResult> {
 }
 
 async function handleEdit(params: FirewatchParams): Promise<McpToolResult> {
-  if (!params.pr) {
-    throw new Error("edit requires pr.");
-  }
-
   if (params.draft && params.ready) {
     throw new Error("edit cannot use draft and ready together.");
   }
+
+  const pr = requirePrNumber(params.pr, "edit");
 
   const milestoneName =
     typeof params.milestone === "string" ? params.milestone : undefined;
@@ -1012,7 +1016,7 @@ async function handleEdit(params: FirewatchParams): Promise<McpToolResult> {
   const client = new GitHubClient(auth.token);
 
   if (params.title || params.body || params.base) {
-    await client.editPullRequest(owner, name, params.pr, {
+    await client.editPullRequest(owner, name, pr, {
       ...(params.title && { title: params.title }),
       ...(params.body && { body: params.body }),
       ...(params.base && { base: params.base }),
@@ -1020,11 +1024,11 @@ async function handleEdit(params: FirewatchParams): Promise<McpToolResult> {
   }
 
   if (milestoneName) {
-    await client.setMilestone(owner, name, params.pr, milestoneName);
+    await client.setMilestone(owner, name, pr, milestoneName);
   }
 
   if (params.draft || params.ready) {
-    const prId = await client.fetchPullRequestId(owner, name, params.pr);
+    const prId = await client.fetchPullRequestId(owner, name, pr);
     if (params.draft) {
       await client.convertPullRequestToDraft(prId);
     }
@@ -1037,7 +1041,7 @@ async function handleEdit(params: FirewatchParams): Promise<McpToolResult> {
     JSON.stringify({
       ok: true,
       repo,
-      pr: params.pr,
+      pr,
       ...(params.title && { title: params.title }),
       ...(params.body && { body: params.body }),
       ...(params.base && { base: params.base }),
@@ -1049,10 +1053,6 @@ async function handleEdit(params: FirewatchParams): Promise<McpToolResult> {
 }
 
 async function handleRm(params: FirewatchParams): Promise<McpToolResult> {
-  if (!params.pr) {
-    throw new Error("rm requires pr.");
-  }
-
   const labels = toStringList(params.labels ?? params.label);
   const reviewers = toStringList(params.reviewer);
   const assignees = toStringList(params.assignee);
@@ -1067,6 +1067,8 @@ async function handleRm(params: FirewatchParams): Promise<McpToolResult> {
   if (!hasWork) {
     throw new Error("rm requires label, reviewer, assignee, or milestone.");
   }
+
+  const pr = requirePrNumber(params.pr, "rm");
 
   const repo = (await resolveRepo(params.repo)) ?? null;
   if (!repo) {
@@ -1087,23 +1089,23 @@ async function handleRm(params: FirewatchParams): Promise<McpToolResult> {
   const client = new GitHubClient(auth.token);
 
   if (labels.length > 0) {
-    await client.removeLabels(owner, name, params.pr, labels);
+  await client.removeLabels(owner, name, pr, labels);
   }
   if (reviewers.length > 0) {
-    await client.removeReviewers(owner, name, params.pr, reviewers);
+  await client.removeReviewers(owner, name, pr, reviewers);
   }
   if (assignees.length > 0) {
-    await client.removeAssignees(owner, name, params.pr, assignees);
+  await client.removeAssignees(owner, name, pr, assignees);
   }
   if (clearMilestone) {
-    await client.clearMilestone(owner, name, params.pr);
+  await client.clearMilestone(owner, name, pr);
   }
 
   return textResult(
     JSON.stringify({
       ok: true,
       repo,
-      pr: params.pr,
+      pr,
       ...(labels.length > 0 && { labels_removed: labels }),
       ...(reviewers.length > 0 && { reviewers_removed: reviewers }),
       ...(assignees.length > 0 && { assignees_removed: assignees }),
@@ -1436,7 +1438,7 @@ async function handleFeedback(params: FeedbackParams): Promise<McpToolResult> {
 
   if (hasPr && !hasId) {
     // PR-level operations
-    const pr = params.pr!;
+    const pr = requirePrNumber(params.pr, "feedback");
 
     // Bulk ack
     if (params.ack) {

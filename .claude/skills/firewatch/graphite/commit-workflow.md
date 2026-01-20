@@ -123,7 +123,7 @@ fw --refresh
 Then verify addressed comments:
 
 ```bash
-fw --type comment --prs PR_NUMBER | jq 'select(.file_activity_after.modified == true)'
+fw --type comment --pr PR_NUMBER | jq 'select(.file_activity_after.modified == true)'
 ```
 
 ## Common Mistakes
