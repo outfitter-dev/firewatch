@@ -6,7 +6,7 @@ import {
 import { Command } from "commander";
 
 import { parseRepoInput, parsePrNumber, resolveRepoOrThrow } from "../repo";
-import { writeJsonLine } from "../utils/json";
+import { outputStructured } from "../utils/json";
 import { shouldOutputJson } from "../utils/tty";
 
 interface EditCommandOptions {
@@ -17,7 +17,7 @@ interface EditCommandOptions {
   milestone?: string;
   draft?: boolean;
   ready?: boolean;
-  json?: boolean;
+  jsonl?: boolean;
 }
 
 export const editCommand = new Command("edit")
@@ -30,8 +30,8 @@ export const editCommand = new Command("edit")
   .option("--milestone <name>", "Set milestone by name")
   .option("--draft", "Convert to draft")
   .option("--ready", "Mark ready for review")
-  .option("--json", "Force JSON output")
-  .option("--no-json", "Force human-readable output")
+  .option("--jsonl", "Force structured output")
+  .option("--no-jsonl", "Force human-readable output")
   .action(async (pr: number, options: EditCommandOptions) => {
     try {
       if (options.draft && options.ready) {
@@ -103,7 +103,7 @@ export const editCommand = new Command("edit")
       };
 
       if (outputJson) {
-        await writeJsonLine(payload);
+        await outputStructured(payload, "jsonl");
       } else {
         console.log(`Updated ${repo}#${pr}.`);
       }

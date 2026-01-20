@@ -14,9 +14,7 @@ The `mcp` command starts the Firewatch MCP (Model Context Protocol) server. The 
 
 ## Options
 
-| Option   | Description                                     |
-| -------- | ----------------------------------------------- |
-| `--json` | Output JSON (default, included for consistency) |
+No options.
 
 ## Examples
 

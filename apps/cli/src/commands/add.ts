@@ -6,7 +6,7 @@ import {
 import { Command } from "commander";
 
 import { parseRepoInput, parsePrNumber, resolveRepoOrThrow } from "../repo";
-import { writeJsonLine } from "../utils/json";
+import { outputStructured } from "../utils/json";
 import { shouldOutputJson } from "../utils/tty";
 
 type ReviewEvent = "approve" | "request-changes" | "comment";
@@ -19,7 +19,7 @@ interface AddCommandOptions {
   label?: string[];
   reviewer?: string[];
   assignee?: string[];
-  json?: boolean;
+  jsonl?: boolean;
 }
 
 interface AddContext {
@@ -72,7 +72,7 @@ async function handleReviewAction(
   };
 
   if (ctx.outputJson) {
-    await writeJsonLine(payload);
+    await outputStructured(payload, "jsonl");
   } else {
     console.log(`Added ${event} review on ${ctx.repo}#${ctx.pr}.`);
   }
@@ -104,7 +104,7 @@ async function handleMetadataAction(
   };
 
   if (ctx.outputJson) {
-    await writeJsonLine(payload);
+    await outputStructured(payload, "jsonl");
   } else {
     console.log(`Updated ${ctx.repo}#${ctx.pr}.`);
   }
@@ -143,7 +143,7 @@ async function handleReplyAction(
   };
 
   if (ctx.outputJson) {
-    await writeJsonLine(payload);
+    await outputStructured(payload, "jsonl");
   } else {
     console.log(`Replied to ${replyTo} on ${ctx.repo}#${ctx.pr}.`);
   }
@@ -165,7 +165,7 @@ async function handleCommentAction(
   };
 
   if (ctx.outputJson) {
-    await writeJsonLine(payload);
+    await outputStructured(payload, "jsonl");
   } else {
     console.log(`Added comment to ${ctx.repo}#${ctx.pr}.`);
   }
@@ -224,8 +224,8 @@ export const addCommand = new Command("add")
   .option("--label <name>", "Add label (repeatable)", collect)
   .option("--reviewer <user>", "Add reviewer (repeatable)", collect)
   .option("--assignee <user>", "Add assignee (repeatable)", collect)
-  .option("--json", "Force JSON output")
-  .option("--no-json", "Force human-readable output")
+  .option("--jsonl", "Force structured output")
+  .option("--no-jsonl", "Force human-readable output")
   .action(
     async (
       pr: number,

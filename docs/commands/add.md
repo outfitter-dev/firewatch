@@ -19,8 +19,8 @@ fw add <pr> [body] [options]
 | `--reviewer <user>` | Request reviewer (repeatable)                          |
 | `--assignee <user>` | Add assignee (repeatable)                              |
 | `--repo <name>`     | Target repository (`owner/repo`)                       |
-| `--json`            | Force JSON output                                      |
-| `--no-json`         | Force human-readable output                            |
+| `--jsonl`            | Force structured output                                      |
+| `--no-jsonl`         | Force human-readable output                            |
 
 ## Examples
 

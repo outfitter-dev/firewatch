@@ -8,12 +8,12 @@ import {
 import { Command } from "commander";
 
 import { parseRepoInput } from "../repo";
-import { writeJsonLine } from "../utils/json";
+import { outputStructured } from "../utils/json";
 import { shouldOutputJson } from "../utils/tty";
 
 interface CloseCommandOptions {
   repo?: string;
-  json?: boolean;
+  jsonl?: boolean;
 }
 
 interface ResolveTarget {
@@ -106,7 +106,7 @@ async function resolveTargets(
       };
 
       if (outputJson) {
-        await writeJsonLine(payload);
+        await outputStructured(payload, "jsonl");
       } else {
         console.log(`Resolved ${target.commentId} on ${repo}#${pr}.`);
       }
@@ -128,8 +128,8 @@ export const closeCommand = new Command("close")
   .description("Resolve review comment threads (deprecated)")
   .argument("<commentIds...>", "Review comment IDs to resolve")
   .option("--repo <name>", "Repository (owner/repo format)")
-  .option("--json", "Force JSON output")
-  .option("--no-json", "Force human-readable output")
+  .option("--jsonl", "Force structured output")
+  .option("--no-jsonl", "Force human-readable output")
   .action(async (commentIds: string[], options: CloseCommandOptions) => {
     printDeprecationWarning();
     try {

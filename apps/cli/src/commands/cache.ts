@@ -9,11 +9,11 @@ import { Command } from "commander";
 import { existsSync, statSync } from "node:fs";
 import { rm } from "node:fs/promises";
 
-import { writeJsonLine } from "../utils/json";
+import { outputStructured } from "../utils/json";
 import { formatRelativeTime, shouldOutputJson } from "../utils/tty";
 
 interface CacheStatusOptions {
-  json?: boolean;
+  jsonl?: boolean;
 }
 
 interface CacheClearOptions {
@@ -56,8 +56,8 @@ function getDatabaseSize(): number {
 
 const statusSubcommand = new Command("status")
   .description("Show cache status and statistics")
-  .option("--json", "Force JSON output")
-  .option("--no-json", "Force human-readable output")
+  .option("--jsonl", "Force structured output")
+  .option("--no-jsonl", "Force human-readable output")
   .action(async (options: CacheStatusOptions) => {
     try {
       const db = getDatabase();
@@ -81,7 +81,7 @@ const statusSubcommand = new Command("status")
       };
 
       if (shouldOutputJson(options)) {
-        await writeJsonLine(payload);
+        await outputStructured(payload, "jsonl");
         return;
       }
 

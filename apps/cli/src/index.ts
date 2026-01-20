@@ -45,7 +45,7 @@ import { schemaCommand } from "./commands/schema";
 import { statusCommand } from "./commands/status";
 import { validateRepoFormat } from "./repo";
 import { ensureGraphiteMetadata } from "./stack";
-import { writeJsonLine } from "./utils/json";
+import { outputStructured } from "./utils/json";
 import { resolveStates } from "./utils/states";
 import { shouldOutputJson } from "./utils/tty";
 import { outputWorklist } from "./worklist";
@@ -72,7 +72,7 @@ interface RootCommandOptions {
   limit?: number;
   offset?: number;
   summary?: boolean;
-  json?: boolean;
+  jsonl?: boolean;
   debug?: boolean;
   noColor?: boolean;
 }
@@ -425,8 +425,8 @@ program
   .option("-n, --limit <count>", "Limit number of results", Number.parseInt)
   .option("--offset <count>", "Skip first N results", Number.parseInt)
   .option("--summary", "Aggregate entries into per-PR summary")
-  .option("-j, --json", "Force JSON output")
-  .option("--no-json", "Force human-readable output")
+  .option("-j, --jsonl", "Force structured output")
+  .option("--no-jsonl", "Force human-readable output")
   .option("--debug", "Enable debug logging")
   .option("--no-color", "Disable color output")
   .addHelpText(
@@ -587,9 +587,7 @@ Examples:
         if (filtered.length === 0 && process.stderr.isTTY) {
           console.error("No entries matched the query filters.");
         }
-        for (const entry of filtered) {
-          await writeJsonLine(entry);
-        }
+        await outputStructured(filtered, "jsonl");
         return;
       }
 

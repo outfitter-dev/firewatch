@@ -171,7 +171,7 @@ test("root command outputs filtered entries by type", async () => {
     repo,
     "--type",
     "review",
-    "--json",
+    "--jsonl",
     "--offline",
   ]);
 

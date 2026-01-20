@@ -6,7 +6,7 @@ import {
 import { Command } from "commander";
 
 import { parseRepoInput, parsePrNumber, resolveRepoOrThrow } from "../repo";
-import { writeJsonLine } from "../utils/json";
+import { outputStructured } from "../utils/json";
 import { shouldOutputJson } from "../utils/tty";
 
 interface RmCommandOptions {
@@ -15,7 +15,7 @@ interface RmCommandOptions {
   reviewer?: string[];
   assignee?: string[];
   milestone?: boolean;
-  json?: boolean;
+  jsonl?: boolean;
 }
 
 function collect(value: string, previous: string[] = []): string[] {
@@ -43,8 +43,8 @@ export const rmCommand = new Command("rm")
   .option("--reviewer <user>", "Remove reviewer (repeatable)", collect)
   .option("--assignee <user>", "Remove assignee (repeatable)", collect)
   .option("--milestone", "Clear milestone")
-  .option("--json", "Force JSON output")
-  .option("--no-json", "Force human-readable output")
+  .option("--jsonl", "Force structured output")
+  .option("--no-jsonl", "Force human-readable output")
   .action(async (pr: number, options: RmCommandOptions) => {
     printDeprecationWarning();
     try {
@@ -99,7 +99,7 @@ export const rmCommand = new Command("rm")
       };
 
       if (shouldOutputJson(options, config.output?.default_format)) {
-        await writeJsonLine(payload);
+        await outputStructured(payload, "jsonl");
       } else {
         console.log(`Updated ${repo}#${pr}.`);
       }

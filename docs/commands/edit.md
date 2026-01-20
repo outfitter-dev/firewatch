@@ -19,8 +19,8 @@ fw edit <pr> --<field> <value>
 | `--draft`            | Convert to draft                 |
 | `--ready`            | Mark ready for review            |
 | `--repo <name>`      | Target repository (`owner/repo`) |
-| `--json`             | Force JSON output                |
-| `--no-json`          | Force human-readable output      |
+| `--jsonl`             | Force structured output                |
+| `--no-jsonl`          | Force human-readable output      |
 
 ## Examples
 

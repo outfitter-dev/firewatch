@@ -17,12 +17,12 @@ import { Command } from "commander";
 import { existsSync, statSync } from "node:fs";
 
 import { version } from "../../package.json";
-import { writeJsonLine } from "../utils/json";
+import { outputStructured } from "../utils/json";
 import { formatRelativeTime, shouldOutputJson } from "../utils/tty";
 
 interface StatusCommandOptions {
   short?: boolean;
-  json?: boolean;
+  jsonl?: boolean;
 }
 
 interface CacheSummary {
@@ -86,8 +86,8 @@ function getCacheSummary(): CacheSummary {
 export const statusCommand = new Command("status")
   .description("Show Firewatch state information")
   .option("--short", "Compact single-line output")
-  .option("--json", "Force JSON output")
-  .option("--no-json", "Force human-readable output")
+  .option("--jsonl", "Force structured output")
+  .option("--no-jsonl", "Force human-readable output")
   .action(async (options: StatusCommandOptions) => {
     try {
       await ensureDirectories();
@@ -148,7 +148,7 @@ export const statusCommand = new Command("status")
       };
 
       if (outputJson) {
-        await writeJsonLine(payload);
+        await outputStructured(payload, "jsonl");
         return;
       }
 

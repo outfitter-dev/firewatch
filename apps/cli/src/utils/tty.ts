@@ -1,30 +1,37 @@
 /**
  * TTY detection and output mode utilities
  *
- * Determines output format (JSON vs human-readable) based on:
- * 1. Explicit --json/--no-json flags
- * 2. FIREWATCH_JSON environment variable
+ * Determines output format (structured vs human-readable) based on:
+ * 1. Explicit --jsonl/--no-jsonl flags
+ * 2. FIREWATCH_JSONL (preferred) or FIREWATCH_JSON environment variable
  * 3. TTY detection (non-TTY defaults to JSON for piping)
  */
 
 export interface OutputModeOptions {
+  jsonl?: boolean;
   json?: boolean;
 }
 
 /**
- * Determine if output should be JSON based on:
- * 1. --json/--no-json flags (explicit)
- * 2. FIREWATCH_JSON env var
+ * Determine if output should be structured based on:
+ * 1. --jsonl/--no-jsonl flags (explicit)
+ * 2. FIREWATCH_JSONL (preferred) or FIREWATCH_JSON env var
  * 3. TTY detection (non-TTY defaults to JSON)
  *
- * Note: Commander's --no-json sets options.json = false (not noJson = true)
+ * Note: Commander's --no-jsonl sets options.jsonl = false (not noJsonl = true)
  */
 export function shouldOutputJson(
   options: OutputModeOptions,
   defaultFormat?: "human" | "json"
 ): boolean {
   // Explicit flag takes precedence
-  // --json sets json=true, --no-json sets json=false
+  // --jsonl sets jsonl=true, --no-jsonl sets jsonl=false
+  if (options.jsonl === true) {
+    return true;
+  }
+  if (options.jsonl === false) {
+    return false;
+  }
   if (options.json === true) {
     return true;
   }
@@ -32,7 +39,13 @@ export function shouldOutputJson(
     return false;
   }
 
-  // Environment variable
+  // Environment variable (prefer JSONL)
+  if (process.env.FIREWATCH_JSONL === "1") {
+    return true;
+  }
+  if (process.env.FIREWATCH_JSONL === "0") {
+    return false;
+  }
   if (process.env.FIREWATCH_JSON === "1") {
     return true;
   }

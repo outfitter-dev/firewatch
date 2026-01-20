@@ -12,8 +12,8 @@ fw doctor [options]
 
 | Option      | Description                         |
 | ----------- | ----------------------------------- |
-| `--json`    | Force JSON output                   |
-| `--no-json` | Force human-readable output         |
+| `--jsonl`    | Force structured output                   |
+| `--no-jsonl` | Force human-readable output         |
 | `--fix`     | Attempt to fix issues automatically |
 
 ## Example Output
