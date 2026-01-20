@@ -290,9 +290,6 @@ function buildActionableItems(
 
   const feedbackByRepoPr = new Map<string, UnaddressedFeedback[]>();
   for (const fb of unaddressedFeedback) {
-    if (fb.is_bot) {
-      continue;
-    }
     const key = `${fb.repo}:${fb.pr}`;
     const entry = entryByRepoPr.get(key);
     if (entry && fb.author === entry.pr_author) {
