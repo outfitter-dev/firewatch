@@ -19,7 +19,7 @@ const numberList = z.union([
 ]);
 
 /**
- * firewatch_query - Filter cached PR activity
+ * fw_query - Filter cached PR activity
  * ~300 tokens
  */
 export const QueryParamsShape = {
@@ -59,118 +59,7 @@ export const QueryParamsSchema = z.object(QueryParamsShape);
 export type QueryParams = z.infer<typeof QueryParamsSchema>;
 
 /**
- * firewatch_status - Show cache and auth status
- * ~100 tokens
- */
-export const StatusParamsShape = {
-  short: z.boolean().optional(),
-};
-
-export const StatusParamsSchema = z.object(StatusParamsShape);
-export type StatusParams = z.infer<typeof StatusParamsSchema>;
-
-/**
- * firewatch_admin - Config, doctor, schema, help
- * ~200 tokens
- */
-export const AdminParamsShape = {
-  action: z.enum(["config", "doctor", "schema", "help"]),
-  // config params
-  key: z.string().optional(),
-  path: z.boolean().optional(),
-  // doctor params
-  fix: z.boolean().optional(),
-  // schema params
-  schema: z.enum(["query", "entry", "worklist", "config"]).optional(),
-};
-
-export const AdminParamsSchema = z.object(AdminParamsShape);
-export type AdminParams = z.infer<typeof AdminParamsSchema>;
-
-/**
- * firewatch_pr - Edit PR fields, manage labels/reviewers/assignees
- * ~350 tokens
- */
-export const PrParamsShape = {
-  action: z.enum(["edit", "rm"]),
-  repo: repoSlug.optional(),
-  pr: prNumber,
-  // edit params
-  title: z.string().optional(),
-  body: z.string().optional(),
-  base: z.string().optional(),
-  milestone: z.union([z.string(), z.boolean()]).optional(),
-  draft: z.boolean().optional(),
-  ready: z.boolean().optional(),
-  // metadata params (used by both edit via add and rm)
-  labels: stringList.optional(),
-  label: z.string().optional(),
-  reviewer: stringList.optional(),
-  assignee: stringList.optional(),
-};
-
-export const PrParamsSchema = z.object(PrParamsShape);
-export type PrParams = z.infer<typeof PrParamsSchema>;
-
-/**
- * firewatch_review - Submit PR reviews
- * ~150 tokens
- */
-export const ReviewParamsShape = {
-  repo: repoSlug.optional(),
-  pr: prNumber,
-  review: z.enum(["approve", "request-changes", "comment"]),
-  body: z.string().optional(),
-};
-
-export const ReviewParamsSchema = z.object(ReviewParamsShape);
-export type ReviewParams = z.infer<typeof ReviewParamsSchema>;
-
-/**
- * firewatch_add - Add comments and resolve threads
- * ~200 tokens
- */
-export const AddParamsShape = {
-  repo: repoSlug.optional(),
-  pr: prNumber.optional(),
-  body: z.string().optional(),
-  /** Comment ID to reply to. Accepts short IDs (e.g., @a7f3c) or full GitHub IDs. */
-  reply_to: z.string().optional(),
-  resolve: z.boolean().optional(),
-  /** Comment ID to close. Accepts short IDs (e.g., @a7f3c) or full GitHub IDs. */
-  comment_id: z.string().optional(),
-  /** Comment IDs to close. Accepts short IDs (e.g., @a7f3c) or full GitHub IDs. */
-  comment_ids: z.array(z.string()).optional(),
-  // metadata (labels/reviewers/assignees)
-  labels: stringList.optional(),
-  label: z.string().optional(),
-  reviewer: stringList.optional(),
-  assignee: stringList.optional(),
-};
-
-export const AddParamsSchema = z.object(AddParamsShape);
-export type AddParams = z.infer<typeof AddParamsSchema>;
-
-/**
- * Tool descriptions - kept concise for token efficiency.
- * Server instructions provide common context.
- */
-export const TOOL_DESCRIPTIONS = {
-  query:
-    "Query cached PR activity. Filter by time (since), type (review/comment/commit), PR number, author, or state. Use summary=true for per-PR aggregation.",
-  status:
-    "Show firewatch status: auth, cache, repo detection. Use short=true for compact output.",
-  admin:
-    "Admin operations: config (view settings), doctor (diagnose issues), schema (output field docs), help.",
-  pr: "Edit PR fields or remove metadata. Actions: edit (title/body/base/draft/ready/milestone), rm (labels/reviewers/assignees/milestone).",
-  review: "Submit a PR review: approve, request-changes, or comment.",
-  add: "Add comments to PRs. Use reply_to for thread replies (accepts short IDs like @a7f3c), resolve=true to close thread. Also supports adding labels/reviewers/assignees.",
-  feedback:
-    "Unified feedback operations. PR-level: {pr} lists needs-attention, {pr, all} lists all, {pr, body} adds comment, {pr, ack} bulk acks. Comment-level: {id} views, {id, body} replies, {id, resolve} resolves, {id, ack} acks.",
-};
-
-/**
- * firewatch_feedback - Unified feedback operations (fw fb parity)
+ * fw_fb - Unified feedback operations (fw fb parity)
  * ~250 tokens
  */
 export const FeedbackParamsShape = {
@@ -193,5 +82,81 @@ export const FeedbackParamsShape = {
 export const FeedbackParamsSchema = z.object(FeedbackParamsShape);
 export type FeedbackParams = z.infer<typeof FeedbackParamsSchema>;
 
-// Server instructions for future MCP SDK support:
-// "GitHub PR activity tools. Outputs JSONL for jq. Cache auto-syncs. Use firewatch_admin action=schema for field reference."
+/**
+ * fw_pr - PR mutations: edit fields, manage metadata, submit reviews
+ * ~350 tokens
+ */
+export const PrParamsShape = {
+  action: z.enum(["edit", "rm", "review"]),
+  repo: repoSlug.optional(),
+  pr: prNumber,
+  // edit params
+  title: z.string().optional(),
+  body: z.string().optional(),
+  base: z.string().optional(),
+  milestone: z.union([z.string(), z.boolean()]).optional(),
+  draft: z.boolean().optional(),
+  ready: z.boolean().optional(),
+  // metadata params (used by edit and rm)
+  labels: stringList.optional(),
+  label: z.string().optional(),
+  reviewer: stringList.optional(),
+  assignee: stringList.optional(),
+  // review params (action=review)
+  review: z.enum(["approve", "request-changes", "comment"]).optional(),
+};
+
+export const PrParamsSchema = z.object(PrParamsShape);
+export type PrParams = z.infer<typeof PrParamsSchema>;
+
+/**
+ * fw_status - Show cache and auth status
+ * ~100 tokens
+ */
+export const StatusParamsShape = {
+  short: z.boolean().optional(),
+};
+
+export const StatusParamsSchema = z.object(StatusParamsShape);
+export type StatusParams = z.infer<typeof StatusParamsSchema>;
+
+/**
+ * fw_doctor - Diagnose and fix issues
+ * ~100 tokens
+ */
+export const DoctorParamsShape = {
+  fix: z.boolean().optional(),
+};
+
+export const DoctorParamsSchema = z.object(DoctorParamsShape);
+export type DoctorParams = z.infer<typeof DoctorParamsSchema>;
+
+/**
+ * fw_help - Usage documentation
+ * ~100 tokens
+ */
+export const HelpParamsShape = {
+  /** Show JSON schema for a specific type */
+  schema: z.enum(["query", "entry", "worklist", "config"]).optional(),
+  /** Show config value for key */
+  config_key: z.string().optional(),
+  /** Show config file path */
+  config_path: z.boolean().optional(),
+};
+
+export const HelpParamsSchema = z.object(HelpParamsShape);
+export type HelpParams = z.infer<typeof HelpParamsSchema>;
+
+/**
+ * Tool descriptions - kept concise for token efficiency.
+ * Server instructions provide common context.
+ */
+export const TOOL_DESCRIPTIONS = {
+  query:
+    "Query cached PR activity. Filter by time (since), type (review/comment/commit), PR number, author, or state. Use summary=true for per-PR aggregation.",
+  fb: "Unified feedback operations. PR-level: {pr} lists needs-attention, {pr, body} adds comment, {pr, ack} bulk acks. Comment-level: {id} views, {id, body} replies, {id, resolve} resolves, {id, ack} acks.",
+  pr: "PR mutations. Actions: edit (title/body/base/draft/ready/milestone/labels/reviewers/assignees), rm (remove labels/reviewers/assignees/milestone), review (approve/request-changes/comment).",
+  status: "Cache and auth status. Use short=true for compact output.",
+  doctor: "Diagnose auth, cache, and repo issues. Use fix=true to auto-repair.",
+  help: "Usage documentation. Use schema to show field definitions, config_key to show setting value, config_path for config file location.",
+};

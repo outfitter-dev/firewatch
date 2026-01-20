@@ -55,18 +55,16 @@ import {
   resolveQueryOutput,
 } from "./query";
 import {
-  type AddParams,
-  AddParamsShape,
-  type AdminParams,
-  AdminParamsShape,
+  type DoctorParams,
+  DoctorParamsShape,
   type FeedbackParams,
   FeedbackParamsShape,
+  type HelpParams,
+  HelpParamsShape,
   type PrParams,
   PrParamsShape,
   type QueryParams,
   QueryParamsShape,
-  type ReviewParams,
-  ReviewParamsShape,
   type StatusParams,
   StatusParamsShape,
   TOOL_DESCRIPTIONS,
@@ -389,44 +387,6 @@ async function resolveCommentIdFromShortId(
 
   // Return original if resolution fails - let downstream error handling deal with it
   return stripShortIdPrefix(id);
-}
-
-/**
- * Resolve multiple short IDs to full GitHub comment IDs.
- */
-async function resolveCommentIdsFromShortIds(
-  ids: string[],
-  repo?: string
-): Promise<string[]> {
-  if (ids.length === 0) {
-    return [];
-  }
-
-  // Check if any IDs need resolution
-  const hasShortIds = ids.some(isShortId);
-  if (!hasShortIds) {
-    return ids;
-  }
-
-  // Build cache once for all IDs
-  const repoFilter = repo ?? (await resolveRepo());
-  if (repoFilter) {
-    const entries = await queryEntries({
-      filters: {
-        repo: repoFilter,
-        type: "comment",
-      },
-    });
-    buildShortIdCache(entries);
-  }
-
-  return ids.map((id) => {
-    if (!isShortId(id)) {
-      return id;
-    }
-    const resolved = resolveShortId(id);
-    return resolved?.fullId ?? stripShortIdPrefix(id);
-  });
 }
 
 async function ensureRepoCache(
@@ -855,87 +815,6 @@ async function handleStatus(params: FirewatchParams): Promise<McpToolResult> {
 
   return textResult(JSON.stringify(output));
 }
-interface ResolveOutput {
-  ok: boolean;
-  repo: string;
-  pr: number;
-  comment_id: string;
-  thread_id: string;
-}
-
-interface ResolveTarget {
-  repo: string;
-  pr: number;
-  commentId: string;
-}
-
-async function loadTargetsFromCache(
-  commentIds: string[]
-): Promise<ResolveTarget[]> {
-  const targets: ResolveTarget[] = [];
-
-  for (const commentId of commentIds) {
-    const entries = await queryEntries({ filters: { id: commentId } });
-    const entry = entries[0];
-    if (!entry) {
-      throw new Error(`Comment ${commentId} not found in cache.`);
-    }
-    if (entry.type !== "comment" || entry.subtype !== "review_comment") {
-      throw new Error(
-        `Comment ${commentId} is not a review comment thread entry.`
-      );
-    }
-    targets.push({ repo: entry.repo, pr: entry.pr, commentId });
-  }
-
-  return targets;
-}
-
-function groupTargets(targets: ResolveTarget[]): Map<string, ResolveTarget[]> {
-  const grouped = new Map<string, ResolveTarget[]>();
-  for (const target of targets) {
-    const key = `${target.repo}#${target.pr}`;
-    const group = grouped.get(key) ?? [];
-    group.push(target);
-    grouped.set(key, group);
-  }
-  return grouped;
-}
-
-async function resolveTargets(
-  client: GitHubClient,
-  targets: ResolveTarget[]
-): Promise<ResolveOutput[]> {
-  const outputs: ResolveOutput[] = [];
-  const grouped = groupTargets(targets);
-
-  for (const group of grouped.values()) {
-    const { repo, pr } = group[0]!;
-    const [owner, name] = repo.split("/");
-    if (!owner || !name) {
-      throw new Error(`Invalid repo format: ${repo}`);
-    }
-    const threadMap = await client.fetchReviewThreadMap(owner, name, pr);
-    for (const target of group) {
-      const threadId = threadMap.get(target.commentId);
-      if (!threadId) {
-        throw new Error(
-          `No review thread found for comment ${target.commentId}.`
-        );
-      }
-      await client.resolveReviewThread(threadId);
-      outputs.push({
-        ok: true,
-        repo,
-        pr,
-        comment_id: target.commentId,
-        thread_id: threadId,
-      });
-    }
-  }
-
-  return outputs;
-}
 
 async function handleAdd(params: FirewatchParams): Promise<McpToolResult> {
   if (!params.pr) {
@@ -1069,41 +948,6 @@ async function handleAdd(params: FirewatchParams): Promise<McpToolResult> {
       ...(comment.url && { url: comment.url }),
     })
   );
-}
-
-async function handleClose(params: FirewatchParams): Promise<McpToolResult> {
-  const rawIds =
-    params.comment_ids ?? (params.comment_id ? [params.comment_id] : []);
-  if (rawIds.length === 0) {
-    throw new Error("close requires comment_id or comment_ids.");
-  }
-
-  if ((params.repo && !params.pr) || (!params.repo && params.pr)) {
-    throw new Error("close requires both repo and pr when overriding lookup.");
-  }
-
-  const config = await loadConfig();
-  const auth = await detectAuth(config.github_token);
-  if (!auth.token) {
-    throw new Error(auth.error);
-  }
-
-  const client = new GitHubClient(auth.token);
-
-  // Resolve short IDs to full comment IDs
-  const ids = await resolveCommentIdsFromShortIds(rawIds, params.repo);
-
-  const targets =
-    params.repo && params.pr
-      ? ids.map((commentId) => ({
-          repo: params.repo!,
-          pr: params.pr!,
-          commentId,
-        }))
-      : await loadTargetsFromCache(ids);
-
-  const outputs = await resolveTargets(client, targets);
-  return textResult(jsonLines(outputs));
 }
 
 async function handleEdit(params: FirewatchParams): Promise<McpToolResult> {
@@ -1913,54 +1757,45 @@ function schemaDoc(name: SchemaName | undefined): object {
 function buildHelpText(writeToolsAvailable: boolean): string {
   const baseText = `Firewatch MCP Tools
 
-firewatch_query - Query cached PR activity
+fw_query - Query cached PR activity
   Filter by: since, type, pr, author, state, label
   Options: summary=true (per-PR aggregation), summary_short=true (compact)
   Example: {"since":"24h","type":"review","summary":true}
 
-firewatch_status - Show cache and auth status
+fw_status - Cache and auth status
   Options: short=true (compact output)
 
-firewatch_admin - Administrative operations
-  action="config" - View configuration
-  action="doctor" - Diagnose issues
-  action="schema" - Output field documentation
-  action="help" - This message`;
+fw_doctor - Diagnose and fix issues
+  Options: fix=true (auto-repair)
+
+fw_help - Usage documentation
+  schema: "query" | "entry" | "worklist" | "config" - field definitions
+  config_key: show config value
+  config_path: show config file location`;
 
   const writeToolsText = `
 
-firewatch_pr - Edit PR fields or remove metadata
-  action="edit" - Update title, body, base, draft/ready, milestone
+fw_pr - PR mutations
+  action="edit" - Update title, body, base, draft/ready, milestone, labels, reviewers, assignees
   action="rm" - Remove labels, reviewers, assignees, milestone
+  action="review" - Submit review (approve/request-changes/comment)
 
-firewatch_review - Submit PR reviews
-  review: "approve" | "request-changes" | "comment"
-  body: optional review body
-
-firewatch_add - Add comments and metadata
-  body: comment text
-  reply_to: thread reply (comment ID)
-  resolve: close thread after reply
-  comment_id(s): resolve threads by ID
-  labels/reviewer/assignee: add metadata
-
-firewatch_feedback - Unified feedback operations (fw fb parity)
-  PR-level operations:
+fw_fb - Unified feedback operations
+  PR-level:
     {pr} - List needs-attention feedback
-    {pr, all} - List all feedback including resolved/acked
-    {pr, body} - Add new comment to PR
-    {pr, ack} - Bulk ack all unaddressed feedback
-  Comment-level operations:
-    {id} - View specific comment
-    {id, body} - Reply to comment
+    {pr, all} - List all including resolved/acked
+    {pr, body} - Add comment to PR
+    {pr, ack} - Bulk ack all
+  Comment-level:
+    {id} - View comment
+    {id, body} - Reply
     {id, resolve} - Resolve thread (or ack issue_comment)
-    {id, ack} - Acknowledge with thumbs-up
-    {id, body, resolve} - Reply and resolve`;
+    {id, ack} - Acknowledge with thumbs-up`;
 
   const lockedText = `
 
-Note: Write tools (pr, review, add, feedback) require authentication.
-Use firewatch_admin action="doctor" to check auth status.`;
+Note: Write tools (fw_pr, fw_fb) require authentication.
+Use fw_doctor to check auth status.`;
 
   return writeToolsAvailable ? baseText + writeToolsText : baseText + lockedText;
 }
@@ -1968,8 +1803,8 @@ Use firewatch_admin action="doctor" to check auth status.`;
 /**
  * FirewatchMCPServer wraps McpServer to provide auth-gated dynamic tool registration.
  *
- * Base tools (query, status, admin) are always available.
- * Write tools (pr, review, add, feedback) require authentication and are
+ * Base tools (fw_query, fw_status, fw_doctor, fw_help) are always available.
+ * Write tools (fw_pr, fw_fb) require authentication and are
  * dynamically registered after auth verification.
  */
 export class FirewatchMCPServer {
@@ -2049,47 +1884,53 @@ export class FirewatchMCPServer {
    * Register base tools that are always available (read-only operations).
    */
   private registerBaseTools(): void {
-    // firewatch_query - Query cached PR activity
+    // fw_query - Query cached PR activity
     this.server.tool(
-      "firewatch_query",
+      "fw_query",
       TOOL_DESCRIPTIONS.query,
       QueryParamsShape,
       (params: QueryParams) => handleQuery(params)
     );
 
-    // firewatch_status - Show cache and auth status
+    // fw_status - Show cache and auth status
     this.server.tool(
-      "firewatch_status",
+      "fw_status",
       TOOL_DESCRIPTIONS.status,
       StatusParamsShape,
       (params: StatusParams) => handleStatus(params)
     );
 
-    // firewatch_admin - Config, doctor, schema, help
+    // fw_doctor - Diagnose and fix issues
     this.server.tool(
-      "firewatch_admin",
-      TOOL_DESCRIPTIONS.admin,
-      AdminParamsShape,
-      this.handleAdmin.bind(this)
+      "fw_doctor",
+      TOOL_DESCRIPTIONS.doctor,
+      DoctorParamsShape,
+      (params: DoctorParams) => handleDoctor(params)
+    );
+
+    // fw_help - Usage documentation
+    this.server.tool(
+      "fw_help",
+      TOOL_DESCRIPTIONS.help,
+      HelpParamsShape,
+      this.handleHelp.bind(this)
     );
   }
 
   /**
-   * Handle admin tool requests.
+   * Handle help tool requests.
    */
-  private async handleAdmin(
-    params: AdminParams
-  ): Promise<McpToolResult> {
-    switch (params.action) {
-      case "config":
-        return await handleConfig(params);
-      case "doctor":
-        return await handleDoctor(params);
-      case "schema":
-        return textResult(JSON.stringify(schemaDoc(params.schema), null, 2));
-      case "help":
-        return textResult(buildHelpText(this._writeToolsRegistered));
+  private async handleHelp(params: HelpParams): Promise<McpToolResult> {
+    if (params.schema) {
+      return textResult(JSON.stringify(schemaDoc(params.schema), null, 2));
     }
+    if (params.config_key || params.config_path) {
+      return await handleConfig({
+        key: params.config_key,
+        path: params.config_path,
+      });
+    }
+    return textResult(buildHelpText(this._writeToolsRegistered));
   }
 
   /**
@@ -2097,12 +1938,21 @@ export class FirewatchMCPServer {
    * Called after auth verification succeeds.
    */
   private registerWriteTools(): void {
-    // firewatch_pr - Edit PR fields, manage labels/reviewers/assignees
+    // fw_pr - PR mutations: edit fields, manage metadata, submit reviews
     this.server.tool(
-      "firewatch_pr",
+      "fw_pr",
       TOOL_DESCRIPTIONS.pr,
       PrParamsShape,
       (params: PrParams) => {
+        if (params.action === "review") {
+          // Submit PR review
+          return handleAdd({
+            pr: params.pr,
+            repo: params.repo,
+            review: params.review,
+            body: params.body,
+          });
+        }
         if (params.action === "edit") {
           // Handle metadata additions via edit
           const hasMetadata =
@@ -2132,44 +1982,10 @@ export class FirewatchMCPServer {
       }
     );
 
-    // firewatch_review - Submit PR reviews
+    // fw_fb - Unified feedback operations (fw fb parity)
     this.server.tool(
-      "firewatch_review",
-      TOOL_DESCRIPTIONS.review,
-      ReviewParamsShape,
-      (params: ReviewParams) =>
-        handleAdd({
-          pr: params.pr,
-          repo: params.repo,
-          review: params.review,
-          body: params.body,
-        })
-    );
-
-    // firewatch_add - Add comments and resolve threads
-    this.server.tool(
-      "firewatch_add",
-      TOOL_DESCRIPTIONS.add,
-      AddParamsShape,
-      (params: AddParams) => {
-        // Handle close (resolve) operations
-        const ids =
-          params.comment_ids ?? (params.comment_id ? [params.comment_id] : []);
-        if (ids.length > 0 && !params.body && !params.reply_to) {
-          return handleClose({
-            comment_ids: ids,
-            repo: params.repo,
-            pr: params.pr,
-          });
-        }
-        return handleAdd(params);
-      }
-    );
-
-    // firewatch_feedback - Unified feedback operations (fw fb parity)
-    this.server.tool(
-      "firewatch_feedback",
-      TOOL_DESCRIPTIONS.feedback,
+      "fw_fb",
+      TOOL_DESCRIPTIONS.fb,
       FeedbackParamsShape,
       (params: FeedbackParams) => handleFeedback(params)
     );
@@ -2188,6 +2004,13 @@ export class FirewatchMCPServer {
     if (options.verifyAuthOnConnect) {
       await this.verifyAuthAndEnableWriteTools();
     }
+  }
+
+  /**
+   * Close the server connection.
+   */
+  async close(): Promise<void> {
+    await this.server.close();
   }
 }
 
