@@ -27,7 +27,7 @@ import {
   parseSince,
   queryEntries,
   resolveShortId,
-  stripShortIdPrefix,
+  shouldExcludeAuthor,
   syncRepo,
   type AckRecord,
   type AuthResult,
@@ -367,8 +367,7 @@ async function resolveCommentIdFromShortId(
   // If not in cache, build cache from entries and try again
   const repoFilter = repo ?? (await resolveRepo());
   if (!repoFilter) {
-    // Cannot resolve without a repo - return original
-    return id;
+    throw new Error("Cannot resolve short ID without repo context.");
   }
 
   const entries = await queryEntries({
@@ -385,8 +384,9 @@ async function resolveCommentIdFromShortId(
     return resolved.fullId;
   }
 
-  // Return original if resolution fails - let downstream error handling deal with it
-  return stripShortIdPrefix(id);
+  throw new Error(
+    `Short ID ${formatShortId(id)} not found in cache. Run fw_query or fw_fb first.`
+  );
 }
 
 async function ensureRepoCache(
@@ -592,6 +592,18 @@ function filterByAuthors(
   return entries.filter((entry) => targets.has(entry.author.toLowerCase()));
 }
 
+function addShortIds(entries: FirewatchEntry[]): FirewatchEntry[] {
+  return entries.map((entry) => {
+    if (entry.type !== "comment") {
+      return entry;
+    }
+    return {
+      ...entry,
+      short_id: formatShortId(generateShortId(entry.id, entry.repo)),
+    };
+  });
+}
+
 function redactConfig(config: FirewatchConfig): FirewatchConfig {
   if (!config.github_token) {
     return config;
@@ -763,6 +775,10 @@ async function handleQuery(params: FirewatchParams): Promise<McpToolResult> {
       throw new TypeError("summary_short requires summary output.");
     }
     return textResult(jsonLines(formatStatusShort(output as WorklistEntry[])));
+  }
+
+  if (!wantsSummary && Array.isArray(output)) {
+    return textResult(jsonLines(addShortIds(output as FirewatchEntry[])));
   }
 
   return textResult(jsonLines(output));
@@ -1554,7 +1570,9 @@ async function handleFeedback(params: FeedbackParams): Promise<McpToolResult> {
 
     const resolved = resolveShortId(rawId);
     if (!resolved) {
-      throw new Error(`Short ID ${formatShortId(rawId)} not found.`);
+      throw new Error(
+        `Short ID ${formatShortId(rawId)} not found in cache. Run fw_query or fw_fb first.`
+      );
     }
     commentId = resolved.fullId;
     shortIdDisplay = formatShortId(rawId);

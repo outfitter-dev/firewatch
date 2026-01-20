@@ -37,11 +37,18 @@ export function stripShortIdPrefix(id: string): string {
 }
 
 /**
+ * Normalize a short ID for consistent lookups.
+ */
+export function normalizeShortId(id: string): string {
+  return stripShortIdPrefix(id).toLowerCase();
+}
+
+/**
  * Format a short ID with the `@` prefix for display.
  */
 export function formatShortId(id: string): string {
-  const stripped = stripShortIdPrefix(id);
-  return `@${stripped}`;
+  const normalized = normalizeShortId(id);
+  return `@${normalized}`;
 }
 
 /**
@@ -100,7 +107,8 @@ export function registerShortId(
   repo: string,
   pr: number
 ): void {
-  shortIdCache.set(shortId, { shortId, fullId, repo, pr });
+  const normalized = normalizeShortId(shortId);
+  shortIdCache.set(normalized, { shortId: normalized, fullId, repo, pr });
 }
 
 /**
@@ -109,8 +117,8 @@ export function registerShortId(
  * Returns null if not found in cache.
  */
 export function resolveShortId(shortId: string): ShortIdMapping | null {
-  const stripped = stripShortIdPrefix(shortId);
-  return shortIdCache.get(stripped) ?? null;
+  const normalized = normalizeShortId(shortId);
+  return shortIdCache.get(normalized) ?? null;
 }
 
 /**
