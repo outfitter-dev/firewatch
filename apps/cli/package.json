@@ -1,6 +1,6 @@
 {
   "name": "@outfitter/firewatch-cli",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "CLI for Firewatch - GitHub PR activity logger",
   "bin": {
     "fw": "./bin/fw.ts"
