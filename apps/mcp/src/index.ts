@@ -30,6 +30,7 @@ import {
   stripShortIdPrefix,
   syncRepo,
   type AckRecord,
+  type AuthResult,
   type FirewatchConfig,
   type FirewatchEntry,
   type PrState,
@@ -1909,8 +1910,8 @@ function schemaDoc(name: SchemaName | undefined): object {
   return ENTRY_SCHEMA_DOC;
 }
 
-function buildHelpText(): string {
-  return `Firewatch MCP Tools
+function buildHelpText(writeToolsAvailable: boolean): string {
+  const baseText = `Firewatch MCP Tools
 
 firewatch_query - Query cached PR activity
   Filter by: since, type, pr, author, state, label
@@ -1924,7 +1925,9 @@ firewatch_admin - Administrative operations
   action="config" - View configuration
   action="doctor" - Diagnose issues
   action="schema" - Output field documentation
-  action="help" - This message
+  action="help" - This message`;
+
+  const writeToolsText = `
 
 firewatch_pr - Edit PR fields or remove metadata
   action="edit" - Update title, body, base, draft/ready, milestone
@@ -1953,134 +1956,253 @@ firewatch_feedback - Unified feedback operations (fw fb parity)
     {id, resolve} - Resolve thread (or ack issue_comment)
     {id, ack} - Acknowledge with thumbs-up
     {id, body, resolve} - Reply and resolve`;
+
+  const lockedText = `
+
+Note: Write tools (pr, review, add, feedback) require authentication.
+Use firewatch_admin action="doctor" to check auth status.`;
+
+  return writeToolsAvailable ? baseText + writeToolsText : baseText + lockedText;
 }
 
-export function createServer(): McpServer {
-  const server = new McpServer(
-    { name: "firewatch", version: mcpVersion },
-    {
-      instructions:
-        "Query GitHub PR activity including reviews, comments, commits, and CI status. Use when checking PR status, finding review comments, querying activity, resolving feedback, or working with GitHub pull requests. Outputs JSONL for jq composition.",
-    }
-  );
+/**
+ * FirewatchMCPServer wraps McpServer to provide auth-gated dynamic tool registration.
+ *
+ * Base tools (query, status, admin) are always available.
+ * Write tools (pr, review, add, feedback) require authentication and are
+ * dynamically registered after auth verification.
+ */
+export class FirewatchMCPServer {
+  readonly server: McpServer;
+  private _isAuthenticated = false;
+  private _writeToolsRegistered = false;
+  private _authResult: AuthResult | null = null;
 
-  // firewatch_query - Query cached PR activity
-  server.tool(
-    "firewatch_query",
-    TOOL_DESCRIPTIONS.query,
-    QueryParamsShape,
-    (params: QueryParams) => handleQuery(params)
-  );
-
-  // firewatch_status - Show cache and auth status
-  server.tool(
-    "firewatch_status",
-    TOOL_DESCRIPTIONS.status,
-    StatusParamsShape,
-    (params: StatusParams) => handleStatus(params)
-  );
-
-  // firewatch_admin - Config, doctor, schema, help
-  server.tool(
-    "firewatch_admin",
-    TOOL_DESCRIPTIONS.admin,
-    AdminParamsShape,
-    (params: AdminParams) => {
-      switch (params.action) {
-        case "config":
-          return handleConfig(params);
-        case "doctor":
-          return handleDoctor(params);
-        case "schema":
-          return textResult(JSON.stringify(schemaDoc(params.schema), null, 2));
-        case "help":
-          return textResult(buildHelpText());
+  constructor() {
+    this.server = new McpServer(
+      { name: "firewatch", version: mcpVersion },
+      {
+        instructions:
+          "Query GitHub PR activity including reviews, comments, commits, and CI status. Use when checking PR status, finding review comments, querying activity, resolving feedback, or working with GitHub pull requests. Outputs JSONL for jq composition.",
       }
-    }
-  );
+    );
 
-  // firewatch_pr - Edit PR fields, manage labels/reviewers/assignees
-  server.tool(
-    "firewatch_pr",
-    TOOL_DESCRIPTIONS.pr,
-    PrParamsShape,
-    (params: PrParams) => {
-      if (params.action === "edit") {
-        // Handle metadata additions via edit
-        const hasMetadata =
-          params.labels || params.label || params.reviewer || params.assignee;
-        if (
-          hasMetadata &&
-          !params.title &&
-          !params.body &&
-          !params.base &&
-          !params.draft &&
-          !params.ready &&
-          !params.milestone
-        ) {
-          // Pure metadata add
-          return handleAdd({
-            pr: params.pr,
+    this.registerBaseTools();
+  }
+
+  /**
+   * Check if write tools are available (auth verified).
+   */
+  get writeToolsAvailable(): boolean {
+    return this._writeToolsRegistered;
+  }
+
+  /**
+   * Verify authentication and enable write tools if authenticated.
+   * Safe to call multiple times - will only register tools once.
+   * Sends list_changed notification when tools are newly registered.
+   */
+  async verifyAuthAndEnableWriteTools(): Promise<{
+    authenticated: boolean;
+    toolsEnabled: boolean;
+    source?: string | undefined;
+    error?: string | undefined;
+  }> {
+    // If already registered, return current state
+    if (this._writeToolsRegistered) {
+      return {
+        authenticated: this._isAuthenticated,
+        toolsEnabled: true,
+        ...(this._authResult?.source && { source: this._authResult.source }),
+      };
+    }
+
+    // Check auth
+    const config = await loadConfig();
+    const auth = await detectAuth(config.github_token);
+    this._authResult = auth;
+
+    if (!auth.token) {
+      return {
+        authenticated: false,
+        toolsEnabled: false,
+        ...(auth.error && { error: auth.error }),
+      };
+    }
+
+    // Auth succeeded - register write tools
+    this._isAuthenticated = true;
+    this.registerWriteTools();
+    this._writeToolsRegistered = true;
+
+    // Notify client that tool list has changed
+    this.server.sendToolListChanged();
+
+    return {
+      authenticated: true,
+      toolsEnabled: true,
+      source: auth.source,
+    };
+  }
+
+  /**
+   * Register base tools that are always available (read-only operations).
+   */
+  private registerBaseTools(): void {
+    // firewatch_query - Query cached PR activity
+    this.server.tool(
+      "firewatch_query",
+      TOOL_DESCRIPTIONS.query,
+      QueryParamsShape,
+      (params: QueryParams) => handleQuery(params)
+    );
+
+    // firewatch_status - Show cache and auth status
+    this.server.tool(
+      "firewatch_status",
+      TOOL_DESCRIPTIONS.status,
+      StatusParamsShape,
+      (params: StatusParams) => handleStatus(params)
+    );
+
+    // firewatch_admin - Config, doctor, schema, help
+    this.server.tool(
+      "firewatch_admin",
+      TOOL_DESCRIPTIONS.admin,
+      AdminParamsShape,
+      this.handleAdmin.bind(this)
+    );
+  }
+
+  /**
+   * Handle admin tool requests.
+   */
+  private async handleAdmin(
+    params: AdminParams
+  ): Promise<McpToolResult> {
+    switch (params.action) {
+      case "config":
+        return await handleConfig(params);
+      case "doctor":
+        return await handleDoctor(params);
+      case "schema":
+        return textResult(JSON.stringify(schemaDoc(params.schema), null, 2));
+      case "help":
+        return textResult(buildHelpText(this._writeToolsRegistered));
+    }
+  }
+
+  /**
+   * Register write tools that require authentication.
+   * Called after auth verification succeeds.
+   */
+  private registerWriteTools(): void {
+    // firewatch_pr - Edit PR fields, manage labels/reviewers/assignees
+    this.server.tool(
+      "firewatch_pr",
+      TOOL_DESCRIPTIONS.pr,
+      PrParamsShape,
+      (params: PrParams) => {
+        if (params.action === "edit") {
+          // Handle metadata additions via edit
+          const hasMetadata =
+            params.labels || params.label || params.reviewer || params.assignee;
+          if (
+            hasMetadata &&
+            !params.title &&
+            !params.body &&
+            !params.base &&
+            !params.draft &&
+            !params.ready &&
+            !params.milestone
+          ) {
+            // Pure metadata add
+            return handleAdd({
+              pr: params.pr,
+              repo: params.repo,
+              labels: params.labels,
+              label: params.label,
+              reviewer: params.reviewer,
+              assignee: params.assignee,
+            });
+          }
+          return handleEdit(params);
+        }
+        return handleRm(params);
+      }
+    );
+
+    // firewatch_review - Submit PR reviews
+    this.server.tool(
+      "firewatch_review",
+      TOOL_DESCRIPTIONS.review,
+      ReviewParamsShape,
+      (params: ReviewParams) =>
+        handleAdd({
+          pr: params.pr,
+          repo: params.repo,
+          review: params.review,
+          body: params.body,
+        })
+    );
+
+    // firewatch_add - Add comments and resolve threads
+    this.server.tool(
+      "firewatch_add",
+      TOOL_DESCRIPTIONS.add,
+      AddParamsShape,
+      (params: AddParams) => {
+        // Handle close (resolve) operations
+        const ids =
+          params.comment_ids ?? (params.comment_id ? [params.comment_id] : []);
+        if (ids.length > 0 && !params.body && !params.reply_to) {
+          return handleClose({
+            comment_ids: ids,
             repo: params.repo,
-            labels: params.labels,
-            label: params.label,
-            reviewer: params.reviewer,
-            assignee: params.assignee,
+            pr: params.pr,
           });
         }
-        return handleEdit(params);
+        return handleAdd(params);
       }
-      return handleRm(params);
+    );
+
+    // firewatch_feedback - Unified feedback operations (fw fb parity)
+    this.server.tool(
+      "firewatch_feedback",
+      TOOL_DESCRIPTIONS.feedback,
+      FeedbackParamsShape,
+      (params: FeedbackParams) => handleFeedback(params)
+    );
+  }
+
+  /**
+   * Connect to transport and optionally verify auth immediately.
+   */
+  async connect(
+    transport: StdioServerTransport,
+    options: { verifyAuthOnConnect?: boolean } = {}
+  ): Promise<void> {
+    await this.server.connect(transport);
+
+    // Optionally verify auth on connect to enable write tools early
+    if (options.verifyAuthOnConnect) {
+      await this.verifyAuthAndEnableWriteTools();
     }
-  );
+  }
+}
 
-  // firewatch_review - Submit PR reviews
-  server.tool(
-    "firewatch_review",
-    TOOL_DESCRIPTIONS.review,
-    ReviewParamsShape,
-    (params: ReviewParams) =>
-      handleAdd({
-        pr: params.pr,
-        repo: params.repo,
-        review: params.review,
-        body: params.body,
-      })
-  );
-
-  // firewatch_add - Add comments and resolve threads
-  server.tool(
-    "firewatch_add",
-    TOOL_DESCRIPTIONS.add,
-    AddParamsShape,
-    (params: AddParams) => {
-      // Handle close (resolve) operations
-      const ids =
-        params.comment_ids ?? (params.comment_id ? [params.comment_id] : []);
-      if (ids.length > 0 && !params.body && !params.reply_to) {
-        return handleClose({
-          comment_ids: ids,
-          repo: params.repo,
-          pr: params.pr,
-        });
-      }
-      return handleAdd(params);
-    }
-  );
-
-  // firewatch_feedback - Unified feedback operations (fw fb parity)
-  server.tool(
-    "firewatch_feedback",
-    TOOL_DESCRIPTIONS.feedback,
-    FeedbackParamsShape,
-    (params: FeedbackParams) => handleFeedback(params)
-  );
-
-  return server;
+/**
+ * Create a new FirewatchMCPServer instance.
+ * For backward compatibility with existing code.
+ */
+export function createServer(): FirewatchMCPServer {
+  return new FirewatchMCPServer();
 }
 
 export async function run(): Promise<void> {
-  const server = createServer();
+  const firewatch = createServer();
   const transport = new StdioServerTransport();
-  await server.connect(transport);
+
+  // Connect to transport and verify auth to enable write tools
+  await firewatch.connect(transport, { verifyAuthOnConnect: true });
 }
