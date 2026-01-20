@@ -1,6 +1,8 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
+  DEFAULT_BOT_PATTERNS,
+  DEFAULT_EXCLUDE_AUTHORS,
   GitHubClient,
   PATHS,
   addAck,
@@ -27,6 +29,7 @@ import {
   parseSince,
   queryEntries,
   resolveShortId,
+  shouldExcludeAuthor,
   stripShortIdPrefix,
   syncRepo,
   type AckRecord,
