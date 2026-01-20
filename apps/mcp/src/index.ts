@@ -1491,6 +1491,9 @@ async function handleFeedback(params: FeedbackParams): Promise<McpToolResult> {
         pr,
         comment_id: r.commentId,
         acked_at: new Date().toISOString(),
+        ...(config.user?.github_username && {
+          acked_by: config.user.github_username,
+        }),
         reaction_added: r.reactionAdded,
       }));
       await addAcks(ackRecords);
@@ -1624,6 +1627,9 @@ async function handleFeedback(params: FeedbackParams): Promise<McpToolResult> {
       pr: entry.pr,
       comment_id: commentId,
       acked_at: new Date().toISOString(),
+      ...(config.user?.github_username && {
+        acked_by: config.user.github_username,
+      }),
       reaction_added: reactionAdded,
     };
     await addAck(ackRecord);
@@ -1658,6 +1664,9 @@ async function handleFeedback(params: FeedbackParams): Promise<McpToolResult> {
         pr: entry.pr,
         comment_id: commentId,
         acked_at: new Date().toISOString(),
+        ...(config.user?.github_username && {
+          acked_by: config.user.github_username,
+        }),
         reaction_added: reactionAdded,
       };
       await addAck(ackRecord);

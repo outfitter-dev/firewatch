@@ -30,6 +30,7 @@ import ora from "ora";
 
 import { version } from "../package.json";
 import { buildActionableSummary, printActionableSummary } from "./actionable";
+import { ackCommand } from "./commands/ack";
 import { cacheCommand } from "./commands/cache";
 import { claudePluginCommand } from "./commands/claude-plugin";
 import { closeCommand } from "./commands/close";
@@ -656,6 +657,7 @@ Examples:
   });
 
 program.addCommand(prCommand);
+program.addCommand(ackCommand);
 program.addCommand(closeCommand);
 program.addCommand(fbCommand);
 program.addCommand(cacheCommand);
