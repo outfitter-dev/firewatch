@@ -2,10 +2,42 @@ import type { Database } from "bun:sqlite";
 import envPaths from "env-paths";
 import { mkdirSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
+import { join } from "node:path";
 
 import { closeDatabase, openDatabase } from "./db";
 
-const paths = envPaths("firewatch", { suffix: "" });
+/**
+ * Resolve paths with XDG override support.
+ *
+ * On macOS, env-paths uses native Apple paths (~/Library/...) by default,
+ * ignoring XDG environment variables. This function checks if any XDG_*
+ * variables are explicitly set and uses them instead when available.
+ *
+ * Priority:
+ * 1. Explicit XDG_*_HOME environment variable (if set)
+ * 2. env-paths default (platform-native)
+ */
+function resolvePaths(): { cache: string; config: string; data: string } {
+  const defaults = envPaths("firewatch", { suffix: "" });
+
+  // On non-macOS, env-paths already respects XDG
+  if (process.platform !== "darwin") {
+    return defaults;
+  }
+
+  // On macOS, check for explicit XDG overrides
+  const xdgCache = process.env["XDG_CACHE_HOME"];
+  const xdgConfig = process.env["XDG_CONFIG_HOME"];
+  const xdgData = process.env["XDG_DATA_HOME"];
+
+  return {
+    cache: xdgCache ? join(xdgCache, "firewatch") : defaults.cache,
+    config: xdgConfig ? join(xdgConfig, "firewatch") : defaults.config,
+    data: xdgData ? join(xdgData, "firewatch") : defaults.data,
+  };
+}
+
+const paths = resolvePaths();
 
 /**
  * XDG-compliant paths for Firewatch data.
