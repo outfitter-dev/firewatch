@@ -132,6 +132,26 @@ export {
   type AckRecord,
 } from "./ack";
 
+// Short ID utilities
+export {
+  buildShortIdCache,
+  classifyId,
+  clearShortIdCache,
+  formatShortId,
+  generateShortId,
+  getShortIdCacheSize,
+  isFullCommentId,
+  isPrNumber,
+  isShortId,
+  registerShortId,
+  resolveId,
+  resolveShortId,
+  resolveShortIdFromEntries,
+  stripShortIdPrefix,
+  type IdType,
+  type ResolvedId,
+} from "./short-id";
+
 // Re-export schemas
 export * from "./schema";
 

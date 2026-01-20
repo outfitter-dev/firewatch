@@ -135,10 +135,12 @@ export const AddParamsShape = {
   repo: repoSlug.optional(),
   pr: prNumber.optional(),
   body: z.string().optional(),
+  /** Comment ID to reply to. Accepts short IDs (e.g., @a7f3c) or full GitHub IDs. */
   reply_to: z.string().optional(),
   resolve: z.boolean().optional(),
-  // close thread by ID (without reply)
+  /** Comment ID to close. Accepts short IDs (e.g., @a7f3c) or full GitHub IDs. */
   comment_id: z.string().optional(),
+  /** Comment IDs to close. Accepts short IDs (e.g., @a7f3c) or full GitHub IDs. */
   comment_ids: z.array(z.string()).optional(),
   // metadata (labels/reviewers/assignees)
   labels: stringList.optional(),
@@ -157,13 +159,40 @@ export type AddParams = z.infer<typeof AddParamsSchema>;
 export const TOOL_DESCRIPTIONS = {
   query:
     "Query cached PR activity. Filter by time (since), type (review/comment/commit), PR number, author, or state. Use summary=true for per-PR aggregation.",
-  status: "Show firewatch status: auth, cache, repo detection. Use short=true for compact output.",
+  status:
+    "Show firewatch status: auth, cache, repo detection. Use short=true for compact output.",
   admin:
     "Admin operations: config (view settings), doctor (diagnose issues), schema (output field docs), help.",
   pr: "Edit PR fields or remove metadata. Actions: edit (title/body/base/draft/ready/milestone), rm (labels/reviewers/assignees/milestone).",
   review: "Submit a PR review: approve, request-changes, or comment.",
-  add: "Add comments to PRs. Use reply_to for thread replies, resolve=true to close thread. Also supports adding labels/reviewers/assignees.",
+  add: "Add comments to PRs. Use reply_to for thread replies (accepts short IDs like @a7f3c), resolve=true to close thread. Also supports adding labels/reviewers/assignees.",
+  feedback:
+    "Unified feedback operations. PR-level: {pr} lists needs-attention, {pr, all} lists all, {pr, body} adds comment, {pr, ack} bulk acks. Comment-level: {id} views, {id, body} replies, {id, resolve} resolves, {id, ack} acks.",
 };
+
+/**
+ * firewatch_feedback - Unified feedback operations (fw fb parity)
+ * ~250 tokens
+ */
+export const FeedbackParamsShape = {
+  /** PR number for PR-level operations (list feedback, add comment, bulk ack) */
+  pr: prNumber.optional(),
+  /** Comment ID (short @a7f3c or full) for comment operations */
+  id: z.string().optional(),
+  /** Comment text for reply or new comment */
+  body: z.string().optional(),
+  /** Resolve thread (review_comment) or ack (issue_comment) */
+  resolve: z.boolean().optional(),
+  /** Acknowledge with thumbs-up reaction + local record */
+  ack: z.boolean().optional(),
+  /** Show all feedback including resolved/acked */
+  all: z.boolean().optional(),
+  /** Repository in owner/repo format */
+  repo: repoSlug.optional(),
+};
+
+export const FeedbackParamsSchema = z.object(FeedbackParamsShape);
+export type FeedbackParams = z.infer<typeof FeedbackParamsSchema>;
 
 // Server instructions for future MCP SDK support:
 // "GitHub PR activity tools. Outputs JSONL for jq. Cache auto-syncs. Use firewatch_admin action=schema for field reference."
