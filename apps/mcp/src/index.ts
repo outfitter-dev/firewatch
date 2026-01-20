@@ -30,7 +30,6 @@ import {
   queryEntries,
   resolveShortId,
   shouldExcludeAuthor,
-  stripShortIdPrefix,
   syncRepo,
   type AckRecord,
   type AuthResult,
@@ -608,6 +607,9 @@ function filterByAuthors(
 }
 
 function addShortIds(entries: FirewatchEntry[]): FirewatchEntry[] {
+  // Build cache first so short IDs can be resolved in follow-up commands
+  buildShortIdCache(entries);
+
   return entries.map((entry) => {
     if (entry.type !== "comment") {
       return entry;
