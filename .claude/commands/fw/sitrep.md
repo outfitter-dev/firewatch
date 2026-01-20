@@ -49,7 +49,7 @@ Parse the pre-run context. Produce a one-glance summary:
 If anything needs attention, query for details:
 
 ```bash
-bun apps/cli/bin/fw.ts --type comment --open --json | jq -c 'select(.author != .pr_author) | select(.subtype == "review_comment") | {pr, file, line, author, body, id}'
+bun apps/cli/bin/fw.ts --type comment --open --json | jq -c 'select(.author != .pr_author) | select(.subtype == "review_comment") | select(.thread_resolved == false) | {pr, file, line, author, body, id}'
 ```
 
 #### Comment Categorization

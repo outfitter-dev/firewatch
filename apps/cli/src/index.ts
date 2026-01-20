@@ -9,6 +9,7 @@ import {
   getAllSyncMeta,
   getAckedIds,
   getDatabase,
+  getRepos,
   getSyncMeta,
   loadConfig,
   mergeExcludeAuthors,
@@ -219,13 +220,27 @@ function resolveAuthorFilters(
 }
 
 function listCachedRepos(): string[] {
-  if (!existsSync(PATHS.repos)) {
-    return [];
+  const repos = new Set<string>();
+
+  if (existsSync(PATHS.repos)) {
+    const files = readdirSync(PATHS.repos).filter((f) => f.endsWith(".jsonl"));
+    for (const file of files) {
+      const repo = parseRepoCacheFilename(file.replace(".jsonl", ""));
+      if (repo) {
+        repos.add(repo);
+      }
+    }
   }
-  const files = readdirSync(PATHS.repos).filter((f) => f.endsWith(".jsonl"));
-  return files
-    .map((file) => parseRepoCacheFilename(file.replace(".jsonl", "")))
-    .filter((repo): repo is string => repo !== null);
+
+  const db = getDatabase();
+  for (const repo of getRepos(db)) {
+    repos.add(repo);
+  }
+  for (const meta of getAllSyncMeta(db)) {
+    repos.add(meta.repo);
+  }
+
+  return [...repos].toSorted();
 }
 
 function resolveRepoFilter(

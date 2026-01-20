@@ -159,6 +159,34 @@ query ReviewThreadComments($threadId: ID!, $first: Int!, $after: String) {
 }
 `;
 
+const COMMENT_REACTIONS_QUERY = `
+query CommentReactions($ids: [ID!]!) {
+  nodes(ids: $ids) {
+    __typename
+    ... on IssueComment {
+      id
+      reactions(first: 20, content: THUMBS_UP) {
+        nodes {
+          user {
+            login
+          }
+        }
+      }
+    }
+    ... on PullRequestReviewComment {
+      id
+      reactions(first: 20, content: THUMBS_UP) {
+        nodes {
+          user {
+            login
+          }
+        }
+      }
+    }
+  }
+}
+`;
+
 const ADD_COMMENT_MUTATION = `
 mutation AddComment($subjectId: ID!, $body: String!) {
   addComment(input: { subjectId: $subjectId, body: $body }) {
@@ -557,6 +585,44 @@ export class GitHubClient {
     });
 
     return GitHubClient.unwrap(response);
+  }
+
+  async fetchCommentReactions(
+    ids: string[]
+  ): Promise<Map<string, { thumbs_up_by: string[] }>> {
+    const reactionsById = new Map<string, { thumbs_up_by: string[] }>();
+    const uniqueIds = [...new Set(ids)].filter(Boolean);
+    if (uniqueIds.length === 0) {
+      return reactionsById;
+    }
+
+    const chunkSize = 100;
+    for (let i = 0; i < uniqueIds.length; i += chunkSize) {
+      const chunk = uniqueIds.slice(i, i + chunkSize);
+      const response = await this.query<CommentReactionsData>(
+        COMMENT_REACTIONS_QUERY,
+        { ids: chunk }
+      );
+
+      const data = GitHubClient.unwrap(response);
+      for (const node of data.nodes) {
+        if (!node?.id || !node.reactions) {
+          continue;
+        }
+
+        const logins = node.reactions.nodes
+          .map((reaction) => reaction.user?.login)
+          .filter((login): login is string => Boolean(login));
+
+        if (logins.length === 0) {
+          continue;
+        }
+
+        reactionsById.set(node.id, { thumbs_up_by: [...new Set(logins)] });
+      }
+    }
+
+    return reactionsById;
   }
 
   async fetchPullRequestId(
