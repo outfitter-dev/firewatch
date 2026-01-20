@@ -58,7 +58,7 @@ fw query --type comment | jq 'select(
 Extract IDs to use with `fw resolve`:
 
 ```bash
-fw query --type comment --prs123 | jq -r '.id'
+fw query --type comment --pr 123 | jq -r '.id'
 ```
 
 ### Group Feedback by File
@@ -66,7 +66,7 @@ fw query --type comment --prs123 | jq -r '.id'
 Useful when addressing review comments systematically:
 
 ```bash
-fw query --type comment --prs123 | jq -s '
+fw query --type comment --pr 123 | jq -s '
   group_by(.file) |
   map({
     file: .[0].file,
@@ -130,17 +130,17 @@ fw query --since 24h | jq -s '
 
 ```bash
 # Get IDs to resolve
-fw query --type comment --prs123 | jq -r 'select(.subtype == "review_comment") | .id'
+fw query --type comment --pr 123 | jq -r 'select(.subtype == "review_comment") | .id'
 
 # Use directly
-fw resolve $(fw query --type comment --prs123 | jq -r '.id' | head -5)
+fw resolve $(fw query --type comment --pr 123 | jq -r '.id' | head -5)
 ```
 
 ### For `fw comment`
 
 ```bash
 # Get thread ID to reply to
-fw query --type comment --prs123 | jq -r 'select(.file == "src/index.ts") | .id' | head -1
+fw query --type comment --pr 123 | jq -r 'select(.file == "src/index.ts") | .id' | head -1
 ```
 
 ### For External Tools

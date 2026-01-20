@@ -172,7 +172,7 @@ Quick view of cache state and recent sync info.
 2. Remove filters to broaden:
 
    ```bash
-   fw --prs PR_NUMBER  # Just PR filter
+   fw --pr PR_NUMBER  # Just PR filter
    ```
 
 3. Check PR exists in cache:

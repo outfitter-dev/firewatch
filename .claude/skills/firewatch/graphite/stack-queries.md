@@ -101,7 +101,7 @@ Get the stack ID from one PR, then query the whole stack:
 
 ```bash
 # Get stack ID
-fw --summary --prs 102 | jq '.graphite.stack_id'
+fw --summary --pr 102 | jq '.graphite.stack_id'
 
 # Query entire stack
 fw --summary | jq 'select(.graphite.stack_id == "STACK_ID")'
@@ -125,7 +125,7 @@ fw --summary | jq 'select(.graphite != null) | {
 ### All Comments in a Stack
 
 ```bash
-fw --type comment --prs 101,102,103 | jq '{
+fw --type comment --pr 101,102,103 | jq '{
   pr,
   file,
   line,
@@ -141,7 +141,7 @@ fw --type comment --prs 101,102,103 | jq '{
 Address bottom-up (base first):
 
 ```bash
-fw --type comment --prs 101,102,103 | jq -s '
+fw --type comment --pr 101,102,103 | jq -s '
   map(select(
     .subtype == "review_comment" and
     (.file_activity_after.modified // false) == false
@@ -166,7 +166,7 @@ See [cross-pr-fixes.md](cross-pr-fixes.md) for the fix workflow.
 ### Stack-Wide Feedback Summary
 
 ```bash
-fw --type comment --prs 101,102,103 | jq -s '{
+fw --type comment --pr 101,102,103 | jq -s '{
   total: length,
   review_comments: [.[] | select(.subtype == "review_comment")] | length,
   external: [.[] | select(.author != .pr_author)] | length,
@@ -196,13 +196,13 @@ fw --summary --open | jq 'select(.graphite != null)'
 ### 2. Get All Feedback
 
 ```bash
-fw --type comment --prs X,Y,Z | jq 'select(.subtype == "review_comment")'
+fw --type comment --pr X,Y,Z | jq 'select(.subtype == "review_comment")'
 ```
 
 ### 3. Organize by Position
 
 ```bash
-fw --type comment --prs X,Y,Z | jq -s '
+fw --type comment --pr X,Y,Z | jq -s '
   map(select(.subtype == "review_comment")) |
   sort_by(.graphite.stack_position) |
   group_by(.pr) |
@@ -218,7 +218,7 @@ fw --type comment --prs X,Y,Z | jq -s '
 ### 4. Check File Provenance
 
 ```bash
-fw --type comment --prs X,Y,Z | jq '
+fw --type comment --pr X,Y,Z | jq '
   select(.file_provenance.origin_pr != .pr)
 '
 ```

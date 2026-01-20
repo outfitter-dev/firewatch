@@ -146,7 +146,7 @@ No special setup required. Tests validate error handling.
 
 #### Large PR Number
 
-**Command**: `bun apps/cli/bin/fw.ts query --prs 999999`
+**Command**: `bun apps/cli/bin/fw.ts query --pr 999999`
 **Expected**: Empty results (no such PR), not crash
 **Validates**: Large PR number handling
 

@@ -7,7 +7,7 @@ Systematic workflow for addressing review comments and making the requested chan
 ### Get Comment Details
 
 ```bash
-fw --type comment --prs PR_NUMBER | jq 'select(.subtype == "review_comment") | {
+fw --type comment --pr PR_NUMBER | jq 'select(.subtype == "review_comment") | {
   id,
   file,
   line,
@@ -45,7 +45,7 @@ Common feedback patterns and how to interpret them:
 If in a Graphite stack, check if this file originated elsewhere:
 
 ```bash
-fw --type comment --prs PR_NUMBER | jq 'select(.file_provenance != null) | {
+fw --type comment --pr PR_NUMBER | jq 'select(.file_provenance != null) | {
   file,
   origin_pr: .file_provenance.origin_pr,
   body: .body[0:80]
@@ -152,7 +152,7 @@ npm run lint
 
 ```bash
 fw --refresh
-fw --type comment --prs PR_NUMBER | jq 'select(.file == "TARGET_FILE") | {
+fw --type comment --pr PR_NUMBER | jq 'select(.file == "TARGET_FILE") | {
   file,
   addressed: .file_activity_after.modified,
   commits_after: .file_activity_after.commits_touching_file
@@ -198,7 +198,7 @@ Group related comments and address together:
 
 ```bash
 # Find all comments on same file
-fw --type comment --prs PR_NUMBER | jq 'select(.file == "src/auth.ts")'
+fw --type comment --pr PR_NUMBER | jq 'select(.file == "src/auth.ts")'
 
 # Address all at once, then resolve all
 ```
@@ -225,7 +225,7 @@ When addressing multiple comments efficiently:
 
 ```bash
 # 1. Get all unaddressed comments grouped by file
-fw --type comment --prs PR_NUMBER | jq -s '
+fw --type comment --pr PR_NUMBER | jq -s '
   map(select(.subtype == "review_comment")) |
   group_by(.file) |
   map({
@@ -246,7 +246,7 @@ After addressing all feedback:
 
 ```bash
 fw --refresh
-fw --type comment --prs PR_NUMBER | jq -s '{
+fw --type comment --pr PR_NUMBER | jq -s '{
   total: length,
   addressed: [.[] | select(.file_activity_after.modified == true)] | length,
   remaining: [.[] | select(

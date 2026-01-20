@@ -57,7 +57,7 @@ fw --type comment | jq -s '
 ### Step 1: Identify the Origin
 
 ```bash
-fw --type comment --prs PR_NUMBER | jq '
+fw --type comment --pr PR_NUMBER | jq '
   select(.file_provenance != null) | {
     file,
     origin_pr: .file_provenance.origin_pr,
@@ -120,7 +120,7 @@ fw add ORIGINAL_PR "Fixed in PR #ORIGIN_PR, propagated via restack" --reply COMM
 
 ```bash
 # 1. Find cross-PR comments
-fw --type comment --prs 103 | jq '
+fw --type comment --pr 103 | jq '
   select(.file_provenance.origin_pr != .pr) | {
     file,
     fix_in: .file_provenance.origin_pr,

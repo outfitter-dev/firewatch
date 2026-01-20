@@ -148,7 +148,7 @@ fw                       # Actionable items (default)
 fw --summary             # Per-PR summary
 fw --since 24h           # Recent activity
 fw --type review         # Filter by entry type
-fw --prs 42,43           # Specific PRs
+fw --pr 42,43           # Specific PRs
 fw --refresh             # Force sync before query
 fw --refresh full        # Full refresh (ignore cursor)
 ```
@@ -197,7 +197,7 @@ fw schema entry
 fw --since 24h | jq 'select(.type == "review" and .state == "approved")'
 
 # Comment count by author for PR 42
-fw --prs 42 | jq -s 'group_by(.author) | map({author: .[0].author, count: length})'
+fw --pr 42 | jq -s 'group_by(.author) | map({author: .[0].author, count: length})'
 
 # All open PRs with changes requested
 fw --type review | jq -s '

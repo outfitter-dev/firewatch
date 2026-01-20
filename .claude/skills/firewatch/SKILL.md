@@ -15,7 +15,7 @@ Query, filter, and act on GitHub PR activity using the Firewatch CLI (`fw`).
 
 ```bash
 fw --refresh --summary --open    # Sync and see what needs attention
-fw --type comment --prs 42       # Comments on PR #42
+fw --type comment --pr 42       # Comments on PR #42
 fw --type comment | jq 'select(.author != .pr_author)'  # External feedback only
 ```
 
@@ -64,7 +64,7 @@ fw --type comment --limit 1
 ```bash
 fw --type comment              # By type
 fw --since 24h                 # By time (30s, 5m, 24h, 7d, 2w, 1mo)
-fw --prs 42                    # By PR number
+fw --pr 42                    # By PR number
 fw --author alice              # By author
 fw --open                      # Open PRs only
 fw --active                    # Open or draft PRs
@@ -229,7 +229,7 @@ For detailed Graphite workflows (querying stacks, cross-PR fixes, commit pattern
 | -------------------- | --------------------------- |
 | `--type <type>`      | Filter by entry type        |
 | `--since <duration>` | Time filter (24h, 7d, etc.) |
-| `--prs <numbers>`    | Filter by PR number(s)      |
+| `--pr <numbers>`     | Filter by PR number(s)      |
 | `--author <name>`    | Filter by author            |
 | `--open`             | Open PRs only               |
 | `--active`           | Open or draft PRs           |

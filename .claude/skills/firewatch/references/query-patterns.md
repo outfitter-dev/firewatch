@@ -181,7 +181,7 @@ fw --since 24h | jq -s '{
 ### Get IDs for Resolution
 
 ```bash
-fw --type comment --prs 42 | jq -r '.id'
+fw --type comment --pr 42 | jq -r '.id'
 ```
 
 ### Get URLs
@@ -245,7 +245,7 @@ fw --type comment | jq 'select(.file != null)'
 ### Feed IDs to fw close
 
 ```bash
-fw --type comment --prs 42 | jq -r '
+fw --type comment --pr 42 | jq -r '
   select(.subtype == "review_comment") | .id
 ' | xargs fw close
 ```
@@ -264,7 +264,7 @@ fw --type comment | jq -r '.url' | head -1 | xargs open
 
 ## Performance Tips
 
-1. **CLI filters first** -- `--type`, `--since`, `--prs` are faster than jq equivalents
+1. **CLI filters first** -- `--type`, `--since`, `--pr` are faster than jq equivalents
 2. **Avoid unnecessary slurp** -- Only use `-s` when aggregating
 3. **Use `--limit`** -- When you only need a few results
 4. **Chain selects** -- Multiple `select()` is fine and readable
@@ -293,7 +293,7 @@ fw --summary | jq 'select(
 ### Stack Feedback Summary
 
 ```bash
-fw --type comment --prs 101,102,103 | jq -s '{
+fw --type comment --pr 101,102,103 | jq -s '{
   total: length,
   by_pr: (group_by(.pr) | map({
     pr: .[0].pr,

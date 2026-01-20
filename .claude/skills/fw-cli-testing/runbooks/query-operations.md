@@ -120,7 +120,7 @@ bun apps/cli/bin/fw.ts sync outfitter-dev/firewatch
 
 #### Single PR
 
-**Command**: `bun apps/cli/bin/fw.ts query --prs 1 --limit 5`
+**Command**: `bun apps/cli/bin/fw.ts query --pr 1 --limit 5`
 **Expected**: All entries for PR #1 (or empty if no such PR)
 **Validates**: PR number filter
 

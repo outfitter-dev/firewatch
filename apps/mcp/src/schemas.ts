@@ -24,8 +24,7 @@ const numberList = z.union([
  */
 export const QueryParamsShape = {
   repo: repoSlug.optional(),
-  pr: prNumber.optional(),
-  prs: numberList.optional(),
+  pr: numberList.optional(),
   type: z
     .union([
       z.enum(["comment", "review", "commit", "ci", "event"]),

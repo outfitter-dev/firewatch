@@ -79,7 +79,7 @@ Keep replies brief but informative:
 ### Get All Comment IDs for a PR
 
 ```bash
-fw --type comment --prs PR_NUMBER | jq -r '
+fw --type comment --pr PR_NUMBER | jq -r '
   select(.subtype == "review_comment") | .id
 '
 ```
@@ -87,7 +87,7 @@ fw --type comment --prs PR_NUMBER | jq -r '
 ### Resolve All Comments on a File
 
 ```bash
-fw --type comment --prs PR_NUMBER | jq -r '
+fw --type comment --pr PR_NUMBER | jq -r '
   select(.file == "src/auth.ts") | .id
 ' | xargs fw close
 ```
@@ -98,7 +98,7 @@ After making changes:
 
 ```bash
 fw --refresh
-fw --type comment --prs PR_NUMBER | jq -r '
+fw --type comment --pr PR_NUMBER | jq -r '
   select(
     .subtype == "review_comment" and
     .file_activity_after.modified == true
@@ -112,7 +112,7 @@ For multiple similar fixes:
 
 ```bash
 # Get IDs
-IDS=$(fw --type comment --prs PR_NUMBER | jq -r '
+IDS=$(fw --type comment --pr PR_NUMBER | jq -r '
   select(.file == "src/auth.ts") | .id
 ')
 
@@ -131,7 +131,7 @@ After resolving, sync and verify:
 
 ```bash
 fw --refresh
-fw --type comment --prs PR_NUMBER | jq '{
+fw --type comment --pr PR_NUMBER | jq '{
   file,
   line,
   id,
@@ -144,7 +144,7 @@ Resolved comments should no longer appear (or will have a resolved state).
 ### Summary of Remaining
 
 ```bash
-fw --type comment --prs PR_NUMBER | jq -s '{
+fw --type comment --pr PR_NUMBER | jq -s '{
   total: length,
   review_comments: [.[] | select(.subtype == "review_comment")] | length,
   addressed: [.[] | select(.file_activity_after.modified == true)] | length,
@@ -169,7 +169,7 @@ If GitHub shows the thread as already resolved:
 If you can't find the comment ID:
 
 1. Check you're querying the right PR
-2. Try without filters: `fw --prs PR_NUMBER`
+2. Try without filters: `fw --pr PR_NUMBER`
 3. Check if the comment is on a different PR in a stack
 
 ### Resolution Failed
@@ -196,7 +196,7 @@ When resolving threads:
 
 ```bash
 # 1. Find unaddressed comments
-fw --type comment --prs 42 | jq 'select(
+fw --type comment --pr 42 | jq 'select(
   .subtype == "review_comment" and
   (.file_activity_after.modified // false) == false
 ) | {file, line, body: .body[0:60], id}'
@@ -215,5 +215,5 @@ fw close IC_ghi IC_jkl
 
 # 6. Verify
 fw --refresh
-fw --type comment --prs 42 | jq -s 'length'
+fw --type comment --pr 42 | jq -s 'length'
 ```

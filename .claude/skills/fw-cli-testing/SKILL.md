@@ -127,7 +127,7 @@ Tests read-only query commands:
 | Type filtering   | `--type comment`, `--type review`, invalid types |
 | Time filtering   | `--since 24h`, `--since 7d`, invalid durations   |
 | Author filtering | `--author name`, `--author '!name'` exclusion    |
-| PR filtering     | `--prs 42`, multiple PRs                         |
+| PR filtering     | `--pr 42`, multiple PRs                          |
 | State filtering  | `--open`, `--active`, `--state merged`           |
 | Combined filters | Multiple flags together                          |
 | Special flags    | `--no-bots`, `--limit`, `--mine`                 |
