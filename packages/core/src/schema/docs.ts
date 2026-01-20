@@ -51,6 +51,13 @@ export const ENTRY_SCHEMA_DOC = {
         stack_position: { type: "number" },
       },
     },
+    reactions: {
+      type: "object",
+      optional: true,
+      fields: {
+        thumbs_up_by: { type: "string[]" },
+      },
+    },
     graphite: {
       type: "object",
       optional: true,

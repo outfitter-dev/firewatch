@@ -11,7 +11,7 @@ import { Database } from "bun:sqlite";
  * Current schema version.
  * Increment this when making schema changes and add migration logic.
  */
-export const CURRENT_SCHEMA_VERSION = 2;
+export const CURRENT_SCHEMA_VERSION = 3;
 
 /**
  * Opens a SQLite database with optimal settings for Firewatch.
@@ -110,6 +110,7 @@ CREATE TABLE IF NOT EXISTS entries (
   graphite_json TEXT,
   file_activity_json TEXT,
   file_provenance_json TEXT,
+  reactions_json TEXT,
   PRIMARY KEY (id, repo),
   FOREIGN KEY (repo, pr) REFERENCES prs(repo, number)
 );
@@ -183,6 +184,12 @@ export function migrateSchema(db: Database, targetVersion: number): void {
         "CREATE INDEX IF NOT EXISTS idx_entries_thread_resolved ON entries(thread_resolved)"
       );
       version = 2;
+    }
+
+    // Migration 2 -> 3: Add reactions_json column for comment reactions
+    if (version === 2 && targetVersion >= 3) {
+      db.exec("ALTER TABLE entries ADD COLUMN reactions_json TEXT");
+      version = 3;
     }
 
     setSchemaVersion(db, version);
