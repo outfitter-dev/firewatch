@@ -398,6 +398,20 @@ interface AddReactionData {
   } | null;
 }
 
+interface CommentReactionsData {
+  nodes: ({
+    __typename: string;
+    id?: string;
+    reactions?: {
+      nodes: Array<{
+        user?: {
+          login: string;
+        };
+      }>;
+    };
+  } | null)[];
+}
+
 /**
  * GitHub reaction content types.
  */
