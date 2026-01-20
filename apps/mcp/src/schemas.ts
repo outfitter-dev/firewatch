@@ -64,6 +64,7 @@ export type QueryParams = z.infer<typeof QueryParamsSchema>;
  */
 export const StatusParamsShape = {
   short: z.boolean().optional(),
+  status_short: z.boolean().optional(), // Alias for short (consistency with other tools)
 };
 
 export const StatusParamsSchema = z.object(StatusParamsShape);

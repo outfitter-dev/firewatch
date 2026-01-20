@@ -1402,7 +1402,14 @@ export function createServer(): McpServer {
           params.label ||
           params.reviewer ||
           params.assignee;
-        if (hasMetadata && !params.title && !params.body && !params.base && !params.draft && !params.ready && !params.milestone) {
+        const hasEditFields =
+          params.title ||
+          params.body ||
+          params.base ||
+          params.draft ||
+          params.ready ||
+          params.milestone;
+        if (hasMetadata && !hasEditFields) {
           // Pure metadata add
           return handleAdd({
             pr: params.pr,
