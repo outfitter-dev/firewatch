@@ -154,6 +154,14 @@ export {
   type ResolvedId,
 } from "./short-id";
 
+// Parity
+export {
+  compareThreads,
+  formatParityResult,
+  type GitHubThreadData,
+  type ParityResult,
+} from "./parity";
+
 // Re-export schemas
 export * from "./schema";
 
