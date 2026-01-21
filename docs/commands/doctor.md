@@ -14,7 +14,7 @@ fw doctor [options]
 | ------------ | ----------------------------------- |
 | `--jsonl`    | Force structured output             |
 | `--no-jsonl` | Force human-readable output         |
-| `--fix`     | Attempt to fix issues automatically |
+| `--fix`      | Attempt to fix issues automatically |
 
 ## Example Output
 

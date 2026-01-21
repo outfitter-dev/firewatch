@@ -162,40 +162,60 @@ export function identifyAttentionItems(worklist: WorklistEntry[]): {
  * @param entries - Firewatch entries to analyze
  * @param options - Optional filtering options
  * @param options.ackedIds - Set of comment IDs that have been acknowledged (will be excluded)
+ * @param options.username - Logged-in user's GitHub username (for thumbs-up acknowledgment check)
+ * @param options.commitImpliesRead - Treat comments as read if user committed after (opt-in)
  * @param options.prStates - PR states to include (defaults to ["open", "draft"])
  * @returns Array of unaddressed feedback items
  */
 export function identifyUnaddressedFeedback(
   entries: FirewatchEntry[],
-  options?: { ackedIds?: Set<string> }
+  options?: {
+    ackedIds?: Set<string> | undefined;
+    username?: string | undefined;
+    commitImpliesRead?: boolean | undefined;
+    prStates?: Set<string> | undefined;
+  }
 ): UnaddressedFeedback[] {
   const ackedIds = options?.ackedIds;
+  const username = options?.username;
+  const commitImpliesRead = options?.commitImpliesRead ?? false;
   // Default to open/draft PRs (actionable feedback), but allow override for bulk-ack scenarios
   const allowedStates = options?.prStates ?? new Set(["open", "draft"]);
 
-  const commentEntries = entries.filter(isCommentEntry);
+  // Filter to comments on allowed PR states
+  const commentEntries = entries.filter(
+    (e) => isCommentEntry(e) && allowedStates.has(e.pr_state)
+  );
 
-  // Use repo:pr composite key for cross-repo safety
-  const commitsByRepoPr = new Map<string, FirewatchEntry[]>();
-  for (const entry of entries) {
-    if (entry.type === "commit") {
-      const key = `${entry.repo}:${entry.pr}`;
-      const existing = commitsByRepoPr.get(key) ?? [];
-      existing.push(entry);
-      commitsByRepoPr.set(key, existing);
-    }
-  }
-
-  const hasLaterCommit = (
+  // Build commit lookup only if commitImpliesRead is enabled
+  let hasLaterCommit: (
     repo: string,
     pr: number,
     createdAt: string
-  ): boolean => {
-    const key = `${repo}:${pr}`;
-    const prCommits = commitsByRepoPr.get(key) ?? [];
-    const time = new Date(createdAt).getTime();
-    return prCommits.some((c) => new Date(c.created_at).getTime() > time);
-  };
+  ) => boolean = () => false;
+  if (commitImpliesRead && username) {
+    // Filter commits to only those by the logged-in user
+    const usernameLower = username.toLowerCase();
+    const commitsByRepoPr = new Map<string, FirewatchEntry[]>();
+    for (const entry of entries) {
+      if (entry.type === "commit") {
+        // Only count commits from the logged-in user
+        const authorLogin = entry.author_login?.toLowerCase();
+        if (authorLogin === usernameLower) {
+          const key = `${entry.repo}:${entry.pr}`;
+          const existing = commitsByRepoPr.get(key) ?? [];
+          existing.push(entry);
+          commitsByRepoPr.set(key, existing);
+        }
+      }
+    }
+    hasLaterCommit = (repo: string, pr: number, createdAt: string): boolean => {
+      const key = `${repo}:${pr}`;
+      const prCommits = commitsByRepoPr.get(key) ?? [];
+      const time = new Date(createdAt).getTime();
+      return prCommits.some((c) => new Date(c.created_at).getTime() > time);
+    };
+  }
 
   return commentEntries
     .filter((comment) => {
@@ -204,40 +224,39 @@ export function identifyUnaddressedFeedback(
         return false;
       }
 
-      // Ignore bot-authored comments and self-comments from the PR author
-      if (isBot(comment.author)) {
-        return false;
-      }
+      // Ignore self-comments from the PR author
       if (comment.author.toLowerCase() === comment.pr_author.toLowerCase()) {
         return false;
       }
 
-      // For review comments, thread_resolved is the authoritative signal
-      if (isReviewComment(comment) && comment.thread_resolved !== undefined) {
-        return !comment.thread_resolved;
+      // For review comments, thread_resolved is the ONLY signal (thumbs-up doesn't apply)
+      // Review comments have a proper resolution mechanism via GitHub's "Resolve conversation"
+      if (isReviewComment(comment)) {
+        return comment.thread_resolved !== true; // unaddressed unless explicitly resolved
       }
 
-      // Treat 👍 from PR author as acknowledgement
-      if (comment.reactions?.thumbs_up_by?.length) {
-        const author = comment.pr_author.toLowerCase();
+      // Treat 👍 from logged-in user as acknowledgement (issue comments only)
+      if (username && comment.reactions?.thumbs_up_by?.length) {
         const acked = comment.reactions.thumbs_up_by.some(
-          (login) => login.toLowerCase() === author
+          (login) => login.toLowerCase() === username.toLowerCase()
         );
         if (acked) {
           return false;
         }
       }
 
-      // Fallback heuristics when thread_resolved is not available
+      // Use file_activity_after when available (targeted signal for file-specific comments)
       if (comment.file_activity_after) {
         return !comment.file_activity_after.modified;
       }
 
-      if (!comment.file) {
+      // Opt-in: treat comments as read if user committed after
+      if (commitImpliesRead) {
         return !hasLaterCommit(comment.repo, comment.pr, comment.created_at);
       }
 
-      return !hasLaterCommit(comment.repo, comment.pr, comment.created_at);
+      // No explicit resolution signal - treat as unaddressed (conservative default)
+      return true;
     })
     .map((e) => ({
       repo: e.repo,
@@ -401,12 +420,17 @@ export function buildActionableSummary(
   perspective?: "mine" | "reviews",
   username?: string,
   includeOrphaned = false,
-  options: { ackedIds?: Set<string> } = {}
+  options: {
+    ackedIds?: Set<string>;
+    commitImpliesRead?: boolean;
+  } = {}
 ): ActionableSummary {
   const worklist = sortWorklist(buildWorklist(entries));
   const attention = identifyAttentionItems(worklist);
   const unaddressedFeedback = identifyUnaddressedFeedback(entries, {
     ackedIds: options.ackedIds,
+    username,
+    commitImpliesRead: options.commitImpliesRead,
   });
   let items = buildActionableItems(
     entries,

@@ -25,6 +25,19 @@ export const UserConfigSchema = z.object({
 export type UserConfig = z.infer<typeof UserConfigSchema>;
 
 /**
+ * Feedback identification configuration.
+ */
+export const FeedbackConfigSchema = z.object({
+  /**
+   * Treat issue comments as addressed if the logged-in user has committed
+   * to the PR after the comment was posted. Default: false (conservative).
+   */
+  commit_implies_read: z.boolean().default(false),
+});
+
+export type FeedbackConfig = z.infer<typeof FeedbackConfigSchema>;
+
+/**
  * Sync behavior configuration.
  */
 export const SyncConfigSchema = z.object({
@@ -67,6 +80,8 @@ export const FirewatchConfigSchema = z.object({
   output: OutputConfigSchema.optional(),
   /** User-specific configuration */
   user: UserConfigSchema.optional(),
+  /** Feedback identification configuration */
+  feedback: FeedbackConfigSchema.optional(),
 });
 
 export type FirewatchConfig = z.infer<typeof FirewatchConfigSchema>;

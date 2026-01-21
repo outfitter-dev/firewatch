@@ -162,6 +162,21 @@ export {
   type ParityResult,
 } from "./parity";
 
+// Batch utilities
+export {
+  batchAddReactions,
+  buildAckRecords,
+  deduplicateByCommentId,
+  formatCommentId,
+  partitionResolutions,
+  resolveBatchIds,
+  type BatchIdResolution,
+  type BatchProcessResult,
+  type BatchResolveOptions,
+  type BuildAckRecordsOptions,
+  type ReactionResult,
+} from "./batch";
+
 // Re-export schemas
 export * from "./schema";
 

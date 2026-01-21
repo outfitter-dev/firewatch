@@ -175,15 +175,23 @@ function commitEntries(
   prContext: PrContext,
   capturedAt: string
 ): FirewatchEntry[] {
-  return pr.commits.nodes.map(({ commit }) => ({
-    ...prContext,
-    id: commit.oid,
-    type: "commit",
-    author: commit.author?.name ?? commit.author?.email ?? "unknown",
-    body: commit.message,
-    created_at: commit.committedDate,
-    captured_at: capturedAt,
-  }));
+  return pr.commits.nodes.map(({ commit }) => {
+    const entry: FirewatchEntry = {
+      ...prContext,
+      id: commit.oid,
+      type: "commit",
+      author: commit.author?.name ?? commit.author?.email ?? "unknown",
+      body: commit.message,
+      created_at: commit.committedDate,
+      captured_at: capturedAt,
+    };
+    // Include GitHub login if commit author has a linked account
+    const login = commit.author?.user?.login;
+    if (login) {
+      entry.author_login = login;
+    }
+    return entry;
+  });
 }
 
 function prToEntries(

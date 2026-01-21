@@ -11,11 +11,13 @@ import {
   generateShortId,
   getAckedIds,
   loadConfig,
+  parseSince,
   queryEntries,
   resolveShortId,
   type AckRecord,
   type FirewatchConfig,
 } from "@outfitter/firewatch-core";
+import type { PrState } from "@outfitter/firewatch-core";
 import { Command } from "commander";
 
 import {
@@ -24,6 +26,7 @@ import {
 } from "../actionable";
 import { parseRepoInput, resolveRepoOrThrow } from "../repo";
 import { outputStructured } from "../utils/json";
+import { resolveStates } from "../utils/states";
 import { shouldOutputJson } from "../utils/tty";
 
 interface FbCommandOptions {
@@ -34,6 +37,12 @@ interface FbCommandOptions {
   resolve?: boolean;
   jsonl?: boolean;
   offline?: boolean;
+  // Filter options for bulk ack
+  before?: string;
+  since?: string;
+  open?: boolean;
+  closed?: boolean;
+  state?: string;
 }
 
 interface FbContext {
@@ -121,7 +130,11 @@ async function handleListAll(
 
   // Load acked IDs to filter out acknowledged feedback
   const ackedIds = await getAckedIds(ctx.repo);
-  const feedbacks = identifyUnaddressedFeedback(entries, { ackedIds });
+  const feedbacks = identifyUnaddressedFeedback(entries, {
+    ackedIds,
+    username: ctx.config.user?.github_username,
+    commitImpliesRead: ctx.config.feedback?.commit_implies_read,
+  });
 
   if (ctx.outputJson) {
     for (const fb of feedbacks) {
@@ -199,7 +212,11 @@ async function handlePrList(
 
   // Default: show unaddressed feedback only
   const ackedIds = await getAckedIds(ctx.repo);
-  const feedbacks = identifyUnaddressedFeedback(entries, { ackedIds });
+  const feedbacks = identifyUnaddressedFeedback(entries, {
+    ackedIds,
+    username: ctx.config.user?.github_username,
+    commitImpliesRead: ctx.config.feedback?.commit_implies_read,
+  });
   const prFeedbacks = feedbacks.filter((fb) => fb.pr === pr);
 
   if (ctx.outputJson) {
@@ -505,7 +522,11 @@ async function handleAckComment(
   }
 }
 
-async function handleBulkAck(ctx: FbContext, pr: number): Promise<void> {
+async function handleBulkAck(
+  ctx: FbContext,
+  pr: number,
+  options: FbCommandOptions
+): Promise<void> {
   // Get all unaddressed feedback for this PR
   const entries = await queryEntries({
     filters: {
@@ -517,8 +538,18 @@ async function handleBulkAck(ctx: FbContext, pr: number): Promise<void> {
   buildShortIdCache(entries);
 
   const ackedIds = await getAckedIds(ctx.repo);
-  const feedbacks = identifyUnaddressedFeedback(entries, { ackedIds });
-  const prFeedbacks = feedbacks.filter((fb) => fb.pr === pr);
+  const feedbacks = identifyUnaddressedFeedback(entries, {
+    ackedIds,
+    username: ctx.config.user?.github_username,
+    commitImpliesRead: ctx.config.feedback?.commit_implies_read,
+  });
+
+  // Apply time filters to feedback for this PR
+  let prFeedbacks = feedbacks.filter((fb) => fb.pr === pr);
+  prFeedbacks = applyTimeFilters(prFeedbacks, {
+    before: options.before,
+    since: options.since,
+  });
 
   if (prFeedbacks.length === 0) {
     if (ctx.outputJson) {
@@ -585,6 +616,157 @@ async function handleBulkAck(ctx: FbContext, pr: number): Promise<void> {
     console.log(
       `Acknowledged ${prFeedbacks.length} feedback items on PR #${pr}${reactionMsg}.`
     );
+  }
+}
+
+interface FilterOptions {
+  before?: string | undefined;
+  since?: string | undefined;
+  states?: PrState[] | undefined;
+}
+
+function parseBeforeDate(before: string): Date {
+  const date = new Date(before);
+  if (Number.isNaN(date.getTime())) {
+    throw new TypeError(
+      `Invalid date format: ${before}. Use ISO format (e.g., 2024-01-15)`
+    );
+  }
+  return date;
+}
+
+function applyTimeFilters(
+  feedbacks: UnaddressedFeedback[],
+  filters: FilterOptions
+): UnaddressedFeedback[] {
+  let filtered = feedbacks;
+
+  if (filters.before) {
+    const beforeDate = parseBeforeDate(filters.before);
+    filtered = filtered.filter((fb) => new Date(fb.created_at) < beforeDate);
+  }
+
+  if (filters.since) {
+    const sinceDate = parseSince(filters.since);
+    filtered = filtered.filter((fb) => new Date(fb.created_at) >= sinceDate);
+  }
+
+  return filtered;
+}
+
+async function handleCrossPrBulkAck(
+  ctx: FbContext,
+  options: FbCommandOptions
+): Promise<void> {
+  // Resolve state filters
+  const states = resolveStates({
+    ...(options.state && { state: options.state }),
+    ...(options.open && { open: true }),
+    ...(options.closed && { closed: true }),
+  });
+
+  // Query entries with state filters
+  const entries = await queryEntries({
+    filters: {
+      repo: ctx.repo,
+      type: "comment",
+      ...(states.length > 0 && { states }),
+    },
+  });
+
+  buildShortIdCache(entries);
+
+  // Get unaddressed feedback
+  const ackedIds = await getAckedIds(ctx.repo);
+  // Convert states array to Set for prStates option (allow filtering on closed/merged PRs)
+  const prStates = states.length > 0 ? new Set(states) : undefined;
+  let feedbacks = identifyUnaddressedFeedback(entries, {
+    ackedIds,
+    username: ctx.config.user?.github_username,
+    commitImpliesRead: ctx.config.feedback?.commit_implies_read,
+    prStates,
+  });
+
+  // Apply time filters
+  feedbacks = applyTimeFilters(feedbacks, {
+    before: options.before,
+    since: options.since,
+  });
+
+  if (feedbacks.length === 0) {
+    if (ctx.outputJson) {
+      await outputStructured(
+        { ok: true, repo: ctx.repo, acked_count: 0, reactions_added: 0 },
+        "jsonl"
+      );
+    } else {
+      console.log("No unaddressed feedback matching filters.");
+    }
+    return;
+  }
+
+  // Group by PR for output reporting
+  const byPr = new Map<number, UnaddressedFeedback[]>();
+  for (const fb of feedbacks) {
+    const list = byPr.get(fb.pr) ?? [];
+    list.push(fb);
+    byPr.set(fb.pr, list);
+  }
+
+  // Add reactions in parallel using batch utility
+  const commentIds = feedbacks.map((fb) => fb.comment_id);
+  const reactionResults = ctx.client
+    ? await batchAddReactions(commentIds, ctx.client)
+    : commentIds.map((commentId) => ({ commentId, reactionAdded: false }));
+
+  // Build reaction map for ack records
+  const reactionMap = new Map(
+    reactionResults.map((r) => [r.commentId, r.reactionAdded])
+  );
+
+  // Build entry map from already-queried entries
+  const entryMap = new Map(entries.map((e) => [e.id, e]));
+
+  // Build ack records using batch utility
+  const items = feedbacks
+    .map((fb) => {
+      const entry = entryMap.get(fb.comment_id);
+      if (!entry) return null;
+      return {
+        entry,
+        reactionAdded: reactionMap.get(fb.comment_id) ?? false,
+      };
+    })
+    .filter((item): item is NonNullable<typeof item> => item !== null);
+
+  const ackRecords = buildAckRecords(items, {
+    repo: ctx.repo,
+    username: ctx.config.user?.github_username,
+  });
+  await addAcks(ackRecords);
+
+  const reactionsAdded = reactionResults.filter((r) => r.reactionAdded).length;
+
+  const payload = {
+    ok: true,
+    repo: ctx.repo,
+    acked_count: feedbacks.length,
+    reactions_added: reactionsAdded,
+    prs: [...byPr.entries()].map(([pr, items]) => ({
+      pr,
+      count: items.length,
+    })),
+  };
+
+  if (ctx.outputJson) {
+    await outputStructured(payload, "jsonl");
+  } else {
+    console.log(
+      `Acknowledged ${feedbacks.length} feedback items across ${byPr.size} PRs (${reactionsAdded} reactions added).`
+    );
+    for (const [pr, items] of byPr) {
+      console.log(`  PR #${pr}: ${items.length} items`);
+    }
   }
 }
 
@@ -676,6 +858,11 @@ export const fbCommand = new Command("fb")
   .option("--jsonl", "Force structured output")
   .option("--no-jsonl", "Force human-readable output")
   .option("--offline", "Use cached data only (no GitHub API calls)")
+  .option("--before <date>", "Comments created before ISO date")
+  .option("--since <duration>", "Comments within duration (e.g., 7d, 24h)")
+  .option("--open", "Only open PRs")
+  .option("--closed", "Only closed PRs")
+  .option("--state <states>", "Explicit state filter (comma-separated)")
   .action(
     async (
       id: string | undefined,
@@ -685,8 +872,12 @@ export const fbCommand = new Command("fb")
       try {
         const ctx = await createContext(options);
 
-        // No ID: list all unaddressed feedback
+        // No ID: list all unaddressed feedback or bulk ack across PRs
         if (!id) {
+          if (options.ack) {
+            await handleCrossPrBulkAck(ctx, options);
+            return;
+          }
           await handleListAll(ctx, options);
           return;
         }
@@ -698,7 +889,7 @@ export const fbCommand = new Command("fb")
           const pr = Number.parseInt(id, 10);
 
           if (options.ack) {
-            await handleBulkAck(ctx, pr);
+            await handleBulkAck(ctx, pr, options);
             return;
           }
 

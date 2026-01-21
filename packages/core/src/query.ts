@@ -35,6 +35,9 @@ export interface QueryFilters {
   /** Filter by entries since this date */
   since?: Date;
 
+  /** Filter by entries before this date */
+  before?: Date;
+
   /** Custom plugin filters */
   custom?: Record<string, string>;
 
@@ -160,11 +163,24 @@ export function queryEntries(
   let entries = queryEntriesDb(db, dbFilters);
 
   // Apply post-query filters not supported by SQLite
-  // These include author exclusions (bots, explicit list) and custom plugin filters
-  if (filters.excludeAuthors?.length || filters.excludeBots || filters.custom) {
+  // These include author exclusions (bots, explicit list), before date, and custom plugin filters
+  // IMPORTANT: These are applied BEFORE limit/offset to ensure correct pagination semantics
+  if (
+    filters.excludeAuthors?.length ||
+    filters.excludeBots ||
+    filters.before ||
+    filters.custom
+  ) {
     entries = entries.filter((entry) => {
       // Check author exclusions
       if (!matchesAuthorExclusions(entry, filters)) {
+        return false;
+      }
+      // Check before date filter
+      if (
+        filters.before &&
+        new Date(entry.created_at).getTime() >= filters.before.getTime()
+      ) {
         return false;
       }
       // Check custom plugin filters
