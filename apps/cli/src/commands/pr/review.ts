@@ -85,7 +85,7 @@ export const reviewCommand = new Command("review")
   .description("Submit a review on a PR")
   .argument("<pr>", "PR number", parsePrNumber)
   .option("--repo <name>", "Repository (owner/repo format)")
-  .option("-a, --approve", "Approve the PR")
+  .option("--approve", "Approve the PR")
   .option("-r, --request-changes", "Request changes")
   .option("-c, --comment", "Leave a comment review (no approval/changes)")
   .option(

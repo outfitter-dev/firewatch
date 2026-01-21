@@ -67,6 +67,7 @@ interface RootCommandOptions {
   author?: string;
   noBots?: boolean;
   since?: string;
+  before?: string;
   offline?: boolean;
   refresh?: boolean | "full";
   limit?: number;
@@ -414,7 +415,7 @@ program
   .version(version)
   .option("--pr [numbers]", "Filter to PR domain, optionally specific PRs")
   .option("--repo <name>", "Filter to specific repository")
-  .option("-a, --all", "Include all cached repos")
+  .option("--all", "Include all cached repos")
   .option("--mine", "Items on PRs assigned to me")
   .option("--reviews", "PRs I need to review")
   .option("--open", "Filter to open PRs")
@@ -434,6 +435,7 @@ program
     "-s, --since <duration>",
     "Filter by time window. Formats: Nh, Nd, Nw, Nm (months). Examples: 24h, 7d"
   )
+  .option("--before <date>", "Entries created before ISO date (e.g., 2024-01-15)")
   .option("--offline", "Use cache only, no network")
   .option("--refresh [full]", "Force sync before query")
   .option("-n, --limit <count>", "Limit number of results", Number.parseInt)
@@ -577,6 +579,19 @@ Examples:
         const includeSet = new Set(includeAuthors.map((a) => a.toLowerCase()));
         filtered = filtered.filter((entry) =>
           includeSet.has(entry.author.toLowerCase())
+        );
+      }
+
+      if (options.before) {
+        const beforeDate = new Date(options.before);
+        if (Number.isNaN(beforeDate.getTime())) {
+          console.error(
+            `Invalid --before date: ${options.before}. Use ISO format (e.g., 2024-01-15).`
+          );
+          process.exit(1);
+        }
+        filtered = filtered.filter(
+          (entry) => new Date(entry.created_at) < beforeDate
         );
       }
 
