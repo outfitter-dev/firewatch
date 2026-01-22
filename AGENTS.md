@@ -59,10 +59,16 @@ packages/
 │   ├── schema/             # Zod schemas for type safety
 │   └── plugins/            # Plugin interface (e.g., Graphite stacks)
 ├── shared/                 # @outfitter/firewatch-shared - Shared utilities
-└── agents/                 # @outfitter/firewatch-agents - Claude Code agent integration
-    ├── commands/           # Agent-discoverable operations
-    ├── hooks/              # Session lifecycle hooks
-    └── skills/             # Firewatch-specific agent skills
+└── claude-plugin/          # Local Claude Code plugin marketplace
+    ├── .claude-plugin/
+    │   └── marketplace.json  # Marketplace manifest
+    └── firewatch/            # Firewatch plugin
+        ├── .claude-plugin/
+        │   └── plugin.json   # Plugin manifest
+        ├── commands/         # /firewatch:* commands
+        ├── hooks/            # Session lifecycle hooks
+        ├── scripts/          # Hook scripts
+        └── skills/firewatch/ # triage, respond skills
 ```
 
 ### CLI Commands

@@ -1,0 +1,14 @@
+{
+  "name": "firewatch",
+  "owner": {
+    "name": "Outfitter Team",
+    "email": "mg@outfitter.dev"
+  },
+  "plugins": [
+    {
+      "name": "firewatch",
+      "source": "./firewatch",
+      "description": "GitHub PR activity logger with JSONL output for jq workflows"
+    }
+  ]
+}
