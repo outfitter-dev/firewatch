@@ -112,6 +112,80 @@ test("identifyUnaddressedFeedback ignores comments with newer commits or file up
   expect(commentIds).toEqual(["comment-2", "comment-4"]);
 });
 
+test("identifyUnaddressedFeedback respects reactions and local acks", () => {
+  const nowIso = new Date().toISOString();
+  const entries: FirewatchEntry[] = [
+    {
+      id: "issue-1",
+      repo,
+      pr: 1,
+      pr_title: "React to feedback",
+      pr_state: "open",
+      pr_author: "alice",
+      pr_branch: "feat/react",
+      type: "comment",
+      subtype: "issue_comment",
+      author: "bob",
+      reactions: {
+        thumbs_up_by: ["alice"],
+      },
+      created_at: nowIso,
+      captured_at: nowIso,
+    },
+    {
+      id: "issue-2",
+      repo,
+      pr: 1,
+      pr_title: "React to feedback",
+      pr_state: "open",
+      pr_author: "alice",
+      pr_branch: "feat/react",
+      type: "comment",
+      subtype: "issue_comment",
+      author: "carol",
+      created_at: nowIso,
+      captured_at: nowIso,
+    },
+    {
+      id: "review-1",
+      repo,
+      pr: 1,
+      pr_title: "React to feedback",
+      pr_state: "open",
+      pr_author: "alice",
+      pr_branch: "feat/react",
+      type: "comment",
+      subtype: "review_comment",
+      author: "dave",
+      file: "src/index.ts",
+      thread_resolved: true,
+      created_at: nowIso,
+      captured_at: nowIso,
+    },
+    {
+      id: "review-2",
+      repo,
+      pr: 1,
+      pr_title: "React to feedback",
+      pr_state: "open",
+      pr_author: "alice",
+      pr_branch: "feat/react",
+      type: "comment",
+      subtype: "review_comment",
+      author: "erin",
+      file: "src/index.ts",
+      thread_resolved: false,
+      created_at: nowIso,
+      captured_at: nowIso,
+    },
+  ];
+
+  const feedback = identifyUnaddressedFeedback(entries, {
+    ackedIds: new Set(["review-2"]),
+  });
+  expect(feedback.map((item) => item.comment_id)).toEqual(["issue-2"]);
+});
+
 test("buildActionableSummary groups categories and respects perspective", () => {
   const now = new Date();
   const nowIso = now.toISOString();

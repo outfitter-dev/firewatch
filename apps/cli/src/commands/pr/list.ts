@@ -7,6 +7,7 @@ import {
   detectRepo,
   ensureDirectories,
   getAllSyncMeta,
+  getAckedIds,
   getDatabase,
   getSyncMeta,
   loadConfig,
@@ -588,6 +589,7 @@ export const listCommand = new Command("list")
       const repoLabel = repoFilter ?? (options.all ? "all" : "unknown");
       const username = config.user?.github_username;
       const actionableEntries = await ensureGraphiteMetadata(filtered);
+      const ackedIds = await getAckedIds(options.all ? undefined : repoFilter);
 
       if (options.mine || options.reviews) {
         const perspective = options.mine ? "mine" : "reviews";
@@ -596,7 +598,8 @@ export const listCommand = new Command("list")
           actionableEntries,
           perspective,
           username,
-          options.orphaned
+          options.orphaned,
+          { ackedIds }
         );
         printActionableSummary(summary);
         return;
@@ -608,7 +611,8 @@ export const listCommand = new Command("list")
           actionableEntries,
           "mine",
           username,
-          options.orphaned
+          options.orphaned,
+          { ackedIds }
         );
         printActionableSummary(mineSummary);
 
@@ -617,7 +621,8 @@ export const listCommand = new Command("list")
           actionableEntries,
           "reviews",
           username,
-          options.orphaned
+          options.orphaned,
+          { ackedIds }
         );
         printActionableSummary(reviewSummary);
       } else {
@@ -626,7 +631,8 @@ export const listCommand = new Command("list")
           actionableEntries,
           undefined,
           undefined,
-          options.orphaned
+          options.orphaned,
+          { ackedIds }
         );
         printActionableSummary(summary);
       }

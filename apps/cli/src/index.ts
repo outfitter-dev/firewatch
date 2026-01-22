@@ -7,6 +7,7 @@ import {
   detectRepo,
   ensureDirectories,
   getAllSyncMeta,
+  getAckedIds,
   getDatabase,
   getSyncMeta,
   loadConfig,
@@ -598,6 +599,7 @@ Examples:
       const repoLabel = repoFilter ?? (options.all ? "all" : "unknown");
       const username = config.user?.github_username;
       const actionableEntries = await ensureGraphiteMetadata(filtered);
+      const ackedIds = await getAckedIds(options.all ? undefined : repoFilter);
 
       if (options.mine || options.reviews) {
         const perspective = options.mine ? "mine" : "reviews";
@@ -606,7 +608,8 @@ Examples:
           actionableEntries,
           perspective,
           username,
-          options.orphaned
+          options.orphaned,
+          { ackedIds }
         );
         await printActionableSummary(summary);
         return;
@@ -618,7 +621,8 @@ Examples:
           actionableEntries,
           "mine",
           username,
-          options.orphaned
+          options.orphaned,
+          { ackedIds }
         );
         await printActionableSummary(mineSummary);
 
@@ -627,7 +631,8 @@ Examples:
           actionableEntries,
           "reviews",
           username,
-          options.orphaned
+          options.orphaned,
+          { ackedIds }
         );
         await printActionableSummary(reviewSummary);
       } else {
@@ -636,7 +641,8 @@ Examples:
           actionableEntries,
           undefined,
           undefined,
-          options.orphaned
+          options.orphaned,
+          { ackedIds }
         );
         await printActionableSummary(summary);
       }
