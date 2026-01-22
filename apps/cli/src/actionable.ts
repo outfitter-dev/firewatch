@@ -152,7 +152,10 @@ export function identifyAttentionItems(worklist: WorklistEntry[]): {
 export function identifyUnaddressedFeedback(
   entries: FirewatchEntry[]
 ): UnaddressedFeedback[] {
-  const commentEntries = entries.filter((e) => e.type === "comment");
+  // Only include review_comment subtype (inline code comments), not issue_comment (top-level PR comments)
+  const commentEntries = entries.filter(
+    (e) => e.type === "comment" && e.subtype === "review_comment"
+  );
 
   // Use repo:pr composite key for cross-repo safety
   const commitsByRepoPr = new Map<string, FirewatchEntry[]>();
@@ -178,6 +181,13 @@ export function identifyUnaddressedFeedback(
 
   return commentEntries
     .filter((comment) => {
+      // For review comments, thread_resolved is the authoritative signal
+      // If we have thread resolution state, use it directly
+      if (comment.thread_resolved !== undefined) {
+        return !comment.thread_resolved;
+      }
+
+      // Fallback heuristics when thread_resolved is not available
       if (!comment.file) {
         return !hasLaterCommit(comment.repo, comment.pr, comment.created_at);
       }
