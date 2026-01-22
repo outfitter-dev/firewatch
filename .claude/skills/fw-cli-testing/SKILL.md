@@ -123,7 +123,7 @@ Tests read-only query commands:
 
 | Area             | Tests                                            |
 | ---------------- | ------------------------------------------------ |
-| Basic output     | `--json`, `--worklist`, JSONL validation         |
+| Basic output     | `--jsonl`, `--summary`, JSONL validation         |
 | Type filtering   | `--type comment`, `--type review`, invalid types |
 | Time filtering   | `--since 24h`, `--since 7d`, invalid durations   |
 | Author filtering | `--author name`, `--author '!name'` exclusion    |
@@ -138,7 +138,7 @@ Tests informational commands:
 
 | Area   | Tests                         |
 | ------ | ----------------------------- |
-| status | Default, `--short`, `--json`  |
+| status | Default, `--short`, `--jsonl` |
 | config | Read, `--path`, `--local`     |
 | doctor | Default, `--fix`              |
 | schema | `entry`, `worklist`, `config` |

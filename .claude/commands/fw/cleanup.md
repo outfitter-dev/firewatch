@@ -10,7 +10,7 @@ Systematically verify and resolve comment threads that have been addressed.
 
 ## Pre-run Context
 
-!`bun apps/cli/bin/fw.ts --type comment --open --json 2>/dev/null | jq -c 'select(.subtype == "review_comment") | {pr, file, line, author, body: .body[0:60], id}' | head -20`
+!`bun apps/cli/bin/fw.ts --type comment --open --jsonl 2>/dev/null | jq -c 'select(.subtype == "review_comment") | {pr, file, line, author, body: .body[0:60], id}' | head -20`
 
 ## Skill Context
 

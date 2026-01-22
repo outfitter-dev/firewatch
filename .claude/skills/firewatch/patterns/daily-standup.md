@@ -33,7 +33,7 @@ This shows per-PR summaries with:
 For JSON output for further processing:
 
 ```bash
-fw --summary --open --json
+fw --summary --open --jsonl
 ```
 
 ### Step 3: Prioritize by Urgency

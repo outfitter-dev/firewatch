@@ -10,7 +10,7 @@ Situation report on PR activity. Quick scan first, then detailed check if anythi
 
 ## Pre-run Context
 
-!`bun apps/cli/bin/fw.ts --refresh --open --summary --json 2>/dev/null | jq -c '{pr, title: .pr_title, state: .pr_state, stack_pos: .graphite.stack_position, comments: .counts.comments, reviews: .counts.reviews, changes_requested: .review_states.changes_requested}'`
+!`bun apps/cli/bin/fw.ts --refresh --open --summary --jsonl 2>/dev/null | jq -c '{pr, title: .pr_title, state: .pr_state, stack_pos: .graphite.stack_position, comments: .counts.comments, reviews: .counts.reviews, changes_requested: .review_states.changes_requested}'`
 
 ## Skill Context
 
@@ -49,7 +49,7 @@ Parse the pre-run context. Produce a one-glance summary:
 If anything needs attention, query for details:
 
 ```bash
-bun apps/cli/bin/fw.ts --type comment --open --json | jq -c 'select(.author != .pr_author) | select(.subtype == "review_comment") | select(.thread_resolved == false) | {pr, file, line, author, body, id}'
+bun apps/cli/bin/fw.ts --type comment --open --jsonl | jq -c 'select(.author != .pr_author) | select(.subtype == "review_comment") | select(.thread_resolved == false) | {pr, file, line, author, body, id}'
 ```
 
 #### Comment Categorization
@@ -101,7 +101,7 @@ Group findings by PR, sorted by stack position (if applicable):
 For stack PRs, check if any comments need cross-PR fixes:
 
 ```bash
-bun apps/cli/bin/fw.ts --type comment --open --json | jq -c 'select(.file_provenance.origin_pr != .pr) | {pr, fix_in: .file_provenance.origin_pr, file}'
+bun apps/cli/bin/fw.ts --type comment --open --jsonl | jq -c 'select(.file_provenance.origin_pr != .pr) | {pr, fix_in: .file_provenance.origin_pr, file}'
 ```
 
 If found, note: "⚠️ Comment on PR #X but file originated in PR #Y — fix in #Y"
