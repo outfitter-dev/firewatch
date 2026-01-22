@@ -539,6 +539,11 @@ export const listCommand = new Command("list")
 
       let filtered = entries;
 
+      if (prList.length > 0) {
+        const prSet = new Set(prList);
+        filtered = filtered.filter((entry) => prSet.has(entry.pr));
+      }
+
       if (includeAuthors.length > 0) {
         const includeSet = new Set(includeAuthors.map((a) => a.toLowerCase()));
         filtered = filtered.filter((entry) =>
