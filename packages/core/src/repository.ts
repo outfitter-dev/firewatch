@@ -487,17 +487,15 @@ function buildWhereClause(filters: QueryFilters): {
     params.$repo = `%${filters.repo}%`;
   }
 
-  if (filters.pr !== undefined) {
-    conditions.push("e.pr = $pr");
-    params.$pr = filters.pr;
-  }
-
-  if (filters.prs?.length) {
-    const placeholders = filters.prs.map((_, i) => `$pr_${i}`).join(", ");
+  if (Array.isArray(filters.pr) && filters.pr.length > 0) {
+    const placeholders = filters.pr.map((_, i) => `$pr_${i}`).join(", ");
     conditions.push(`e.pr IN (${placeholders})`);
-    for (const [i, pr] of filters.prs.entries()) {
+    for (const [i, pr] of filters.pr.entries()) {
       params[`$pr_${i}`] = pr;
     }
+  } else if (filters.pr !== undefined) {
+    conditions.push("e.pr = $pr");
+    params.$pr = filters.pr;
   }
 
   if (filters.author) {

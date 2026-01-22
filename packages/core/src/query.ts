@@ -17,11 +17,8 @@ export interface QueryFilters {
   /** Filter by repository (exact match) */
   exactRepo?: string;
 
-  /** Filter by PR number */
-  pr?: number;
-
-  /** Filter by multiple PR numbers */
-  prs?: number[];
+  /** Filter by PR number(s) */
+  pr?: number | number[];
 
   /** Filter by author (exact match) */
   author?: string;
@@ -132,7 +129,6 @@ function buildDbFilters(filters: QueryFilters): QueryFilters {
     ...(filters.repo !== undefined && { repo: filters.repo }),
     ...(filters.exactRepo !== undefined && { exactRepo: filters.exactRepo }),
     ...(filters.pr !== undefined && { pr: filters.pr }),
-    ...(filters.prs !== undefined && { prs: filters.prs }),
     ...(filters.author !== undefined && { author: filters.author }),
     ...(filters.type !== undefined && { type: filters.type }),
     ...(filters.states !== undefined && { states: filters.states }),

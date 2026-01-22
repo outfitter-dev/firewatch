@@ -9,8 +9,7 @@ import {
 
 export interface QueryParams {
   repo?: string | undefined;
-  pr?: number | undefined;
-  prs?: number[] | undefined;
+  pr?: number | number[] | undefined;
   author?: string | undefined;
   type?: FirewatchEntry["type"] | FirewatchEntry["type"][] | undefined;
   states?: PrState[] | undefined;
@@ -62,7 +61,6 @@ export function buildQueryOptions(
     filters: {
       ...(repoFilter && { repo: repoFilter }),
       ...(params.pr !== undefined && { pr: params.pr }),
-      ...(params.prs && params.prs.length > 0 && { prs: params.prs }),
       ...(params.author && { author: params.author }),
       ...(params.type && { type: params.type }),
       ...(states && { states }),

@@ -20,7 +20,7 @@ fw [options]
 
 | Option            | Description                                                    |
 | ----------------- | -------------------------------------------------------------- |
-| `--prs [numbers]` | Filter to PR domain, optionally specific PRs (comma-separated) |
+| `--pr [numbers]` | Filter to PR domain, optionally specific PRs (comma-separated) |
 | `--repo <name>`   | Filter to specific repository (`owner/repo`)                   |
 | `-a, --all`       | Include all cached repos                                       |
 
@@ -88,10 +88,10 @@ fw [options]
 fw
 
 # Filter to PRs only
-fw --prs
+fw --pr
 
 # Specific PRs
-fw --prs 23,34
+fw --pr 23,34
 
 # My PRs with unaddressed feedback
 fw --mine

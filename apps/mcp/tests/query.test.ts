@@ -47,7 +47,7 @@ test("buildQueryOptions applies since and list filters", () => {
 
   const before = Date.now();
   const options = buildQueryOptions(
-    { prs: [1, 2], type: ["comment", "review"] },
+    { pr: [1, 2], type: ["comment", "review"] },
     context
   );
   const after = Date.now();

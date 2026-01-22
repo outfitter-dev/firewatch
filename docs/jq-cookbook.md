@@ -301,7 +301,7 @@ fw --type comment | jq 'select(
 ```bash
 # Get PR numbers, then query each
 fw --summary | jq -r '.pr' | while read pr; do
-  fw --prs "$pr" --type review
+  fw --pr "$pr" --type review
 done
 ```
 

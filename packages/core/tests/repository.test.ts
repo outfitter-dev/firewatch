@@ -510,7 +510,7 @@ describe("Query Operations", () => {
   });
 
   test("queryEntries filters by multiple pr numbers", () => {
-    const results = queryEntries(db, { prs: [1, 3] });
+    const results = queryEntries(db, { pr: [1, 3] });
     expect(results).toHaveLength(3);
 
     closeDatabase(db);
