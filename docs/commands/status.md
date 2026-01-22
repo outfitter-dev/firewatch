@@ -10,11 +10,11 @@ fw status [options]
 
 ## Options
 
-| Option      | Description                 |
-| ----------- | --------------------------- |
-| `--short`   | Compact single-line output  |
-| `--json`    | Force JSON output           |
-| `--no-json` | Force human-readable output |
+| Option       | Description                 |
+| ------------ | --------------------------- |
+| `--short`    | Compact single-line output  |
+| `--jsonl`    | Force structured output     |
+| `--no-jsonl` | Force human-readable output |
 
 ## Example Output (Human)
 

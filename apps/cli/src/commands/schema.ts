@@ -5,6 +5,8 @@ import {
 } from "@outfitter/firewatch-core/schema";
 import { Command } from "commander";
 
+import { outputStructured } from "../utils/json";
+
 export type SchemaName = "entry" | "worklist" | "config";
 
 const schemaMap: Record<SchemaName, unknown> = {
@@ -13,20 +15,20 @@ const schemaMap: Record<SchemaName, unknown> = {
   config: CONFIG_SCHEMA_DOC,
 };
 
-export function printSchema(name: SchemaName): void {
+export async function printSchema(name: SchemaName): Promise<void> {
   const schema = schemaMap[name];
-  console.log(JSON.stringify(schema, null, 2));
+  await outputStructured(schema, "json");
 }
 
 export const schemaCommand = new Command("schema")
   .description("Print JSON schema for Firewatch data types")
   .argument("[name]", "Schema variant: entry, worklist, config", "entry")
-  .action((name: SchemaName) => {
+  .action(async (name: SchemaName) => {
     if (!schemaMap[name]) {
       console.error(
         `Unknown schema: ${name}. Valid schemas: entry, worklist, config`
       );
       process.exit(1);
     }
-    printSchema(name);
+    await printSchema(name);
   });

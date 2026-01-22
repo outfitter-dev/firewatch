@@ -23,7 +23,7 @@ import {
   type UnaddressedFeedback,
 } from "../actionable";
 import { parseRepoInput, resolveRepoOrThrow } from "../repo";
-import { writeJsonLine } from "../utils/json";
+import { outputStructured } from "../utils/json";
 import { shouldOutputJson } from "../utils/tty";
 
 interface FbCommandOptions {
@@ -32,7 +32,7 @@ interface FbCommandOptions {
   all?: boolean;
   ack?: boolean;
   resolve?: boolean;
-  json?: boolean;
+  jsonl?: boolean;
 }
 
 interface FbContext {
@@ -125,7 +125,7 @@ async function handleListAll(
     for (const fb of feedbacks) {
       const shortId = formatShortId(generateShortId(fb.comment_id, ctx.repo));
       const { comment_id: gh_id, ...rest } = fb;
-      await writeJsonLine({ ...rest, id: shortId, gh_id });
+      await outputStructured({ ...rest, id: shortId, gh_id }, "jsonl");
     }
     return;
   }
@@ -170,7 +170,7 @@ async function handlePrList(
       for (const c of comments) {
         const shortId = formatShortId(generateShortId(c.id, ctx.repo));
         const { id: gh_id, ...rest } = c;
-        await writeJsonLine({ ...rest, id: shortId, gh_id });
+        await outputStructured({ ...rest, id: shortId, gh_id }, "jsonl");
       }
       return;
     }
@@ -204,7 +204,7 @@ async function handlePrList(
     for (const fb of prFeedbacks) {
       const shortId = formatShortId(generateShortId(fb.comment_id, ctx.repo));
       const { comment_id: gh_id, ...rest } = fb;
-      await writeJsonLine({ ...rest, id: shortId, gh_id });
+      await outputStructured({ ...rest, id: shortId, gh_id }, "jsonl");
     }
     return;
   }
@@ -232,7 +232,7 @@ async function handlePrComment(
   };
 
   if (ctx.outputJson) {
-    await writeJsonLine(payload);
+    await outputStructured(payload, "jsonl");
   } else {
     console.log(
       `Added comment to ${ctx.repo}#${pr}. [${formatShortId(shortId)}]`
@@ -265,7 +265,7 @@ async function handleViewComment(
 
   if (ctx.outputJson) {
     const { id: gh_id, ...rest } = entry;
-    await writeJsonLine({ ...rest, id: formatShortId(sId), gh_id });
+    await outputStructured({ ...rest, id: formatShortId(sId), gh_id }, "jsonl");
     return;
   }
 
@@ -340,7 +340,7 @@ async function handleReplyToComment(
     };
 
     if (ctx.outputJson) {
-      await writeJsonLine(payload);
+      await outputStructured(payload, "jsonl");
     } else {
       const resolveMsg = options.resolve ? " and resolved thread" : "";
       console.log(
@@ -375,7 +375,7 @@ async function handleReplyToComment(
   };
 
   if (ctx.outputJson) {
-    await writeJsonLine(payload);
+    await outputStructured(payload, "jsonl");
   } else {
     console.log(`Added comment to ${ctx.repo}#${entry.pr}. [${newShortId}]`);
     if (comment.url) {
@@ -436,7 +436,7 @@ async function handleResolveComment(
   };
 
   if (ctx.outputJson) {
-    await writeJsonLine(payload);
+    await outputStructured(payload, "jsonl");
   } else {
     console.log(`Resolved thread for ${formatShortId(sId)}.`);
   }
@@ -493,7 +493,7 @@ async function handleAckComment(
   };
 
   if (ctx.outputJson) {
-    await writeJsonLine(payload);
+    await outputStructured(payload, "jsonl");
   } else {
     const reactionMsg = reactionAdded ? " (👍 added)" : "";
     console.log(`Acknowledged ${formatShortId(sId)}${reactionMsg}.`);
@@ -517,7 +517,10 @@ async function handleBulkAck(ctx: FbContext, pr: number): Promise<void> {
 
   if (prFeedbacks.length === 0) {
     if (ctx.outputJson) {
-      await writeJsonLine({ ok: true, repo: ctx.repo, pr, acked_count: 0 });
+      await outputStructured(
+        { ok: true, repo: ctx.repo, pr, acked_count: 0 },
+        "jsonl"
+      );
     } else {
       console.log(`No unaddressed feedback on PR #${pr}.`);
     }
@@ -573,7 +576,7 @@ async function handleBulkAck(ctx: FbContext, pr: number): Promise<void> {
   };
 
   if (ctx.outputJson) {
-    await writeJsonLine(payload);
+    await outputStructured(payload, "jsonl");
   } else {
     const reactionMsg =
       reactionsAdded > 0 ? ` (${reactionsAdded} 👍 added)` : "";
@@ -662,8 +665,8 @@ export const fbCommand = new Command("fb")
   .option("--all", "Show all feedback including resolved")
   .option("--ack", "Acknowledge feedback (👍 + local record)")
   .option("--resolve", "Resolve the thread after replying")
-  .option("--json", "Force JSON output")
-  .option("--no-json", "Force human-readable output")
+  .option("--jsonl", "Force structured output")
+  .option("--no-jsonl", "Force human-readable output")
   .action(
     async (
       id: string | undefined,

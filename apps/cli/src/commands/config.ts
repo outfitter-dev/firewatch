@@ -10,14 +10,14 @@ import { Command } from "commander";
 import { mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
 
-import { writeJsonLine } from "../utils/json";
+import { outputStructured } from "../utils/json";
 import { shouldOutputJson } from "../utils/tty";
 
 interface ConfigCommandOptions {
   edit?: boolean;
   path?: boolean;
   local?: boolean;
-  json?: boolean;
+  jsonl?: boolean;
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -144,8 +144,8 @@ export const configCommand = new Command("config")
   .option("--edit", "Open config in $EDITOR")
   .option("--path", "Show config file path")
   .option("--local", "Target project config (.firewatch.toml)")
-  .option("--json", "Force JSON output")
-  .option("--no-json", "Force human-readable output")
+  .option("--jsonl", "Force structured output")
+  .option("--no-jsonl", "Force human-readable output")
   .action(
     async (
       key: string | undefined,
@@ -162,7 +162,7 @@ export const configCommand = new Command("config")
           };
 
           if (shouldOutputJson(options)) {
-            await writeJsonLine(payload);
+            await outputStructured(payload, "jsonl");
           } else {
             console.log(`Config:  ${paths.user}`);
             if (projectPath) {
@@ -181,7 +181,7 @@ export const configCommand = new Command("config")
         if (!key) {
           const config = await loadConfig();
           if (shouldOutputJson(options, config.output?.default_format)) {
-            await writeJsonLine(config);
+            await outputStructured(config, "jsonl");
           } else {
             console.log(
               serializeConfigObject(config as Record<string, unknown>)
@@ -205,7 +205,7 @@ export const configCommand = new Command("config")
             path
           );
           if (outputJson) {
-            await writeJsonLine({ key, value: resolved ?? null });
+            await outputStructured({ key, value: resolved ?? null }, "jsonl");
           } else {
             console.log(resolved ?? "");
           }
@@ -223,13 +223,16 @@ export const configCommand = new Command("config")
         await Bun.write(targetPath, serializeConfigObject(configFile));
 
         if (shouldOutputJson(options)) {
-          await writeJsonLine({
-            ok: true,
-            path: targetPath,
-            key,
-            value: parsedValue,
-            ...(options.local && { local: true }),
-          });
+          await outputStructured(
+            {
+              ok: true,
+              path: targetPath,
+              key,
+              value: parsedValue,
+              ...(options.local && { local: true }),
+            },
+            "jsonl"
+          );
         } else {
           console.log(`Set ${key} = ${value}`);
         }

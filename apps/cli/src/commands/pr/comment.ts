@@ -6,12 +6,12 @@ import {
 import { Command } from "commander";
 
 import { parseRepoInput, parsePrNumber, resolveRepoOrThrow } from "../../repo";
-import { writeJsonLine } from "../../utils/json";
+import { outputStructured } from "../../utils/json";
 import { shouldOutputJson } from "../../utils/tty";
 
 interface CommentCommandOptions {
   repo?: string;
-  json?: boolean;
+  jsonl?: boolean;
 }
 
 export const commentCommand = new Command("comment")
@@ -19,8 +19,8 @@ export const commentCommand = new Command("comment")
   .argument("<pr>", "PR number", parsePrNumber)
   .argument("<body>", "Comment body")
   .option("--repo <name>", "Repository (owner/repo format)")
-  .option("--json", "Force JSON output")
-  .option("--no-json", "Force human-readable output")
+  .option("--jsonl", "Force structured output")
+  .option("--no-jsonl", "Force human-readable output")
   .action(async (pr: number, body: string, options: CommentCommandOptions) => {
     try {
       if (!body.trim()) {
@@ -56,7 +56,7 @@ export const commentCommand = new Command("comment")
       };
 
       if (outputJson) {
-        await writeJsonLine(payload);
+        await outputStructured(payload, "jsonl");
       } else {
         console.log(`Added comment to ${repo}#${pr}.`);
         if (comment.url) {
