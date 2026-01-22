@@ -3,6 +3,9 @@
   "version": "0.2.0",
   "description": "Shared utilities for Firewatch packages",
   "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
