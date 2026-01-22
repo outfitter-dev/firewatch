@@ -4,10 +4,15 @@ import {
   addAcks,
   batchAddReactions,
   buildAckRecords,
+  buildShortIdCache,
+  classifyId,
   detectAuth,
+  formatShortId,
+  generateShortId,
   getAckedIds,
   loadConfig,
   queryEntries,
+  resolveShortId,
   type AckRecord,
   type FirewatchConfig,
 } from "@outfitter/firewatch-core";
@@ -19,13 +24,6 @@ import {
 } from "../actionable";
 import { parseRepoInput, resolveRepoOrThrow } from "../repo";
 import { writeJsonLine } from "../utils/json";
-import {
-  buildShortIdCache,
-  classifyId,
-  formatShortId,
-  generateShortId,
-  resolveShortId,
-} from "../utils/short-id";
 import { shouldOutputJson } from "../utils/tty";
 
 interface FbCommandOptions {
@@ -73,7 +71,9 @@ function truncate(str: string, maxLen: number): string {
 function formatFeedbackItem(fb: UnaddressedFeedback, repo: string): string {
   const shortId = generateShortId(fb.comment_id, repo);
   const location = fb.file ? `${fb.file}:${fb.line ?? "?"}` : "(comment)";
-  const bodyPreview = fb.body ? truncate(fb.body.replaceAll("\n", " "), 60) : "";
+  const bodyPreview = fb.body
+    ? truncate(fb.body.replaceAll("\n", " "), 60)
+    : "";
   return `[${formatShortId(shortId)}] @${fb.author} ${location}\n  "${bodyPreview}"`;
 }
 
@@ -183,7 +183,9 @@ async function handlePrList(
       const shortId = generateShortId(c.id, ctx.repo);
       const location = c.file ? `${c.file}:${c.line ?? "?"}` : "(comment)";
       const resolved = c.thread_resolved ? " ✓" : "";
-      console.log(`\n[${formatShortId(shortId)}] @${c.author} ${location}${resolved}`);
+      console.log(
+        `\n[${formatShortId(shortId)}] @${c.author} ${location}${resolved}`
+      );
       if (c.body) {
         console.log(`  "${truncate(c.body.replaceAll("\n", " "), 60)}"`);
       }
@@ -232,7 +234,9 @@ async function handlePrComment(
   if (ctx.outputJson) {
     await writeJsonLine(payload);
   } else {
-    console.log(`Added comment to ${ctx.repo}#${pr}. [${formatShortId(shortId)}]`);
+    console.log(
+      `Added comment to ${ctx.repo}#${pr}. [${formatShortId(shortId)}]`
+    );
     if (comment.url) {
       console.log(comment.url);
     }
@@ -265,10 +269,14 @@ async function handleViewComment(
     return;
   }
 
-  const location = entry.file ? `${entry.file}:${entry.line ?? "?"}` : "(comment)";
+  const location = entry.file
+    ? `${entry.file}:${entry.line ?? "?"}`
+    : "(comment)";
   const resolved = entry.thread_resolved ? " (resolved)" : "";
 
-  console.log(`\n[${formatShortId(sId)}] @${entry.author} ${location}${resolved}`);
+  console.log(
+    `\n[${formatShortId(sId)}] @${entry.author} ${location}${resolved}`
+  );
   console.log(`PR #${entry.pr}: ${entry.pr_title}`);
   console.log(`Created: ${entry.created_at}`);
   if (entry.body) {
@@ -335,7 +343,9 @@ async function handleReplyToComment(
       await writeJsonLine(payload);
     } else {
       const resolveMsg = options.resolve ? " and resolved thread" : "";
-      console.log(`Replied to ${replyToShortId}${resolveMsg}. [${replyShortId}]`);
+      console.log(
+        `Replied to ${replyToShortId}${resolveMsg}. [${replyShortId}]`
+      );
       if (reply.url) {
         console.log(reply.url);
       }
@@ -344,7 +354,11 @@ async function handleReplyToComment(
   }
 
   // Issue comment - add a new comment (can't thread on issue comments)
-  const prId = await ctx.client.fetchPullRequestId(ctx.owner, ctx.name, entry.pr);
+  const prId = await ctx.client.fetchPullRequestId(
+    ctx.owner,
+    ctx.name,
+    entry.pr
+  );
   const comment = await ctx.client.addIssueComment(prId, body);
 
   const newShortId = formatShortId(generateShortId(comment.id, ctx.repo));
@@ -391,7 +405,9 @@ async function handleResolveComment(
   }
 
   if (entry.subtype !== "review_comment") {
-    console.error(`Comment ${formatShortId(sId)} is an issue comment. Use --ack instead.`);
+    console.error(
+      `Comment ${formatShortId(sId)} is an issue comment. Use --ack instead.`
+    );
     process.exit(1);
   }
 
@@ -571,9 +587,7 @@ async function handleBulkAck(ctx: FbContext, pr: number): Promise<void> {
 // Main command
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function createContext(
-  options: FbCommandOptions
-): Promise<FbContext> {
+async function createContext(options: FbCommandOptions): Promise<FbContext> {
   const config = await loadConfig();
   const repo = await resolveRepoOrThrow(options.repo);
   const { owner, name } = parseRepoInput(repo);
@@ -651,7 +665,11 @@ export const fbCommand = new Command("fb")
   .option("--json", "Force JSON output")
   .option("--no-json", "Force human-readable output")
   .action(
-    async (id: string | undefined, body: string | undefined, options: FbCommandOptions) => {
+    async (
+      id: string | undefined,
+      body: string | undefined,
+      options: FbCommandOptions
+    ) => {
       try {
         const ctx = await createContext(options);
 
@@ -688,7 +706,9 @@ export const fbCommand = new Command("fb")
         if (!resolved && idType === "short_id") {
           resolved = await findCommentByShortId(id, ctx.repo);
           if (!resolved) {
-            console.error(`Short ID ${formatShortId(id)} not found in repository.`);
+            console.error(
+              `Short ID ${formatShortId(id)} not found in repository.`
+            );
             process.exit(1);
           }
         }

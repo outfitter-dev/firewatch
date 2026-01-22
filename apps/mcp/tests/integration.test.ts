@@ -120,8 +120,8 @@ async function callTool(name: string, args: Record<string, unknown>) {
   return result;
 }
 
-test("mcp tool firewatch_query returns jsonl entries", async () => {
-  const result = await callTool("firewatch_query", {
+test("mcp tool fw_query returns jsonl entries", async () => {
+  const result = await callTool("fw_query", {
     repo,
     type: "comment",
     offline: true,
@@ -139,8 +139,8 @@ test("mcp tool firewatch_query returns jsonl entries", async () => {
   expect(lines[0]?.id).toBe("mcp-comment-1");
 });
 
-test("mcp tool firewatch_query summary short returns per-PR summary", async () => {
-  const result = await callTool("firewatch_query", {
+test("mcp tool fw_query summary short returns per-PR summary", async () => {
+  const result = await callTool("fw_query", {
     repo,
     summary_short: true,
     offline: true,
