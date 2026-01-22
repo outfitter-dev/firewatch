@@ -1,227 +1,385 @@
 import { describe, expect, test } from "bun:test";
 
 import {
-  compareThreads,
+  compareParityData,
+  computeStats,
+  filterComments,
   formatParityResult,
-  type GitHubThreadData,
+  type CommentType,
+  type ParityComment,
+  type ParityData,
+  type ParityFilterOptions,
 } from "../src/parity";
 
-describe("compareThreads", () => {
-  test("returns match when both sources are empty", () => {
-    const result = compareThreads("owner/repo", new Map(), new Map());
+/** Helper to create a ParityComment */
+function makeComment(
+  id: string,
+  pr: number,
+  type: CommentType,
+  isResolved?: boolean,
+  author = "user"
+): ParityComment {
+  return { id, pr, type, author, isResolved };
+}
 
-    expect(result.match).toBe(true);
-    expect(result.ghThreadCount).toBe(0);
-    expect(result.fwThreadCount).toBe(0);
-    expect(result.missingInFw).toHaveLength(0);
-    expect(result.extraInFw).toHaveLength(0);
+/** Helper to create empty ParityData */
+function emptyData(): ParityData {
+  return {
+    reviewComments: new Map(),
+    issueComments: new Map(),
+  };
+}
+
+describe("computeStats", () => {
+  test("returns zeros for empty data", () => {
+    const stats = computeStats(emptyData(), emptyData());
+
+    expect(stats.review_comments.gh_total).toBe(0);
+    expect(stats.review_comments.fw_total).toBe(0);
+    expect(stats.issue_comments.gh_total).toBe(0);
+    expect(stats.issue_comments.fw_total).toBe(0);
   });
 
-  test("returns match when both sources have identical data", () => {
-    const ghByPr = new Map<number, GitHubThreadData[]>([
-      [
-        42,
-        [
-          { pr: 42, threadId: "T1", commentId: "C1" },
-          { pr: 42, threadId: "T2", commentId: "C2" },
-        ],
-      ],
-      [43, [{ pr: 43, threadId: "T3", commentId: "C3" }]],
-    ]);
+  test("counts review comments with resolution state", () => {
+    const gh: ParityData = {
+      reviewComments: new Map([
+        ["C1", makeComment("C1", 42, "review_comment", false)],
+        ["C2", makeComment("C2", 42, "review_comment", true)],
+        ["C3", makeComment("C3", 43, "review_comment", false)],
+      ]),
+      issueComments: new Map(),
+    };
 
-    const fwByPr = new Map<number, string[]>([
-      [42, ["C1", "C2"]],
-      [43, ["C3"]],
-    ]);
+    const fw: ParityData = {
+      reviewComments: new Map([
+        ["C1", makeComment("C1", 42, "review_comment", false)],
+        ["C2", makeComment("C2", 42, "review_comment", true)],
+      ]),
+      issueComments: new Map(),
+    };
 
-    const result = compareThreads("owner/repo", ghByPr, fwByPr);
+    const stats = computeStats(gh, fw);
 
-    expect(result.match).toBe(true);
-    expect(result.ghThreadCount).toBe(3);
-    expect(result.fwThreadCount).toBe(3);
-    expect(result.missingInFw).toHaveLength(0);
-    expect(result.extraInFw).toHaveLength(0);
+    expect(stats.review_comments.gh_total).toBe(3);
+    expect(stats.review_comments.gh_resolved).toBe(1);
+    expect(stats.review_comments.gh_unresolved).toBe(2);
+    expect(stats.review_comments.fw_total).toBe(2);
+    expect(stats.review_comments.fw_resolved).toBe(1);
+    expect(stats.review_comments.fw_unresolved).toBe(1);
   });
 
-  test("detects missing threads in Firewatch", () => {
-    const ghByPr = new Map<number, GitHubThreadData[]>([
-      [
-        42,
-        [
-          { pr: 42, threadId: "T1", commentId: "C1" },
-          { pr: 42, threadId: "T2", commentId: "C2" },
-        ],
-      ],
-    ]);
+  test("counts issue comments", () => {
+    const gh: ParityData = {
+      reviewComments: new Map(),
+      issueComments: new Map([
+        ["IC1", makeComment("IC1", 42, "issue_comment")],
+        ["IC2", makeComment("IC2", 42, "issue_comment")],
+      ]),
+    };
 
-    // Firewatch is missing C2
-    const fwByPr = new Map<number, string[]>([[42, ["C1"]]]);
+    const fw: ParityData = {
+      reviewComments: new Map(),
+      issueComments: new Map([
+        ["IC1", makeComment("IC1", 42, "issue_comment")],
+      ]),
+    };
 
-    const result = compareThreads("owner/repo", ghByPr, fwByPr);
+    const stats = computeStats(gh, fw);
 
-    expect(result.match).toBe(false);
-    expect(result.ghThreadCount).toBe(2);
-    expect(result.fwThreadCount).toBe(1);
-    expect(result.missingInFw).toHaveLength(1);
-    expect(result.missingInFw[0]?.commentId).toBe("C2");
-    expect(result.extraInFw).toHaveLength(0);
-  });
-
-  test("detects extra threads in Firewatch", () => {
-    const ghByPr = new Map<number, GitHubThreadData[]>([
-      [42, [{ pr: 42, threadId: "T1", commentId: "C1" }]],
-    ]);
-
-    // Firewatch has an extra entry
-    const fwByPr = new Map<number, string[]>([[42, ["C1", "C2"]]]);
-
-    const result = compareThreads("owner/repo", ghByPr, fwByPr);
-
-    expect(result.match).toBe(false);
-    expect(result.ghThreadCount).toBe(1);
-    expect(result.fwThreadCount).toBe(2);
-    expect(result.missingInFw).toHaveLength(0);
-    expect(result.extraInFw).toHaveLength(1);
-    expect(result.extraInFw[0]).toBe("C2");
-  });
-
-  test("detects both missing and extra threads", () => {
-    const ghByPr = new Map<number, GitHubThreadData[]>([
-      [42, [{ pr: 42, threadId: "T1", commentId: "C1" }]],
-      [43, [{ pr: 43, threadId: "T2", commentId: "C2" }]],
-    ]);
-
-    // Firewatch has C1 but not C2, and has extra C3
-    const fwByPr = new Map<number, string[]>([[42, ["C1", "C3"]]]);
-
-    const result = compareThreads("owner/repo", ghByPr, fwByPr);
-
-    expect(result.match).toBe(false);
-    expect(result.ghThreadCount).toBe(2);
-    expect(result.fwThreadCount).toBe(2);
-    expect(result.missingInFw).toHaveLength(1);
-    expect(result.missingInFw[0]?.commentId).toBe("C2");
-    expect(result.extraInFw).toHaveLength(1);
-    expect(result.extraInFw[0]).toBe("C3");
-  });
-
-  test("handles threads without commentId gracefully", () => {
-    const ghByPr = new Map<number, GitHubThreadData[]>([
-      [
-        42,
-        [
-          { pr: 42, threadId: "T1", commentId: "C1" },
-          { pr: 42, threadId: "T2" }, // No commentId
-        ],
-      ],
-    ]);
-
-    const fwByPr = new Map<number, string[]>([[42, ["C1"]]]);
-
-    const result = compareThreads("owner/repo", ghByPr, fwByPr);
-
-    // Thread without commentId should not be counted as missing
-    // (we can only match on commentId)
-    expect(result.match).toBe(false); // Counts don't match (2 vs 1)
-    expect(result.ghThreadCount).toBe(2);
-    expect(result.fwThreadCount).toBe(1);
-    expect(result.missingInFw).toHaveLength(0); // No commentId = can't detect as missing
-  });
-
-  test("handles disjoint PR sets", () => {
-    const ghByPr = new Map<number, GitHubThreadData[]>([
-      [42, [{ pr: 42, threadId: "T1", commentId: "C1" }]],
-    ]);
-
-    const fwByPr = new Map<number, string[]>([[43, ["C2"]]]);
-
-    const result = compareThreads("owner/repo", ghByPr, fwByPr);
-
-    expect(result.match).toBe(false);
-    expect(result.ghThreadCount).toBe(1);
-    expect(result.fwThreadCount).toBe(1);
-    expect(result.missingInFw).toHaveLength(1);
-    expect(result.missingInFw[0]?.commentId).toBe("C1");
-    expect(result.extraInFw).toHaveLength(1);
-    expect(result.extraInFw[0]).toBe("C2");
-  });
-
-  test("preserves repo in result", () => {
-    const result = compareThreads(
-      "outfitter-dev/firewatch",
-      new Map(),
-      new Map()
-    );
-
-    expect(result.repo).toBe("outfitter-dev/firewatch");
+    expect(stats.issue_comments.gh_total).toBe(2);
+    expect(stats.issue_comments.fw_total).toBe(1);
   });
 });
 
-describe("formatParityResult", () => {
-  test("formats matching result", () => {
-    const result = compareThreads(
-      "owner/repo",
-      new Map([[42, [{ pr: 42, threadId: "T1", commentId: "C1" }]]]),
-      new Map([[42, ["C1"]]])
+describe("filterComments", () => {
+  test("returns all comments with no filters", () => {
+    const comments = new Map([
+      ["C1", makeComment("C1", 42, "review_comment", false)],
+      ["IC1", makeComment("IC1", 42, "issue_comment")],
+    ]);
+
+    const filtered = filterComments(comments, {});
+
+    expect(filtered.size).toBe(2);
+  });
+
+  test("filters by type", () => {
+    const comments = new Map([
+      ["C1", makeComment("C1", 42, "review_comment", false)],
+      ["IC1", makeComment("IC1", 42, "issue_comment")],
+    ]);
+
+    const reviewOnly = filterComments(comments, { type: "review_comment" });
+    expect(reviewOnly.size).toBe(1);
+    expect(reviewOnly.has("C1")).toBe(true);
+
+    const issueOnly = filterComments(comments, { type: "issue_comment" });
+    expect(issueOnly.size).toBe(1);
+    expect(issueOnly.has("IC1")).toBe(true);
+  });
+
+  test("filters by resolved state", () => {
+    const comments = new Map([
+      ["C1", makeComment("C1", 42, "review_comment", false)],
+      ["C2", makeComment("C2", 42, "review_comment", true)],
+    ]);
+
+    const resolvedOnly = filterComments(comments, { resolved: true });
+    expect(resolvedOnly.size).toBe(1);
+    expect(resolvedOnly.has("C2")).toBe(true);
+
+    const unresolvedOnly = filterComments(comments, { unresolved: true });
+    expect(unresolvedOnly.size).toBe(1);
+    expect(unresolvedOnly.has("C1")).toBe(true);
+  });
+
+  test("resolution filters do not affect issue comments", () => {
+    const comments = new Map([
+      ["IC1", makeComment("IC1", 42, "issue_comment")],
+    ]);
+
+    const filtered = filterComments(comments, { resolved: true });
+    // Issue comments pass through resolution filters (they don't have resolution state)
+    expect(filtered.size).toBe(1);
+  });
+});
+
+describe("compareParityData", () => {
+  test("returns match for empty data", () => {
+    const result = compareParityData("owner/repo", emptyData(), emptyData());
+
+    expect(result.match).toBe(true);
+    expect(result.discrepancies).toHaveLength(0);
+  });
+
+  test("returns match when data is identical", () => {
+    const data: ParityData = {
+      reviewComments: new Map([
+        ["C1", makeComment("C1", 42, "review_comment", false)],
+      ]),
+      issueComments: new Map([
+        ["IC1", makeComment("IC1", 42, "issue_comment")],
+      ]),
+    };
+
+    const result = compareParityData("owner/repo", data, data);
+
+    expect(result.match).toBe(true);
+    expect(result.discrepancies).toHaveLength(0);
+  });
+
+  test("detects missing in Firewatch", () => {
+    const gh: ParityData = {
+      reviewComments: new Map([
+        ["C1", makeComment("C1", 42, "review_comment", false)],
+      ]),
+      issueComments: new Map(),
+    };
+
+    const result = compareParityData("owner/repo", gh, emptyData());
+
+    expect(result.match).toBe(false);
+    expect(result.discrepancies).toHaveLength(1);
+    expect(result.discrepancies[0]?.kind).toBe("missing_in_fw");
+    expect(result.discrepancies[0]?.id).toBe("C1");
+  });
+
+  test("detects extra in Firewatch", () => {
+    const fw: ParityData = {
+      reviewComments: new Map([
+        ["C1", makeComment("C1", 42, "review_comment", false)],
+      ]),
+      issueComments: new Map(),
+    };
+
+    const result = compareParityData("owner/repo", emptyData(), fw);
+
+    expect(result.match).toBe(false);
+    expect(result.discrepancies).toHaveLength(1);
+    expect(result.discrepancies[0]?.kind).toBe("extra_in_fw");
+    expect(result.discrepancies[0]?.id).toBe("C1");
+  });
+
+  test("detects state mismatch for review comments", () => {
+    const gh: ParityData = {
+      reviewComments: new Map([
+        ["C1", makeComment("C1", 42, "review_comment", true)], // resolved in GH
+      ]),
+      issueComments: new Map(),
+    };
+
+    const fw: ParityData = {
+      reviewComments: new Map([
+        ["C1", makeComment("C1", 42, "review_comment", false)], // unresolved in FW
+      ]),
+      issueComments: new Map(),
+    };
+
+    const result = compareParityData("owner/repo", gh, fw);
+
+    expect(result.match).toBe(false);
+    expect(result.discrepancies).toHaveLength(1);
+    expect(result.discrepancies[0]?.kind).toBe("state_mismatch");
+    expect(result.discrepancies[0]?.ghResolved).toBe(true);
+    expect(result.discrepancies[0]?.fwResolved).toBe(false);
+  });
+
+  test("respects type filter", () => {
+    const gh: ParityData = {
+      reviewComments: new Map([
+        ["C1", makeComment("C1", 42, "review_comment", false)],
+      ]),
+      issueComments: new Map([
+        ["IC1", makeComment("IC1", 42, "issue_comment")],
+      ]),
+    };
+
+    // Only review comments in FW
+    const fw: ParityData = {
+      reviewComments: new Map([
+        ["C1", makeComment("C1", 42, "review_comment", false)],
+      ]),
+      issueComments: new Map(),
+    };
+
+    // With type filter for review_comment, should match
+    const filtered = compareParityData("owner/repo", gh, fw, {
+      type: "review_comment",
+    });
+    expect(filtered.match).toBe(true);
+
+    // Without filter, should detect missing issue comment
+    const unfiltered = compareParityData("owner/repo", gh, fw);
+    expect(unfiltered.match).toBe(false);
+    expect(unfiltered.discrepancies).toHaveLength(1);
+    expect(unfiltered.discrepancies[0]?.type).toBe("issue_comment");
+  });
+
+  test("respects unresolved filter", () => {
+    const gh: ParityData = {
+      reviewComments: new Map([
+        ["C1", makeComment("C1", 42, "review_comment", false)], // unresolved
+        ["C2", makeComment("C2", 42, "review_comment", true)], // resolved
+      ]),
+      issueComments: new Map(),
+    };
+
+    // FW only has the unresolved one
+    const fw: ParityData = {
+      reviewComments: new Map([
+        ["C1", makeComment("C1", 42, "review_comment", false)],
+      ]),
+      issueComments: new Map(),
+    };
+
+    // With unresolved filter, should match (only comparing unresolved)
+    const filtered = compareParityData("owner/repo", gh, fw, {
+      unresolved: true,
+    });
+    expect(filtered.match).toBe(true);
+
+    // Without filter, should detect missing resolved comment
+    const unfiltered = compareParityData("owner/repo", gh, fw);
+    expect(unfiltered.match).toBe(false);
+  });
+
+  test("sorts discrepancies by PR number", () => {
+    const gh: ParityData = {
+      reviewComments: new Map([
+        ["C1", makeComment("C1", 50, "review_comment", false)],
+        ["C2", makeComment("C2", 42, "review_comment", false)],
+        ["C3", makeComment("C3", 45, "review_comment", false)],
+      ]),
+      issueComments: new Map(),
+    };
+
+    const result = compareParityData("owner/repo", gh, emptyData());
+
+    expect(result.discrepancies).toHaveLength(3);
+    expect(result.discrepancies[0]?.pr).toBe(42);
+    expect(result.discrepancies[1]?.pr).toBe(45);
+    expect(result.discrepancies[2]?.pr).toBe(50);
+  });
+
+  test("preserves repo and filters in result", () => {
+    const filters: ParityFilterOptions = { type: "review_comment", unresolved: true };
+    const result = compareParityData(
+      "outfitter-dev/firewatch",
+      emptyData(),
+      emptyData(),
+      filters
     );
 
+    expect(result.repo).toBe("outfitter-dev/firewatch");
+    expect(result.filters).toEqual(filters);
+  });
+});
+
+describe("formatParityResult (new)", () => {
+  test("formats matching result with statistics", () => {
+    const gh: ParityData = {
+      reviewComments: new Map([
+        ["C1", makeComment("C1", 42, "review_comment", false)],
+      ]),
+      issueComments: new Map([
+        ["IC1", makeComment("IC1", 42, "issue_comment")],
+      ]),
+    };
+
+    const result = compareParityData("owner/repo", gh, gh);
     const output = formatParityResult(result);
 
     expect(output).toContain("owner/repo");
-    expect(output).toContain("GitHub unresolved threads:    1");
-    expect(output).toContain("Firewatch unresolved threads: 1");
     expect(output).toContain("✓ MATCH");
-    expect(output).not.toContain("Details");
+    expect(output).toContain("Review Comments:");
+    expect(output).toContain("Issue Comments:");
+    expect(output).toContain("GitHub:    1 total");
   });
 
-  test("formats mismatching result with details", () => {
-    const result = compareThreads(
-      "owner/repo",
-      new Map([
-        [42, [{ pr: 42, threadId: "T1", commentId: "C1" }]],
-        [43, [{ pr: 43, threadId: "T2", commentId: "C2" }]],
+  test("formats mismatching result with discrepancies", () => {
+    const gh: ParityData = {
+      reviewComments: new Map([
+        ["C1", makeComment("C1", 42, "review_comment", false)],
+        ["C2", makeComment("C2", 42, "review_comment", true)],
       ]),
-      new Map([[42, ["C1", "C3"]]])
-    );
+      issueComments: new Map(),
+    };
 
+    const fw: ParityData = {
+      reviewComments: new Map([
+        ["C1", makeComment("C1", 42, "review_comment", true)], // state mismatch
+        ["C3", makeComment("C3", 42, "review_comment", false)], // extra
+      ]),
+      issueComments: new Map(),
+    };
+
+    const result = compareParityData("owner/repo", gh, fw);
     const output = formatParityResult(result);
 
     expect(output).toContain("✗ MISMATCH");
-    expect(output).toContain("Details");
-    expect(output).toContain("GitHub threads by PR:");
-    expect(output).toContain("PR #42: 1 unresolved");
-    expect(output).toContain("PR #43: 1 unresolved");
-    expect(output).toContain("Firewatch threads by PR:");
-    expect(output).toContain("PR #42: 2 unresolved");
-    expect(output).toContain("Missing in Firewatch");
+    expect(output).toContain("Missing in Firewatch:");
+    expect(output).toContain("Extra in Firewatch:");
+    expect(output).toContain("State Mismatch:");
     expect(output).toContain("C2");
-    expect(output).toContain("Extra in Firewatch");
     expect(output).toContain("C3");
+    expect(output).toContain("gh: unresolved, fw: resolved");
   });
 
-  test("formats result with only missing entries", () => {
-    const result = compareThreads(
-      "owner/repo",
-      new Map([[42, [{ pr: 42, threadId: "T1", commentId: "C1" }]]]),
-      new Map()
-    );
-
+  test("formats active filters", () => {
+    const result = compareParityData("owner/repo", emptyData(), emptyData(), {
+      type: "review_comment",
+      unresolved: true,
+    });
     const output = formatParityResult(result);
 
-    expect(output).toContain("Missing in Firewatch");
-    expect(output).not.toContain("Extra in Firewatch");
+    expect(output).toContain("type=review_comment");
+    expect(output).toContain("unresolved");
   });
 
-  test("formats result with only extra entries", () => {
-    const result = compareThreads(
-      "owner/repo",
-      new Map(),
-      new Map([[42, ["C1"]]])
-    );
-
+  test("formats no filters as 'none'", () => {
+    const result = compareParityData("owner/repo", emptyData(), emptyData());
     const output = formatParityResult(result);
 
-    expect(output).not.toContain("Missing in Firewatch");
-    expect(output).toContain("Extra in Firewatch");
+    expect(output).toContain("Filters: none");
   });
 });

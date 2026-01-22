@@ -26,7 +26,8 @@
     "format": "oxfmt",
     "format:check": "oxfmt --check",
     "check": "oxlint && bun run --filter '*' check",
-    "test": "bun test"
+    "test": "bun test",
+    "verify-parity": "bun scripts/verify-gh-parity.ts"
   },
   "devDependencies": {
     "@types/bun": "^1.3.6",
