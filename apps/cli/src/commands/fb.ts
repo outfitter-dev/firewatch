@@ -478,6 +478,9 @@ async function handleAckComment(
     pr: entry.pr,
     comment_id: commentId,
     acked_at: new Date().toISOString(),
+    ...(ctx.config.user?.github_username && {
+      acked_by: ctx.config.user.github_username,
+    }),
     reaction_added: reactionAdded,
   };
   await addAck(ackRecord);
@@ -558,11 +561,8 @@ async function handleBulkAck(ctx: FbContext, pr: number): Promise<void> {
 
   const ackRecords = buildAckRecords(items, {
     repo: ctx.repo,
-    pr,
-    comment_id: r.commentId,
-    acked_at: new Date().toISOString(),
-    reaction_added: r.reactionAdded,
-  }));
+    username: ctx.config.user?.github_username,
+  });
   await addAcks(ackRecords);
 
   const reactionsAdded = reactionResults.filter((r) => r.reactionAdded).length;

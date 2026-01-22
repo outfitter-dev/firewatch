@@ -7,6 +7,7 @@ Firewatch provides a CLI tool (`fw`) for querying GitHub PR activity. The root c
 | Command                    | Description                                 |
 | -------------------------- | ------------------------------------------- |
 | [`fw`](./fw.md)            | Query cached activity (auto-syncs)          |
+| [`fw ack`](./ack.md)       | Acknowledge feedback comments               |
 | [`fw add`](./add.md)       | Add comments, reviews, or metadata          |
 | [`fw close`](./close.md)   | Resolve review comment threads              |
 | [`fw edit`](./edit.md)     | Update PR fields (title/body/base/etc.)     |

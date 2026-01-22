@@ -20,6 +20,8 @@ export interface AckRecord {
   comment_id: string;
   /** Timestamp when acked */
   acked_at: string;
+  /** Who acknowledged the feedback */
+  acked_by?: string;
   /** Whether a GitHub reaction was also added */
   reaction_added: boolean;
 }
@@ -91,6 +93,42 @@ export async function addAcks(records: AckRecord[]): Promise<void> {
   } else {
     await Bun.write(ACK_FILE, lines);
   }
+}
+
+/**
+ * Remove acknowledgements for a comment ID.
+ *
+ * @param commentId - Comment ID to remove
+ * @param repo - Optional repository filter
+ * @returns Number of records removed
+ */
+export async function removeAck(
+  commentId: string,
+  repo?: string
+): Promise<number> {
+  const file = Bun.file(ACK_FILE);
+  if (!(await file.exists())) {
+    return 0;
+  }
+
+  const acks = await readAcks();
+  const remaining = acks.filter(
+    (ack) => !(ack.comment_id === commentId && (!repo || ack.repo === repo))
+  );
+
+  const removed = acks.length - remaining.length;
+  if (removed === 0) {
+    return 0;
+  }
+
+  if (remaining.length === 0) {
+    await Bun.write(ACK_FILE, "");
+    return removed;
+  }
+
+  const lines = `${remaining.map((ack) => JSON.stringify(ack)).join("\n")}\n`;
+  await Bun.write(ACK_FILE, lines);
+  return removed;
 }
 
 /**

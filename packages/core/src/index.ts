@@ -129,6 +129,7 @@ export {
   getAckFilePath,
   isAcked,
   readAcks,
+  removeAck,
   type AckRecord,
 } from "./ack";
 
