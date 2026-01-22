@@ -25,6 +25,7 @@ import {
   type UnaddressedFeedback,
 } from "../actionable";
 import { parseRepoInput, resolveRepoOrThrow } from "../repo";
+import { emitAliasHint } from "../utils/alias-hint";
 import { outputStructured } from "../utils/json";
 import { resolveStates } from "../utils/states";
 import { shouldOutputJson } from "../utils/tty";
@@ -35,6 +36,7 @@ interface FbCommandOptions {
   all?: boolean;
   ack?: boolean;
   resolve?: boolean;
+  close?: boolean;
   body?: string;
   jsonl?: boolean;
   json?: boolean;
@@ -865,6 +867,7 @@ export const fbCommand = new Command("fb")
   .option("--all", "Show all feedback including resolved")
   .option("-a, --ack", "Acknowledge feedback (👍 + local record)")
   .option("-r, --resolve", "Resolve the thread after replying")
+  .addOption(new Option("--close").hideHelp())
   .option("-b, --body <text>", "Comment body for new comment or reply")
   .option("--jsonl", "Force structured output")
   .option("--no-jsonl", "Force human-readable output")
@@ -877,6 +880,12 @@ export const fbCommand = new Command("fb")
   .option("--state <states>", "Explicit state filter (comma-separated)")
   .action(async (id: string | undefined, options: FbCommandOptions) => {
     try {
+      // Handle --close alias for --resolve
+      if (options.close) {
+        emitAliasHint("--close", "--resolve");
+        options.resolve = true;
+      }
+
       const ctx = await createContext(options);
       const body = options.body;
 
