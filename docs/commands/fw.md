@@ -33,13 +33,14 @@ fw [options]
 
 ### State
 
-| Option             | Description                         |
-| ------------------ | ----------------------------------- |
-| `--open`           | Include open PRs                    |
-| `--closed`         | Include merged and closed PRs       |
-| `--draft`          | Include draft PRs                   |
-| `--active`         | Alias for `--open --draft`          |
-| `--state <states>` | Explicit comma-separated state list |
+| Option             | Description                                     |
+| ------------------ | ----------------------------------------------- |
+| `--open`           | Include open PRs                                |
+| `--closed`         | Include merged and closed PRs                   |
+| `--draft`          | Include draft PRs                               |
+| `--active`         | Alias for `--open --draft`                      |
+| `--orphaned`       | Unresolved review comments on merged/closed PRs |
+| `--state <states>` | Explicit comma-separated state list             |
 
 ### Filters
 
