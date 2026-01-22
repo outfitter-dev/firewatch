@@ -10,6 +10,7 @@ import type { QueryFilters } from "./query";
 import type {
   EntryType,
   FileActivityAfter,
+  CommentReactions,
   FileProvenance,
   FirewatchEntry,
   GraphiteMetadata,
@@ -61,6 +62,7 @@ interface EntryRow {
   graphite_json: string | null;
   file_activity_json: string | null;
   file_provenance_json: string | null;
+  reactions_json: string | null;
 }
 
 /**
@@ -99,6 +101,7 @@ interface EntryWithPRRow extends EntryRow {
   pr_author: string | null;
   pr_branch: string | null;
   pr_labels: string | null;
+  reactions_json: string | null;
 }
 
 /**
@@ -183,6 +186,7 @@ function entryToRow(entry: FirewatchEntry): EntryRow {
     file_provenance_json: entry.file_provenance
       ? JSON.stringify(entry.file_provenance)
       : null,
+    reactions_json: entry.reactions ? JSON.stringify(entry.reactions) : null,
   };
 }
 
@@ -253,6 +257,13 @@ function applyJsonFields(entry: FirewatchEntry, row: EntryWithPRRow): void {
       entry.file_provenance = JSON.parse(
         row.file_provenance_json
       ) as FileProvenance;
+    } catch {
+      // Ignore parse errors
+    }
+  }
+  if (row.reactions_json) {
+    try {
+      entry.reactions = JSON.parse(row.reactions_json) as CommentReactions;
     } catch {
       // Ignore parse errors
     }
@@ -348,10 +359,11 @@ function prMetadataToParams(pr: PRMetadata): Record<string, unknown> {
 const INSERT_ENTRY_SQL = `
   INSERT OR REPLACE INTO entries
   (id, repo, pr, type, subtype, author, body, state, created_at, updated_at,
-   captured_at, url, file, line, thread_resolved, graphite_json, file_activity_json, file_provenance_json)
+   captured_at, url, file, line, thread_resolved, graphite_json, file_activity_json, file_provenance_json,
+   reactions_json)
   VALUES ($id, $repo, $pr, $type, $subtype, $author, $body, $state, $created_at,
           $updated_at, $captured_at, $url, $file, $line, $thread_resolved, $graphite_json,
-          $file_activity_json, $file_provenance_json)
+          $file_activity_json, $file_provenance_json, $reactions_json)
 `;
 
 /**
@@ -381,6 +393,7 @@ export function insertEntry(db: Database, entry: FirewatchEntry): void {
     $graphite_json: row.graphite_json,
     $file_activity_json: row.file_activity_json,
     $file_provenance_json: row.file_provenance_json,
+    $reactions_json: row.reactions_json,
   });
 }
 
@@ -417,6 +430,7 @@ export function insertEntries(db: Database, entries: FirewatchEntry[]): void {
         $graphite_json: row.graphite_json,
         $file_activity_json: row.file_activity_json,
         $file_provenance_json: row.file_provenance_json,
+        $reactions_json: row.reactions_json,
       });
     }
   });
@@ -565,6 +579,7 @@ export function queryEntries(
       e.id, e.repo, e.pr, e.type, e.subtype, e.author, e.body, e.state,
       e.created_at, e.updated_at, e.captured_at, e.url, e.file, e.line,
       e.thread_resolved, e.graphite_json, e.file_activity_json, e.file_provenance_json,
+      e.reactions_json,
       p.state AS pr_state, p.is_draft AS pr_is_draft,
       p.title AS pr_title, p.author AS pr_author,
       p.branch AS pr_branch, p.labels AS pr_labels
@@ -649,6 +664,7 @@ export function getEntry(
       e.id, e.repo, e.pr, e.type, e.subtype, e.author, e.body, e.state,
       e.created_at, e.updated_at, e.captured_at, e.url, e.file, e.line,
       e.thread_resolved, e.graphite_json, e.file_activity_json, e.file_provenance_json,
+      e.reactions_json,
       p.state AS pr_state, p.is_draft AS pr_is_draft,
       p.title AS pr_title, p.author AS pr_author,
       p.branch AS pr_branch, p.labels AS pr_labels

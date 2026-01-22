@@ -13,16 +13,24 @@ export {
 } from "./config";
 
 export {
+  CommentReactionsSchema,
   ENTRY_TYPES,
   EntryTypeSchema,
   FirewatchEntrySchema,
   GraphiteMetadataSchema,
   PrStateSchema,
   SyncMetadataSchema,
+  isCommentEntry,
+  isIssueComment,
+  isReviewComment,
   type EntryType,
   type FirewatchEntry,
   type GraphiteMetadata,
   type PrState,
+  type CommentEntry,
+  type CommentReactions,
+  type IssueCommentEntry,
+  type ReviewCommentEntry,
   type SyncMetadata,
 } from "./entry";
 

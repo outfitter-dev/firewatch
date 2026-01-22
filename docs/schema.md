@@ -71,11 +71,12 @@ The primary data structure for individual activity records.
 
 ### Metadata
 
-| Field  | Type   | Required | Description                     |
-| ------ | ------ | -------- | ------------------------------- |
-| `url`  | string | No       | GitHub URL for this activity    |
-| `file` | string | No       | File path for review comments   |
-| `line` | number | No       | Line number for review comments |
+| Field       | Type   | Required | Description                     |
+| ----------- | ------ | -------- | ------------------------------- |
+| `url`       | string | No       | GitHub URL for this activity    |
+| `file`      | string | No       | File path for review comments   |
+| `line`      | number | No       | Line number for review comments |
+| `reactions` | object | No       | Comment reactions (see below)   |
 
 ### Staleness Hints
 
@@ -102,6 +103,20 @@ Populated when staleness hints are available on comment entries:
 | `commits_touching_file` | number  | Commits touching the file (or PR-wide if unavailable) |
 | `latest_commit`         | string  | SHA of most recent relevant commit                    |
 | `latest_commit_at`      | string  | Timestamp of latest commit                            |
+
+### Comment Reactions
+
+Reactions are available on comment entries when present.
+
+```json
+{
+  "thumbs_up_by": ["alice", "bob"]
+}
+```
+
+| Field          | Type     | Description              |
+| -------------- | -------- | ------------------------ |
+| `thumbs_up_by` | string[] | Users who 👍 the comment |
 
 ### File Provenance (Graphite)
 
@@ -236,6 +251,9 @@ Aggregated per-PR summary, output by `fw --summary`.
   "url": "https://github.com/outfitter-dev/firewatch/pull/42#discussion_r123",
   "file": "src/query.ts",
   "line": 42,
+  "reactions": {
+    "thumbs_up_by": ["alice"]
+  },
   "file_activity_after": {
     "modified": true,
     "commits_touching_file": 1,

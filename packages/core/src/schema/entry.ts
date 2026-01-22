@@ -30,6 +30,12 @@ export const FileProvenanceSchema = z.object({
 
 export type FileProvenance = z.infer<typeof FileProvenanceSchema>;
 
+export const CommentReactionsSchema = z.object({
+  thumbs_up_by: z.array(z.string()),
+});
+
+export type CommentReactions = z.infer<typeof CommentReactionsSchema>;
+
 /**
  * PR state enum.
  */
@@ -92,6 +98,7 @@ export const FirewatchEntrySchema = z.object({
   line: z.number().int().positive().optional(),
   file_activity_after: FileActivityAfterSchema.optional(),
   file_provenance: FileProvenanceSchema.optional(),
+  reactions: CommentReactionsSchema.optional(),
 
   // Thread resolution (for review_comment entries)
   // true = resolved, false = unresolved, undefined = unknown/not applicable
@@ -102,6 +109,45 @@ export const FirewatchEntrySchema = z.object({
 });
 
 export type FirewatchEntry = z.infer<typeof FirewatchEntrySchema>;
+
+export type ReviewCommentEntry = Omit<
+  FirewatchEntry,
+  "type" | "subtype" | "file" | "line"
+> & {
+  type: "comment";
+  subtype: "review_comment";
+  file: string;
+  line?: number;
+  thread_resolved?: boolean;
+  reactions?: CommentReactions;
+};
+
+export type IssueCommentEntry = Omit<
+  FirewatchEntry,
+  "type" | "subtype" | "file" | "line" | "thread_resolved"
+> & {
+  type: "comment";
+  subtype: "issue_comment";
+  reactions?: CommentReactions;
+};
+
+export type CommentEntry = ReviewCommentEntry | IssueCommentEntry;
+
+export function isReviewComment(
+  entry: FirewatchEntry
+): entry is ReviewCommentEntry {
+  return entry.type === "comment" && entry.subtype === "review_comment";
+}
+
+export function isIssueComment(
+  entry: FirewatchEntry
+): entry is IssueCommentEntry {
+  return entry.type === "comment" && entry.subtype === "issue_comment";
+}
+
+export function isCommentEntry(entry: FirewatchEntry): entry is CommentEntry {
+  return isReviewComment(entry) || isIssueComment(entry);
+}
 
 /**
  * Sync metadata for tracking incremental sync state per repository.

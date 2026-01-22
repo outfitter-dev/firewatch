@@ -275,6 +275,9 @@ describe("Entry Operations", () => {
         origin_commit: "def456",
         stack_position: 1,
       },
+      reactions: {
+        thumbs_up_by: ["alice", "bob"],
+      },
     });
 
     insertEntry(db, entry);
@@ -283,6 +286,7 @@ describe("Entry Operations", () => {
     expect(retrieved?.graphite).toEqual(entry.graphite);
     expect(retrieved?.file_activity_after).toEqual(entry.file_activity_after);
     expect(retrieved?.file_provenance).toEqual(entry.file_provenance);
+    expect(retrieved?.reactions).toEqual(entry.reactions);
 
     closeDatabase(db);
   });
@@ -293,6 +297,7 @@ describe("Entry Operations", () => {
       graphite: undefined,
       file_activity_after: undefined,
       file_provenance: undefined,
+      reactions: undefined,
     });
 
     insertEntry(db, entry);
@@ -301,6 +306,7 @@ describe("Entry Operations", () => {
     expect(retrieved?.graphite).toBeUndefined();
     expect(retrieved?.file_activity_after).toBeUndefined();
     expect(retrieved?.file_provenance).toBeUndefined();
+    expect(retrieved?.reactions).toBeUndefined();
 
     closeDatabase(db);
   });

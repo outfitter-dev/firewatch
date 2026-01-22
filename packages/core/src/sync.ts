@@ -8,7 +8,11 @@ import {
   upsertPR,
   type PRMetadata,
 } from "./repository";
-import type { FirewatchEntry, SyncMetadata } from "./schema/entry";
+import type {
+  CommentReactions,
+  FirewatchEntry,
+  SyncMetadata,
+} from "./schema/entry";
 
 /**
  * Map GitHub PR state to Firewatch state (for entries).
@@ -79,6 +83,24 @@ function buildPrContext(repo: string, pr: PRNode): PrContext {
     pr_branch: pr.headRefName,
     ...(labels.length > 0 && { pr_labels: labels }),
   };
+}
+
+function applyCommentReactions(
+  entries: FirewatchEntry[],
+  reactionsById: Map<string, CommentReactions>
+): FirewatchEntry[] {
+  if (reactionsById.size === 0) {
+    return entries;
+  }
+
+  return entries.map((entry) => {
+    if (entry.type !== "comment") {
+      return entry;
+    }
+
+    const reactions = reactionsById.get(entry.id);
+    return reactions ? { ...entry, reactions } : entry;
+  });
 }
 
 function reviewEntries(
