@@ -384,3 +384,155 @@ describe("State Mapping", () => {
     closeDatabase(db);
   });
 });
+
+// =============================================================================
+// Thread Resolution Tests (gh/fw parity)
+// =============================================================================
+
+describe("Thread Resolution State", () => {
+  test("thread_resolved=false is stored and queryable", () => {
+    const db = openDatabase();
+
+    upsertPR(db, createPRMetadata({ number: 10, state: "open" }));
+    insertEntries(db, [
+      createEntry({
+        id: "review-comment-unresolved",
+        pr: 10,
+        subtype: "review_comment",
+        thread_resolved: false,
+      }),
+    ]);
+
+    const entries = queryEntries(db, { pr: 10 });
+    expect(entries).toHaveLength(1);
+    expect(entries[0]?.thread_resolved).toBe(false);
+
+    closeDatabase(db);
+  });
+
+  test("thread_resolved=true is stored and queryable", () => {
+    const db = openDatabase();
+
+    upsertPR(db, createPRMetadata({ number: 11, state: "open" }));
+    insertEntries(db, [
+      createEntry({
+        id: "review-comment-resolved",
+        pr: 11,
+        subtype: "review_comment",
+        thread_resolved: true,
+      }),
+    ]);
+
+    const entries = queryEntries(db, { pr: 11 });
+    expect(entries).toHaveLength(1);
+    expect(entries[0]?.thread_resolved).toBe(true);
+
+    closeDatabase(db);
+  });
+
+  test("thread_resolved=undefined (non-review comments) is stored as null", () => {
+    const db = openDatabase();
+
+    upsertPR(db, createPRMetadata({ number: 12, state: "open" }));
+    insertEntries(db, [
+      createEntry({
+        id: "issue-comment",
+        pr: 12,
+        subtype: "issue_comment",
+        // thread_resolved intentionally omitted (undefined)
+      }),
+    ]);
+
+    const entries = queryEntries(db, { pr: 12 });
+    expect(entries).toHaveLength(1);
+    expect(entries[0]?.thread_resolved).toBeUndefined();
+
+    closeDatabase(db);
+  });
+
+  test("can count unresolved threads on open PRs", () => {
+    const db = openDatabase();
+
+    upsertPR(db, createPRMetadata({ number: 20, state: "open" }));
+    upsertPR(db, createPRMetadata({ number: 21, state: "open" }));
+
+    insertEntries(db, [
+      // PR 20: 2 unresolved, 1 resolved
+      createEntry({
+        id: "pr20-unresolved-1",
+        pr: 20,
+        subtype: "review_comment",
+        thread_resolved: false,
+      }),
+      createEntry({
+        id: "pr20-unresolved-2",
+        pr: 20,
+        subtype: "review_comment",
+        thread_resolved: false,
+      }),
+      createEntry({
+        id: "pr20-resolved",
+        pr: 20,
+        subtype: "review_comment",
+        thread_resolved: true,
+      }),
+      // PR 21: 1 unresolved
+      createEntry({
+        id: "pr21-unresolved",
+        pr: 21,
+        subtype: "review_comment",
+        thread_resolved: false,
+      }),
+    ]);
+
+    // Query all review comments with unresolved threads on open PRs
+    const entries = queryEntries(db, {
+      subtype: "review_comment",
+      states: ["open"],
+    });
+
+    const unresolved = entries.filter((e) => e.thread_resolved === false);
+    expect(unresolved).toHaveLength(3);
+
+    // Group by PR to verify counts
+    const byPr = Map.groupBy(unresolved, (e) => e.pr);
+    expect(byPr.get(20)?.length).toBe(2);
+    expect(byPr.get(21)?.length).toBe(1);
+
+    closeDatabase(db);
+  });
+
+  test("thread_resolved state updates on re-sync", () => {
+    const db = openDatabase();
+
+    upsertPR(db, createPRMetadata({ number: 30, state: "open" }));
+
+    // Initial sync: thread is unresolved
+    insertEntries(db, [
+      createEntry({
+        id: "pr30-thread",
+        pr: 30,
+        subtype: "review_comment",
+        thread_resolved: false,
+      }),
+    ]);
+
+    let entries = queryEntries(db, { pr: 30 });
+    expect(entries[0]?.thread_resolved).toBe(false);
+
+    // Re-sync: thread is now resolved (INSERT OR REPLACE)
+    insertEntries(db, [
+      createEntry({
+        id: "pr30-thread",
+        pr: 30,
+        subtype: "review_comment",
+        thread_resolved: true,
+      }),
+    ]);
+
+    entries = queryEntries(db, { pr: 30 });
+    expect(entries[0]?.thread_resolved).toBe(true);
+
+    closeDatabase(db);
+  });
+});

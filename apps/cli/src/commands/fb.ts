@@ -33,15 +33,17 @@ interface FbCommandOptions {
   ack?: boolean;
   resolve?: boolean;
   jsonl?: boolean;
+  offline?: boolean;
 }
 
 interface FbContext {
-  client: GitHubClient;
+  client: GitHubClient | null;
   config: FirewatchConfig;
   repo: string;
   owner: string;
   name: string;
   outputJson: boolean;
+  offline: boolean;
 }
 
 /**
@@ -594,19 +596,25 @@ async function createContext(options: FbCommandOptions): Promise<FbContext> {
   const config = await loadConfig();
   const repo = await resolveRepoOrThrow(options.repo);
   const { owner, name } = parseRepoInput(repo);
+  const offline = options.offline ?? false;
 
-  const auth = await detectAuth(config.github_token);
-  if (!auth.token) {
-    throw new Error(auth.error);
+  let client: GitHubClient | null = null;
+  if (!offline) {
+    const auth = await detectAuth(config.github_token);
+    if (!auth.token) {
+      throw new Error(auth.error);
+    }
+    client = new GitHubClient(auth.token);
   }
 
   return {
-    client: new GitHubClient(auth.token),
+    client,
     config,
     repo,
     owner,
     name,
     outputJson: shouldOutputJson(options, config.output?.default_format),
+    offline,
   };
 }
 
@@ -667,6 +675,7 @@ export const fbCommand = new Command("fb")
   .option("--resolve", "Resolve the thread after replying")
   .option("--jsonl", "Force structured output")
   .option("--no-jsonl", "Force human-readable output")
+  .option("--offline", "Use cached data only (no GitHub API calls)")
   .action(
     async (
       id: string | undefined,

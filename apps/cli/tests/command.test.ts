@@ -137,6 +137,20 @@ afterAll(async () => {
   await rm(tempRoot, { recursive: true, force: true });
 });
 
+// Compute XDG base dirs (parent of app-specific /firewatch suffix)
+const xdgCacheHome =
+  process.platform === "darwin"
+    ? join(tempRoot, "Library", "Caches")
+    : join(tempRoot, ".cache");
+const xdgConfigHome =
+  process.platform === "darwin"
+    ? join(tempRoot, "Library", "Preferences")
+    : join(tempRoot, ".config");
+const xdgDataHome =
+  process.platform === "darwin"
+    ? join(tempRoot, "Library", "Application Support")
+    : join(tempRoot, ".local", "share");
+
 async function runCli(
   args: string[]
 ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
@@ -146,6 +160,10 @@ async function runCli(
     env: {
       ...process.env,
       HOME: tempRoot,
+      // Override XDG variables to ensure isolation from user's environment
+      XDG_CACHE_HOME: xdgCacheHome,
+      XDG_CONFIG_HOME: xdgConfigHome,
+      XDG_DATA_HOME: xdgDataHome,
     },
     stdout: "pipe",
     stderr: "pipe",
