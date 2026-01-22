@@ -219,3 +219,21 @@ test("root command summary outputs worklist entries", async () => {
   const prs = worklist.map((entry) => entry.pr).toSorted();
   expect(prs).toEqual([42, 43]);
 });
+
+test("--json alias works like --jsonl", async () => {
+  const { stdout, stderr, exitCode } = await runCli([
+    "--repo",
+    repo,
+    "--type",
+    "review",
+    "--json",
+    "--offline",
+  ]);
+
+  expect(exitCode).toBe(0);
+  expect(stderr.trim()).toBe("");
+  const lines = parseLines(stdout);
+  expect(lines).toHaveLength(1);
+  const entry = JSON.parse(lines[0]!);
+  expect(entry.id).toBe("review-1");
+});

@@ -15,7 +15,7 @@ import {
   type RepoDetectResult,
 } from "@outfitter/firewatch-core";
 import { getGraphiteStacks } from "@outfitter/firewatch-core/plugins";
-import { Command } from "commander";
+import { Command, Option } from "commander";
 import { existsSync, statSync } from "node:fs";
 
 import { version } from "../../package.json";
@@ -25,6 +25,7 @@ import { formatRelativeTime, shouldOutputJson } from "../utils/tty";
 interface StatusCommandOptions {
   short?: boolean;
   jsonl?: boolean;
+  json?: boolean;
 }
 
 interface CacheSummary {
@@ -157,6 +158,7 @@ export const statusCommand = new Command("status")
   .option("--short", "Compact single-line output")
   .option("--jsonl", "Force structured output")
   .option("--no-jsonl", "Force human-readable output")
+  .addOption(new Option("--json").hideHelp())
   .action(async (options: StatusCommandOptions) => {
     try {
       await ensureDirectories();

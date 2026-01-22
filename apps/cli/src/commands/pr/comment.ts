@@ -3,7 +3,7 @@ import {
   detectAuth,
   loadConfig,
 } from "@outfitter/firewatch-core";
-import { Command } from "commander";
+import { Command, Option } from "commander";
 
 import { parseRepoInput, parsePrNumber, resolveRepoOrThrow } from "../../repo";
 import { outputStructured } from "../../utils/json";
@@ -12,6 +12,7 @@ import { shouldOutputJson } from "../../utils/tty";
 interface CommentCommandOptions {
   repo?: string;
   jsonl?: boolean;
+  json?: boolean;
 }
 
 export const commentCommand = new Command("comment")
@@ -21,6 +22,7 @@ export const commentCommand = new Command("comment")
   .option("--repo <name>", "Repository (owner/repo format)")
   .option("--jsonl", "Force structured output")
   .option("--no-jsonl", "Force human-readable output")
+  .addOption(new Option("--json").hideHelp())
   .action(async (pr: number, body: string, options: CommentCommandOptions) => {
     try {
       if (!body.trim()) {
