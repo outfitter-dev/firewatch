@@ -30,7 +30,7 @@
     "verify-parity": "bun scripts/verify-gh-parity.ts",
     "changeset": "changeset",
     "version-packages": "changeset version",
-    "release": "changeset publish"
+    "release": "bun run build && changeset publish"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.1",

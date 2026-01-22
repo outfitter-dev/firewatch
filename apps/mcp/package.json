@@ -6,6 +6,14 @@
     "fw-mcp": "./bin/fw-mcp.ts"
   },
   "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "bin",
+    "src",
+    "dist"
+  ],
   "exports": {
     ".": "./src/index.ts"
   },

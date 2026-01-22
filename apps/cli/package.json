@@ -6,6 +6,14 @@
     "fw": "./bin/fw.ts"
   },
   "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "bin",
+    "src",
+    "dist"
+  ],
   "scripts": {
     "dev": "bun --watch bin/fw.ts",
     "build": "bun build ./bin/fw.ts --compile --outfile dist/fw && bun scripts/copy-plugin.ts",
