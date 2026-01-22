@@ -13,6 +13,7 @@ import {
   loadConfig,
   parseSince,
   queryEntries,
+  resolveBatchIds,
   resolveShortId,
   type AckRecord,
   type FirewatchConfig,
@@ -583,11 +584,8 @@ async function handleBulkAck(
     reactionResults.map((r) => [r.commentId, r.reactionAdded])
   );
 
-  // Query entries to get FirewatchEntry objects for buildAckRecords
-  const prEntries = await queryEntries({
-    filters: { repo: ctx.repo, pr, type: "comment" },
-  });
-  const entryMap = new Map(prEntries.map((e) => [e.id, e]));
+  // Use already-queried entries to build entry map (avoid redundant query)
+  const entryMap = new Map(entries.map((e) => [e.id, e]));
 
   // Build ack records using batch utility
   const items = prFeedbacks
@@ -840,20 +838,15 @@ async function findCommentByShortId(
   shortId: string,
   repo: string
 ): Promise<{ commentId: string; shortId: string } | null> {
-  // Query all comments and build cache
-  const entries = await queryEntries({
-    filters: {
-      repo,
-      type: "comment",
-    },
-  });
+  // Use batch ID resolution (queries once, builds cache, resolves)
+  const [resolution] = await resolveBatchIds([shortId], repo);
 
-  buildShortIdCache(entries);
+  if (!resolution || resolution.type === "error") {
+    return null;
+  }
 
-  // Try to resolve again
-  const mapping = resolveShortId(shortId);
-  if (mapping) {
-    return { commentId: mapping.fullId, shortId };
+  if (resolution.type === "comment" && resolution.entry) {
+    return { commentId: resolution.entry.id, shortId };
   }
 
   return null;
