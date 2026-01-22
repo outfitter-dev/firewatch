@@ -26,7 +26,6 @@ import {
   isReviewComment,
   isShortId,
   loadConfig,
-  mergeExcludeAuthors,
   parseDurationMs,
   parseSince,
   queryEntries,
@@ -54,9 +53,16 @@ import { access } from "node:fs/promises";
 
 import { version as mcpVersion } from "../package.json";
 import {
+  applyClientSideFilters,
+  buildPrFilter,
   buildQueryContext,
   buildQueryOptions,
+  filterByPerspective,
+  resolveBotFilters,
   resolveQueryOutput,
+  resolveSummaryFlags,
+  validateMcpQueryOptions,
+  type McpQueryParams,
 } from "./query";
 import {
   type DoctorParams,
@@ -571,48 +577,6 @@ async function performSync(
   return results;
 }
 
-function resolveSummaryFlags(params: FirewatchParams): {
-  wantsSummary: boolean;
-  wantsSummaryShort: boolean;
-} {
-  const wantsSummaryShort = Boolean(params.summary_short);
-  const wantsSummary = Boolean(params.summary || wantsSummaryShort);
-
-  return { wantsSummary, wantsSummaryShort };
-}
-
-function filterByPrs(
-  entries: FirewatchEntry[],
-  prs: number[]
-): FirewatchEntry[] {
-  if (prs.length === 0) {
-    return entries;
-  }
-  const targets = new Set(prs);
-  return entries.filter((entry) => targets.has(entry.pr));
-}
-
-function filterByTypes(
-  entries: FirewatchEntry[],
-  types: FirewatchEntry["type"][]
-): FirewatchEntry[] {
-  if (types.length === 0) {
-    return entries;
-  }
-  const targets = new Set(types);
-  return entries.filter((entry) => targets.has(entry.type));
-}
-
-function filterByAuthors(
-  entries: FirewatchEntry[],
-  authors: string[]
-): FirewatchEntry[] {
-  if (authors.length === 0) {
-    return entries;
-  }
-  const targets = new Set(authors.map((a) => a.toLowerCase()));
-  return entries.filter((entry) => targets.has(entry.author.toLowerCase()));
-}
 
 function addShortIds(entries: FirewatchEntry[]): FirewatchEntry[] {
   // Build cache first so short IDs can be resolved in follow-up commands
@@ -674,56 +638,71 @@ function getCacheStats(): {
   return { repos, entries, size_bytes, ...(last_sync && { last_sync }) };
 }
 
+async function handleQueryRefresh(
+  params: McpQueryParams,
+  config: FirewatchConfig,
+  detectedRepo: string | null
+): Promise<void> {
+  if (!params.refresh) {
+    return;
+  }
+
+  const repos = resolveSyncRepos(params, config, detectedRepo);
+  if (repos.length === 0) {
+    throw new Error("No repository detected. Provide repo or configure repos.");
+  }
+
+  const syncOptions = {
+    ...(params.refresh === "full" && { full: true }),
+    ...(params.since && { since: params.since }),
+  };
+  await performSync(repos, config, detectedRepo, syncOptions);
+}
+
+function formatQueryOutput(
+  output: unknown[],
+  wantsSummary: boolean,
+  wantsSummaryShort: boolean
+): McpToolResult {
+  if (wantsSummaryShort) {
+    if (!Array.isArray(output)) {
+      throw new TypeError("summary_short requires summary output.");
+    }
+    return textResult(jsonLines(formatStatusShort(output as WorklistEntry[])));
+  }
+
+  if (!wantsSummary && Array.isArray(output)) {
+    return textResult(jsonLines(addShortIds(output as FirewatchEntry[])));
+  }
+
+  return textResult(jsonLines(output));
+}
+
 async function handleQuery(params: FirewatchParams): Promise<McpToolResult> {
+  const mcpParams = params as McpQueryParams;
+
+  // Phase 1: Validate options
+  validateMcpQueryOptions(mcpParams);
+
+  // Phase 2: Load config and detect repo
   const config = await loadConfig();
   const detected = await detectRepo();
   const detectedRepo = params.all ? null : detected.repo;
 
-  if (params.mine && params.reviews) {
-    throw new Error("Cannot use mine and reviews together.");
-  }
-
-  if (params.orphaned && params.open) {
-    throw new Error(
-      "Cannot use orphaned with open (orphaned implies merged/closed PRs)."
-    );
-  }
-
+  // Phase 3: Parse input values
   const states = resolveStates(params);
   const labelFilter = resolveLabelFilter(params.label);
   const typeList = resolveTypeList(params.type);
   const prList = toNumberList(params.pr);
   const { include: includeAuthors, exclude: excludeAuthors } =
     resolveAuthorLists(params.author);
+  const { wantsSummary, wantsSummaryShort } = resolveSummaryFlags(mcpParams);
 
-  const { wantsSummary, wantsSummaryShort } = resolveSummaryFlags(params);
+  // Phase 4: Handle refresh if requested
+  await handleQueryRefresh(mcpParams, config, detected.repo);
 
-  if (params.refresh) {
-    if (params.offline) {
-      throw new Error("Cannot refresh while offline.");
-    }
-
-    const repos = resolveSyncRepos(params, config, detected.repo);
-    if (repos.length === 0) {
-      throw new Error(
-        "No repository detected. Provide repo or configure repos."
-      );
-    }
-
-    const syncOptions = {
-      ...(params.refresh === "full" && { full: true }),
-      ...(params.since && { since: params.since }),
-    };
-    await performSync(repos, config, detected.repo, syncOptions);
-  }
-
-  let prFilter: number | number[] | undefined;
-  if (prList.length > 1) {
-    prFilter = prList;
-  } else if (prList.length === 1) {
-    prFilter = prList[0];
-  }
-
+  // Phase 5: Build query parameters
+  const prFilter = buildPrFilter(prList);
   const queryParams = {
     repo: params.all ? undefined : params.repo,
     ...(prFilter !== undefined && { pr: prFilter }),
@@ -738,6 +717,7 @@ async function handleQuery(params: FirewatchParams): Promise<McpToolResult> {
 
   const context = buildQueryContext(queryParams, detectedRepo);
 
+  // Phase 6: Ensure cache is populated
   const cacheOptions = params.offline ? { offline: true } : {};
   await ensureRepoCacheIfNeeded(
     context.repoFilter,
@@ -746,70 +726,41 @@ async function handleQuery(params: FirewatchParams): Promise<McpToolResult> {
     cacheOptions
   );
 
-  const excludeBots = params.no_bots ?? config.filters?.exclude_bots ?? false;
-  const configExclusions = config.filters?.exclude_authors ?? [];
-  const botPatterns = (config.filters?.bot_patterns ?? [])
-    .map((pattern) => {
-      try {
-        return new RegExp(pattern, "i");
-      } catch {
-        return null;
-      }
-    })
-    .filter((pattern): pattern is RegExp => pattern !== null);
-  const excludeAuthorsMerged =
-    excludeAuthors.length > 0 || configExclusions.length > 0 || excludeBots
-      ? mergeExcludeAuthors(
-          [...configExclusions, ...excludeAuthors],
-          excludeBots
-        )
-      : undefined;
+  // Phase 7: Resolve bot filters
+  const botFilters = resolveBotFilters(mcpParams, config, excludeAuthors);
 
+  // Phase 8: Execute query
   const queryOptions = buildQueryOptions(queryParams, context);
   const entries = await queryEntries({
     ...queryOptions,
     filters: {
       ...queryOptions.filters,
-      ...(excludeAuthorsMerged && { excludeAuthors: excludeAuthorsMerged }),
-      ...(excludeBots && { excludeBots }),
-      ...(botPatterns.length > 0 && { botPatterns }),
+      ...(botFilters.excludeAuthors && {
+        excludeAuthors: botFilters.excludeAuthors,
+      }),
+      ...(botFilters.excludeBots && { excludeBots: true }),
+      ...(botFilters.botPatterns.length > 0 && {
+        botPatterns: botFilters.botPatterns,
+      }),
       ...(params.orphaned && { orphaned: true }),
     },
   });
 
-  let filtered = entries;
-  filtered = filterByPrs(filtered, prList);
-  filtered = filterByTypes(filtered, typeList);
-  filtered = filterByAuthors(filtered, includeAuthors);
+  // Phase 9: Apply client-side filters
+  let filtered = applyClientSideFilters(
+    entries,
+    prList,
+    typeList,
+    includeAuthors
+  );
+  filtered = filterByPerspective(filtered, mcpParams, config.user?.github_username);
 
-  if (params.mine || params.reviews) {
-    const username = config.user?.github_username;
-    if (!username) {
-      throw new Error(
-        "user.github_username must be set for mine/reviews filters."
-      );
-    }
-    filtered = filtered.filter((entry) =>
-      params.mine ? entry.pr_author === username : entry.pr_author !== username
-    );
-  }
-
+  // Phase 10: Resolve and format output
   const output = await resolveQueryOutput(queryParams, filtered, context, {
     enrichGraphite,
   });
 
-  if (wantsSummaryShort) {
-    if (!Array.isArray(output)) {
-      throw new TypeError("summary_short requires summary output.");
-    }
-    return textResult(jsonLines(formatStatusShort(output as WorklistEntry[])));
-  }
-
-  if (!wantsSummary && Array.isArray(output)) {
-    return textResult(jsonLines(addShortIds(output as FirewatchEntry[])));
-  }
-
-  return textResult(jsonLines(output));
+  return formatQueryOutput(output, wantsSummary, wantsSummaryShort);
 }
 
 async function handleStatus(params: FirewatchParams): Promise<McpToolResult> {
