@@ -13,6 +13,7 @@ import { outputStructured } from "../utils/json";
 import { formatRelativeTime, shouldOutputJson } from "../utils/tty";
 
 interface CacheStatusOptions {
+  short?: boolean;
   jsonl?: boolean;
   json?: boolean;
 }
@@ -57,6 +58,7 @@ function getDatabaseSize(): number {
 
 const statusSubcommand = new Command("status")
   .description("Show cache status and statistics")
+  .option("--short", "Compact output format")
   .option("--jsonl", "Force structured output")
   .option("--no-jsonl", "Force human-readable output")
   .addOption(new Option("--json").hideHelp())
@@ -84,6 +86,16 @@ const statusSubcommand = new Command("status")
 
       if (shouldOutputJson(options)) {
         await outputStructured(payload, "jsonl");
+        return;
+      }
+
+      if (options.short) {
+        const lastSyncPart = lastSync
+          ? `, last sync ${formatRelativeTime(lastSync)}`
+          : "";
+        console.log(
+          `cache: ${syncMeta.length} repos, ${totalEntries} entries, ${formatBytes(dbSize)}${lastSyncPart}`
+        );
         return;
       }
 
