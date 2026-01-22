@@ -93,6 +93,9 @@ query PRActivity($owner: String!, $repo: String!, $first: Int!, $after: String, 
               author {
                 name
                 email
+                user {
+                  login
+                }
               }
               committedDate
             }
@@ -254,6 +257,18 @@ mutation MarkPullRequestReadyForReview($pullRequestId: ID!) {
 }
 `;
 
+const CLOSE_PR_MUTATION = `
+mutation ClosePullRequest($pullRequestId: ID!) {
+  closePullRequest(input: { pullRequestId: $pullRequestId }) {
+    pullRequest {
+      id
+      state
+      closed
+    }
+  }
+}
+`;
+
 const ADD_REACTION_MUTATION = `
 mutation AddReaction($subjectId: ID!, $content: ReactionContent!) {
   addReaction(input: { subjectId: $subjectId, content: $content }) {
@@ -389,6 +404,16 @@ interface MarkPullRequestReadyData {
   } | null;
 }
 
+interface ClosePullRequestData {
+  closePullRequest: {
+    pullRequest: {
+      id: string;
+      state: string;
+      closed: boolean;
+    } | null;
+  } | null;
+}
+
 interface AddReactionData {
   addReaction: {
     reaction: {
@@ -484,6 +509,7 @@ export interface PRNode {
         author: {
           name: string;
           email: string;
+          user: { login: string } | null;
         } | null;
         committedDate: string;
       };
@@ -806,6 +832,18 @@ export class GitHubClient {
     const data = GitHubClient.unwrap(response);
     if (!data.markPullRequestReadyForReview?.pullRequest?.id) {
       throw new Error("Failed to mark PR ready");
+    }
+  }
+
+  async closePullRequest(pullRequestId: string): Promise<void> {
+    const response = await this.query<ClosePullRequestData>(
+      CLOSE_PR_MUTATION,
+      { pullRequestId }
+    );
+
+    const data = GitHubClient.unwrap(response);
+    if (!data.closePullRequest?.pullRequest?.id) {
+      throw new Error("Failed to close PR");
     }
   }
 

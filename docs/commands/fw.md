@@ -18,11 +18,11 @@ fw [options]
 
 ### Scope
 
-| Option            | Description                                                    |
-| ----------------- | -------------------------------------------------------------- |
+| Option           | Description                                                    |
+| ---------------- | -------------------------------------------------------------- |
 | `--pr [numbers]` | Filter to PR domain, optionally specific PRs (comma-separated) |
-| `--repo <name>`   | Filter to specific repository (`owner/repo`)                   |
-| `-a, --all`       | Include all cached repos                                       |
+| `--repo <name>`  | Filter to specific repository (`owner/repo`)                   |
+| `-a, --all`      | Include all cached repos                                       |
 
 ### Perspective
 
@@ -78,8 +78,8 @@ fw [options]
 | `--summary`   | Aggregate entries into per-PR summary |
 | `-j, --jsonl` | Force structured output               |
 | `--no-jsonl`  | Force human-readable output           |
-| `--debug`    | Enable debug logging                  |
-| `--no-color` | Disable color output                  |
+| `--debug`     | Enable debug logging                  |
+| `--no-color`  | Disable color output                  |
 
 ## Examples
 

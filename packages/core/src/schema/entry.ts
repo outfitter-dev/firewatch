@@ -84,6 +84,7 @@ export const FirewatchEntrySchema = z.object({
   type: EntryTypeSchema,
   subtype: z.string().optional(),
   author: z.string(),
+  author_login: z.string().optional(), // GitHub login (when available, e.g., for linked commit authors)
   body: z.string().optional(),
   state: z.string().optional(),
 

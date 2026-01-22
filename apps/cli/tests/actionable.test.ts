@@ -8,10 +8,11 @@ import {
 
 const repo = "outfitter-dev/firewatch";
 
-test("identifyUnaddressedFeedback ignores comments with newer commits or file updates", () => {
+test("identifyUnaddressedFeedback uses thread_resolved for review comments", () => {
   const entries: FirewatchEntry[] = [
+    // Issue comment with later commit - shown by default (commitImpliesRead is opt-in)
     {
-      id: "comment-1",
+      id: "issue-1",
       repo,
       pr: 1,
       pr_title: "Sync pipeline",
@@ -19,6 +20,7 @@ test("identifyUnaddressedFeedback ignores comments with newer commits or file up
       pr_author: "alice",
       pr_branch: "feat/sync",
       type: "comment",
+      subtype: "issue_comment",
       author: "bob",
       created_at: "2025-01-02T03:00:00.000Z",
       captured_at: "2025-01-02T03:05:00.000Z",
@@ -36,8 +38,9 @@ test("identifyUnaddressedFeedback ignores comments with newer commits or file up
       created_at: "2025-01-02T04:00:00.000Z",
       captured_at: "2025-01-02T04:05:00.000Z",
     },
+    // Review comment with thread_resolved: false - unaddressed
     {
-      id: "comment-2",
+      id: "review-1",
       repo,
       pr: 2,
       pr_title: "Cache updates",
@@ -48,15 +51,13 @@ test("identifyUnaddressedFeedback ignores comments with newer commits or file up
       subtype: "review_comment",
       author: "dave",
       file: "src/cache.ts",
-      file_activity_after: {
-        modified: false,
-        commits_touching_file: 0,
-      },
+      thread_resolved: false,
       created_at: "2025-01-03T03:00:00.000Z",
       captured_at: "2025-01-03T03:05:00.000Z",
     },
+    // Review comment with thread_resolved: true - addressed (filtered out)
     {
-      id: "comment-3",
+      id: "review-2",
       repo,
       pr: 3,
       pr_title: "CLI refresh",
@@ -67,17 +68,13 @@ test("identifyUnaddressedFeedback ignores comments with newer commits or file up
       subtype: "review_comment",
       author: "frank",
       file: "src/index.ts",
-      file_activity_after: {
-        modified: true,
-        commits_touching_file: 2,
-        latest_commit: "abc123",
-        latest_commit_at: "2025-01-03T07:00:00.000Z",
-      },
+      thread_resolved: true,
       created_at: "2025-01-03T04:00:00.000Z",
       captured_at: "2025-01-03T04:05:00.000Z",
     },
+    // Review comment with thread_resolved: undefined - unaddressed (conservative)
     {
-      id: "comment-4",
+      id: "review-3",
       repo,
       pr: 4,
       pr_title: "Actionable summary",
@@ -91,25 +88,16 @@ test("identifyUnaddressedFeedback ignores comments with newer commits or file up
       created_at: "2025-01-04T03:00:00.000Z",
       captured_at: "2025-01-04T03:05:00.000Z",
     },
-    {
-      id: "commit-2",
-      repo,
-      pr: 4,
-      pr_title: "Actionable summary",
-      pr_state: "open",
-      pr_author: "gina",
-      pr_branch: "feat/actionable",
-      type: "commit",
-      author: "gina",
-      created_at: "2025-01-04T01:00:00.000Z",
-      captured_at: "2025-01-04T01:05:00.000Z",
-    },
   ];
 
   const feedback = identifyUnaddressedFeedback(entries);
   const commentIds = feedback.map((item) => item.comment_id);
 
-  expect(commentIds).toEqual(["comment-2", "comment-4"]);
+  // issue-1: shown (commitImpliesRead off by default)
+  // review-1: shown (thread_resolved: false)
+  // review-2: filtered (thread_resolved: true)
+  // review-3: shown (thread_resolved: undefined = conservative)
+  expect(commentIds).toEqual(["issue-1", "review-1", "review-3"]);
 });
 
 test("identifyUnaddressedFeedback respects reactions and local acks", () => {
@@ -180,8 +168,19 @@ test("identifyUnaddressedFeedback respects reactions and local acks", () => {
     },
   ];
 
+  // Without username, issue-1 is not filtered (no user to check thumbs-up for)
+  const feedbackWithoutUsername = identifyUnaddressedFeedback(entries, {
+    ackedIds: new Set(["review-2"]),
+  });
+  expect(feedbackWithoutUsername.map((item) => item.comment_id)).toEqual([
+    "issue-1",
+    "issue-2",
+  ]);
+
+  // With username, alice's thumbs-up on issue-1 filters it out
   const feedback = identifyUnaddressedFeedback(entries, {
     ackedIds: new Set(["review-2"]),
+    username: "alice",
   });
   expect(feedback.map((item) => item.comment_id)).toEqual(["issue-2"]);
 });
