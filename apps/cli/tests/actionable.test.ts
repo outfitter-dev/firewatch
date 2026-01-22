@@ -169,6 +169,8 @@ test("identifyUnaddressedFeedback respects reactions and local acks", () => {
   ];
 
   // Without username, issue-1 is not filtered (no user to check thumbs-up for)
+  // review-2 is filtered because acks work as fallback for review comments
+  // (catches "just resolved via fw close, awaiting sync" state)
   const feedbackWithoutUsername = identifyUnaddressedFeedback(entries, {
     ackedIds: new Set(["review-2"]),
   });
@@ -178,6 +180,7 @@ test("identifyUnaddressedFeedback respects reactions and local acks", () => {
   ]);
 
   // With username, alice's thumbs-up on issue-1 filters it out
+  // review-2 is also filtered due to ack
   const feedback = identifyUnaddressedFeedback(entries, {
     ackedIds: new Set(["review-2"]),
     username: "alice",

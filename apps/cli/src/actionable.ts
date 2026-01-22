@@ -221,20 +221,29 @@ export function identifyUnaddressedFeedback(
 
   return commentEntries
     .filter((comment) => {
-      // Exclude acknowledged comments first (takes precedence over all other checks)
-      if (ackedIds?.has(comment.id)) {
-        return false;
-      }
-
       // Ignore self-comments from the PR author
       if (comment.author.toLowerCase() === comment.pr_author.toLowerCase()) {
         return false;
       }
 
-      // For review comments, thread_resolved is the ONLY signal (thumbs-up doesn't apply)
-      // Review comments have a proper resolution mechanism via GitHub's "Resolve conversation"
+      // For review comments, prefer thread_resolved from GitHub
+      // But check acks as fallback - after `fw close` resolves a thread,
+      // the ack record exists but thread_resolved won't be true until next sync
       if (isReviewComment(comment)) {
-        return comment.thread_resolved !== true; // unaddressed unless explicitly resolved
+        if (comment.thread_resolved === true) {
+          return false; // resolved on GitHub
+        }
+        if (ackedIds?.has(comment.id)) {
+          return false; // locally acked (just resolved, awaiting sync)
+        }
+        return true; // unaddressed
+      }
+
+      // === Issue comment handling below ===
+
+      // Exclude acknowledged issue comments (local workaround for missing GitHub resolve)
+      if (ackedIds?.has(comment.id)) {
+        return false;
       }
 
       // Treat 👍 from logged-in user as acknowledgement (issue comments only)
