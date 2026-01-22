@@ -35,6 +35,7 @@ interface FbCommandOptions {
   all?: boolean;
   ack?: boolean;
   resolve?: boolean;
+  body?: string;
   jsonl?: boolean;
   offline?: boolean;
   // Filter options for bulk ack
@@ -849,12 +850,12 @@ async function findCommentByShortId(
 export const fbCommand = new Command("fb")
   .description("Feedback abstraction: list, view, reply, resolve")
   .argument("[id]", "PR number or comment ID (short or full)")
-  .argument("[body]", "Comment body for new comment or reply")
   .option("--repo <name>", "Repository (owner/repo format)")
-  .option("--todo", "Show only unaddressed feedback (default)")
+  .option("-t, --todo", "Show only unaddressed feedback (default)")
   .option("--all", "Show all feedback including resolved")
-  .option("--ack", "Acknowledge feedback (👍 + local record)")
-  .option("--resolve", "Resolve the thread after replying")
+  .option("-a, --ack", "Acknowledge feedback (👍 + local record)")
+  .option("-r, --resolve", "Resolve the thread after replying")
+  .option("-b, --body <text>", "Comment body for new comment or reply")
   .option("--jsonl", "Force structured output")
   .option("--no-jsonl", "Force human-readable output")
   .option("--offline", "Use cached data only (no GitHub API calls)")
@@ -863,92 +864,92 @@ export const fbCommand = new Command("fb")
   .option("--open", "Only open PRs")
   .option("--closed", "Only closed PRs")
   .option("--state <states>", "Explicit state filter (comma-separated)")
-  .action(
-    async (
-      id: string | undefined,
-      body: string | undefined,
-      options: FbCommandOptions
-    ) => {
-      try {
-        const ctx = await createContext(options);
+  .action(async (id: string | undefined, options: FbCommandOptions) => {
+    try {
+      const ctx = await createContext(options);
+      const body = options.body;
 
-        // No ID: list all unaddressed feedback or bulk ack across PRs
-        if (!id) {
-          if (options.ack) {
-            await handleCrossPrBulkAck(ctx, options);
-            return;
-          }
-          await handleListAll(ctx, options);
+      // No ID: list all unaddressed feedback or bulk ack across PRs
+      if (!id) {
+        if (options.ack) {
+          await handleCrossPrBulkAck(ctx, options);
+          return;
+        }
+        await handleListAll(ctx, options);
+        return;
+      }
+
+      const idType = classifyId(id);
+
+      // PR number
+      if (idType === "pr_number") {
+        const pr = Number.parseInt(id, 10);
+
+        if (options.ack) {
+          requireOnlineClient(ctx);
+          await handleBulkAck(ctx, pr, options);
           return;
         }
 
-        const idType = classifyId(id);
-
-        // PR number
-        if (idType === "pr_number") {
-          const pr = Number.parseInt(id, 10);
-
-          if (options.ack) {
-            await handleBulkAck(ctx, pr, options);
-            return;
-          }
-
-          if (body) {
-            await handlePrComment(ctx, pr, body);
-            return;
-          }
-
-          await handlePrList(ctx, pr, options);
+        if (body) {
+          requireOnlineClient(ctx);
+          await handlePrComment(ctx, pr, body);
           return;
         }
 
-        // Comment ID (short or full)
-        let resolved = resolveCommentId(id, ctx.repo);
+        await handlePrList(ctx, pr, options);
+        return;
+      }
 
-        // If short ID wasn't in cache, try to find it
-        if (!resolved && idType === "short_id") {
-          resolved = await findCommentByShortId(id, ctx.repo);
-          if (!resolved) {
-            console.error(
-              `Short ID ${formatShortId(id)} not found in repository.`
-            );
-            process.exit(1);
-          }
-        }
+      // Comment ID (short or full)
+      let resolved = resolveCommentId(id, ctx.repo);
 
+      // If short ID wasn't in cache, try to find it
+      if (!resolved && idType === "short_id") {
+        resolved = await findCommentByShortId(id, ctx.repo);
         if (!resolved) {
-          console.error(`Invalid ID format: ${id}`);
+          console.error(
+            `Short ID ${formatShortId(id)} not found in repository.`
+          );
           process.exit(1);
         }
+      }
 
-        const { commentId, shortId } = resolved;
-
-        // Ack
-        if (options.ack) {
-          await handleAckComment(ctx, commentId, shortId);
-          return;
-        }
-
-        // Resolve
-        if (options.resolve && !body) {
-          await handleResolveComment(ctx, commentId, shortId);
-          return;
-        }
-
-        // Reply
-        if (body) {
-          await handleReplyToComment(ctx, commentId, body, options);
-          return;
-        }
-
-        // View
-        await handleViewComment(ctx, commentId, shortId);
-      } catch (error) {
-        console.error(
-          "Feedback operation failed:",
-          error instanceof Error ? error.message : error
-        );
+      if (!resolved) {
+        console.error(`Invalid ID format: ${id}`);
         process.exit(1);
       }
+
+      const { commentId, shortId } = resolved;
+
+      // Ack
+      if (options.ack) {
+        requireOnlineClient(ctx);
+        await handleAckComment(ctx, commentId, shortId);
+        return;
+      }
+
+      // Resolve
+      if (options.resolve && !body) {
+        requireOnlineClient(ctx);
+        await handleResolveComment(ctx, commentId, shortId);
+        return;
+      }
+
+      // Reply
+      if (body) {
+        requireOnlineClient(ctx);
+        await handleReplyToComment(ctx, commentId, body, options);
+        return;
+      }
+
+      // View
+      await handleViewComment(ctx, commentId, shortId);
+    } catch (error) {
+      console.error(
+        "Feedback operation failed:",
+        error instanceof Error ? error.message : error
+      );
+      process.exit(1);
     }
-  );
+  });

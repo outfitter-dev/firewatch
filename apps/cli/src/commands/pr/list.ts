@@ -56,6 +56,7 @@ interface ListCommandOptions {
   author?: string;
   noBots?: boolean;
   since?: string;
+  before?: string;
   offline?: boolean;
   refresh?: boolean | "full";
   limit?: number;
@@ -382,7 +383,7 @@ export const listCommand = new Command("list")
   .description("List PRs and activity (default: current repo)")
   .option("--pr [numbers]", "Filter to PR domain, optionally specific PRs")
   .option("--repo <name>", "Filter to specific repository")
-  .option("-a, --all", "Include all cached repos")
+  .option("--all", "Include all cached repos")
   .option("--mine", "Items on PRs assigned to me")
   .option("--reviews", "PRs I need to review")
   .option("--open", "Filter to open PRs")
@@ -402,6 +403,7 @@ export const listCommand = new Command("list")
     "-s, --since <duration>",
     "Filter by time window. Formats: Nh, Nd, Nw, Nm (months). Examples: 24h, 7d"
   )
+  .option("--before <date>", "Entries created before ISO date (e.g., 2024-01-15)")
   .option("--offline", "Use cache only, no network")
   .option("--refresh [full]", "Force sync before query")
   .option("-n, --limit <count>", "Limit number of results", Number.parseInt)
@@ -551,6 +553,9 @@ export const listCommand = new Command("list")
           includeSet.has(entry.author.toLowerCase())
         );
       }
+
+      // Note: --before filter is now applied in queryEntries (before limit/offset)
+      // to ensure correct pagination semantics
 
       if (options.mine || options.reviews) {
         const username = config.user?.github_username;
