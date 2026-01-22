@@ -8,5 +8,6 @@
     "url": "https://github.com/galligan"
   },
   "repository": "https://github.com/outfitter-dev/firewatch",
-  "license": "MIT"
+  "license": "MIT",
+  "skills": ["firewatch-guide"]
 }

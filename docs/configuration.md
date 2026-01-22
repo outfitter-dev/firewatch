@@ -119,9 +119,9 @@ Default filters applied to queries.
 
 ```toml
 [filters]
-exclude_authors = ["dependabot", "renovate"]
-exclude_bots = true
-bot_patterns = ["^github-actions\\[bot\\]$"]
+# exclude_authors = ["specific-account"]  # exclude specific accounts if needed
+# exclude_bots = true                      # disabled by default
+# bot_patterns = ["^custom-bot$"]          # additional patterns to treat as bots
 ```
 
 ### [output]
@@ -236,9 +236,8 @@ github_username = "galligan"
 auto_sync = true
 stale_threshold = "5m"
 
-[filters]
-exclude_bots = true
-exclude_authors = ["dependabot", "renovate"]
+# [filters]
+# exclude_authors = ["specific-account"]  # if needed
 
 [output]
 default_format = "human"
@@ -252,8 +251,8 @@ default_format = "human"
 [sync]
 stale_threshold = "2m"
 
-[filters]
-exclude_bots = true
+# [filters]
+# exclude_authors = ["specific-account"]  # if needed
 ```
 
 ## Managing Configuration
