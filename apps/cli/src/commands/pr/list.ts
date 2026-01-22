@@ -1,383 +1,33 @@
 import {
-  ENTRY_TYPES,
-  GitHubClient,
-  PATHS,
-  countEntries,
-  detectAuth,
   detectRepo,
   ensureDirectories,
-  getAllSyncMeta,
   getAckedIds,
-  getDatabase,
-  getSyncMeta,
   loadConfig,
-  mergeExcludeAuthors,
-  parseDurationMs,
-  parseSince,
-  parseRepoCacheFilename,
   queryEntries,
-  syncRepo,
-  type FirewatchConfig,
   type FirewatchEntry,
 } from "@outfitter/firewatch-core";
-import {
-  getGraphiteStacks,
-  graphitePlugin,
-} from "@outfitter/firewatch-core/plugins";
 import { Command } from "commander";
-import { existsSync, readdirSync } from "node:fs";
-import ora from "ora";
 
 import {
   buildActionableSummary,
   printActionableSummary,
 } from "../../actionable";
-import { validateRepoFormat } from "../../repo";
+import {
+  applyGlobalOptions,
+  ensureFreshRepos,
+  parsePrList,
+  parseTypes,
+  resolveAuthorFilters,
+  resolveRepoFilter,
+  resolveReposToSync,
+  resolveSinceFilter,
+  type QueryCommandOptions,
+} from "../../query-helpers";
 import { ensureGraphiteMetadata } from "../../stack";
 import { outputStructured } from "../../utils/json";
 import { resolveStates } from "../../utils/states";
 import { shouldOutputJson } from "../../utils/tty";
 import { outputWorklist } from "../../worklist";
-
-interface ListCommandOptions {
-  pr?: string | boolean;
-  repo?: string;
-  all?: boolean;
-  mine?: boolean;
-  reviews?: boolean;
-  open?: boolean;
-  closed?: boolean;
-  draft?: boolean;
-  active?: boolean;
-  orphaned?: boolean;
-  state?: string;
-  type?: string;
-  label?: string;
-  author?: string;
-  noBots?: boolean;
-  since?: string;
-  before?: string;
-  offline?: boolean;
-  refresh?: boolean | "full";
-  limit?: number;
-  offset?: number;
-  summary?: boolean;
-  jsonl?: boolean;
-  debug?: boolean;
-  noColor?: boolean;
-}
-
-const DEFAULT_STALE_THRESHOLD = "5m";
-
-function applyGlobalOptions(options: ListCommandOptions): void {
-  if (options.noColor) {
-    process.env.NO_COLOR = "1";
-  }
-  if (options.debug) {
-    process.env.FIREWATCH_DEBUG = "1";
-  }
-}
-
-function isFullRepo(value: string): boolean {
-  return /^[^/]+\/[^/]+$/.test(value);
-}
-
-function parseCsvList(value?: string): string[] {
-  if (!value) {
-    return [];
-  }
-  return value
-    .split(",")
-    .map((part) => part.trim())
-    .filter(Boolean);
-}
-
-function parsePrList(value: string | boolean | undefined): number[] {
-  if (!value || value === true) {
-    return [];
-  }
-  return value
-    .split(",")
-    .map((part) => part.trim())
-    .filter(Boolean)
-    .map((part) => {
-      const parsed = Number.parseInt(part, 10);
-      if (Number.isNaN(parsed)) {
-        throw new TypeError(`Invalid PR number: ${part}`);
-      }
-      return parsed;
-    });
-}
-
-function parseTypes(value?: string): FirewatchEntry["type"][] {
-  const types = parseCsvList(value).map((type) => type.toLowerCase());
-  if (types.length === 0) {
-    return [];
-  }
-  const invalid = types.filter((t) => !ENTRY_TYPES.includes(t as never));
-  if (invalid.length > 0) {
-    throw new Error(
-      `Invalid type(s): ${invalid.join(", ")}. Valid types: ${ENTRY_TYPES.join(", ")}`
-    );
-  }
-  return types as FirewatchEntry["type"][];
-}
-
-function parseAuthorFilters(value?: string): {
-  include: string[];
-  exclude: string[];
-} {
-  const items = parseCsvList(value);
-  const include: string[] = [];
-  const exclude: string[] = [];
-
-  for (const item of items) {
-    if (item.startsWith("!")) {
-      const trimmed = item.slice(1).trim();
-      if (trimmed) {
-        exclude.push(trimmed);
-      }
-    } else {
-      include.push(item);
-    }
-  }
-
-  return { include, exclude };
-}
-
-function resolveBotPatterns(config: FirewatchConfig): RegExp[] | undefined {
-  const patterns = config.filters?.bot_patterns ?? [];
-  if (patterns.length === 0) {
-    return undefined;
-  }
-  const compiled: RegExp[] = [];
-  for (const pattern of patterns) {
-    try {
-      compiled.push(new RegExp(pattern, "i"));
-    } catch {
-      // Ignore invalid regex patterns
-    }
-  }
-  return compiled.length > 0 ? compiled : undefined;
-}
-
-/**
- * Resolve the effective since filter.
- * Priority: explicit option > orphaned default (7d) > undefined
- */
-function resolveSinceFilter(
-  since: string | undefined,
-  orphaned: boolean | undefined
-): Date | undefined {
-  const DEFAULT_ORPHANED_SINCE = "7d";
-  if (since) {
-    return parseSince(since);
-  }
-  if (orphaned) {
-    return parseSince(DEFAULT_ORPHANED_SINCE);
-  }
-  return undefined;
-}
-
-function resolveAuthorFilters(
-  options: ListCommandOptions,
-  config: FirewatchConfig
-): {
-  includeAuthors: string[];
-  excludeAuthors?: string[];
-  excludeBots?: boolean;
-  botPatterns?: RegExp[];
-} {
-  const { include, exclude } = parseAuthorFilters(options.author);
-  const excludeBots = options.noBots || config.filters?.exclude_bots;
-  const botPatterns = resolveBotPatterns(config);
-
-  const configExclusions = config.filters?.exclude_authors ?? [];
-  const mergedExclusions =
-    excludeBots || exclude.length > 0 || configExclusions.length > 0
-      ? mergeExcludeAuthors(
-          [...configExclusions, ...exclude],
-          excludeBots ?? false
-        )
-      : undefined;
-
-  return {
-    includeAuthors: include,
-    ...(mergedExclusions && { excludeAuthors: mergedExclusions }),
-    ...(excludeBots && { excludeBots }),
-    ...(botPatterns && { botPatterns }),
-  };
-}
-
-function listCachedRepos(): string[] {
-  if (!existsSync(PATHS.repos)) {
-    return [];
-  }
-  const files = readdirSync(PATHS.repos).filter((f) => f.endsWith(".jsonl"));
-  return files
-    .map((file) => parseRepoCacheFilename(file.replace(".jsonl", "")))
-    .filter((repo): repo is string => repo !== null);
-}
-
-function resolveRepoFilter(
-  options: ListCommandOptions,
-  detectedRepo: string | null
-): string | undefined {
-  if (options.repo) {
-    validateRepoFormat(options.repo);
-    return options.repo;
-  }
-  if (options.all) {
-    return undefined;
-  }
-  return detectedRepo ?? undefined;
-}
-
-function resolveReposToSync(
-  options: ListCommandOptions,
-  config: FirewatchConfig,
-  detectedRepo: string | null
-): string[] {
-  if (options.repo && isFullRepo(options.repo)) {
-    return [options.repo];
-  }
-
-  if (options.all) {
-    if (config.repos.length > 0) {
-      return config.repos;
-    }
-    const cached = listCachedRepos();
-    if (cached.length > 0) {
-      return cached;
-    }
-  }
-
-  if (detectedRepo) {
-    return [detectedRepo];
-  }
-
-  return [];
-}
-
-function getSyncMetaMap(): Map<string, { last_sync: string }> {
-  const db = getDatabase();
-  const allMeta = getAllSyncMeta(db);
-  const map = new Map<string, { last_sync: string }>();
-  for (const entry of allMeta) {
-    map.set(entry.repo, { last_sync: entry.last_sync });
-  }
-  return map;
-}
-
-async function ensureRepoCache(
-  repo: string,
-  config: FirewatchConfig,
-  detectedRepo: string | null,
-  options: { full?: boolean } = {}
-): Promise<{ synced: boolean }> {
-  const auth = await detectAuth(config.github_token);
-  if (!auth.token) {
-    throw new Error(auth.error);
-  }
-
-  const client = new GitHubClient(auth.token);
-  const useGraphite =
-    detectedRepo === repo && (await getGraphiteStacks()) !== null;
-  const plugins = useGraphite ? [graphitePlugin] : [];
-
-  const spinner = ora({
-    text: `Syncing ${repo}...`,
-    stream: process.stderr,
-    isEnabled: process.stderr.isTTY,
-  }).start();
-
-  try {
-    const result = await syncRepo(client, repo, {
-      ...(options.full && { full: true }),
-      plugins,
-    });
-    spinner.succeed(`Synced ${repo} (${result.entriesAdded} entries)`);
-  } catch (error) {
-    spinner.fail(
-      `Sync failed: ${error instanceof Error ? error.message : error}`
-    );
-    throw error;
-  }
-
-  return { synced: true };
-}
-
-function isStale(lastSync: string | undefined, threshold: string): boolean {
-  if (!lastSync) {
-    return true;
-  }
-
-  let thresholdMs = 0;
-  try {
-    thresholdMs = parseDurationMs(threshold);
-  } catch {
-    thresholdMs = parseDurationMs(DEFAULT_STALE_THRESHOLD);
-  }
-
-  const last = new Date(lastSync).getTime();
-  return Date.now() - last > thresholdMs;
-}
-
-function hasRepoCache(repo: string): boolean {
-  const db = getDatabase();
-  const meta = getSyncMeta(db, repo);
-  return meta !== null && countEntries(db, { exactRepo: repo }) > 0;
-}
-
-async function ensureFreshRepos(
-  repos: string[],
-  options: ListCommandOptions,
-  config: FirewatchConfig,
-  detectedRepo: string | null
-): Promise<void> {
-  if (repos.length === 0) {
-    return;
-  }
-
-  if (options.offline) {
-    for (const repo of repos) {
-      if (!hasRepoCache(repo)) {
-        throw new Error(`Offline mode: no cache for ${repo}.`);
-      }
-    }
-    return;
-  }
-
-  const refresh = options.refresh;
-  const forceRefresh = Boolean(refresh);
-  const fullRefresh = refresh === "full";
-  const autoSync = config.sync?.auto_sync ?? true;
-
-  if (!autoSync && !forceRefresh) {
-    return;
-  }
-
-  const meta = getSyncMetaMap();
-  const threshold = config.sync?.stale_threshold ?? DEFAULT_STALE_THRESHOLD;
-
-  for (const repo of repos) {
-    if (!isFullRepo(repo)) {
-      continue;
-    }
-
-    const hasCache = hasRepoCache(repo);
-    const lastSync = meta.get(repo)?.last_sync;
-    const needsSync = forceRefresh || !hasCache || isStale(lastSync, threshold);
-
-    if (!needsSync) {
-      continue;
-    }
-
-    await ensureRepoCache(repo, config, detectedRepo, {
-      ...(fullRefresh && { full: true }),
-    });
-  }
-}
 
 export const listCommand = new Command("list")
   .description("List PRs and activity (default: current repo)")
@@ -413,7 +63,7 @@ export const listCommand = new Command("list")
   .option("--no-jsonl", "Force human-readable output")
   .option("--debug", "Enable debug logging")
   .option("--no-color", "Disable color output")
-  .action(async (options: ListCommandOptions) => {
+  .action(async (options: QueryCommandOptions) => {
     applyGlobalOptions(options);
 
     try {
