@@ -263,11 +263,11 @@ function loadSyncMeta(
 /**
  * Process a single PR: build metadata and entries, run plugins.
  */
-async function processPR(
+function processPR(
   repo: string,
   pr: PRNode,
   capturedAt: string
-): Promise<{ metadata: PRMetadata; entries: FirewatchEntry[] }> {
+): { metadata: PRMetadata; entries: FirewatchEntry[] } {
   const metadata = buildPRMetadata(repo, pr);
   const entries = prToEntries(repo, pr, capturedAt);
 

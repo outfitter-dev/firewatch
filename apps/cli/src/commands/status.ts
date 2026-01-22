@@ -42,6 +42,73 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function formatAuthLabel(
+  authLogin: string | undefined,
+  authToken: boolean,
+  authSource: string
+): string {
+  if (authLogin) {
+    return `${authLogin} (${authSource})`;
+  }
+  if (authToken) {
+    return `token (${authSource})`;
+  }
+  return "unauthenticated";
+}
+
+function printShortOutput(
+  version: string,
+  authLogin: string | undefined,
+  auth: { token?: string; source: string },
+  repoName: string | null,
+  cache: CacheSummary
+): void {
+  const authLabel = formatAuthLabel(authLogin, Boolean(auth.token), auth.source);
+  const repoLabel = repoName ?? "none";
+  const cacheLabel = `${cache.repos} repos, ${cache.entries} entries`;
+  const lastSync = cache.last_sync
+    ? `, last sync ${formatRelativeTime(cache.last_sync)}`
+    : "";
+  console.log(
+    `Firewatch v${version} | auth=${authLabel} | repo=${repoLabel} | cache=${cacheLabel}${lastSync}`
+  );
+}
+
+function printFullOutput(
+  version: string,
+  authLogin: string | undefined,
+  auth: { token?: string; source: string },
+  configPaths: { user: string },
+  projectPath: string | null,
+  detected: { repo: string | null; source?: string },
+  graphiteAvailable: boolean,
+  cache: CacheSummary
+): void {
+  console.log(`Firewatch v${version}\n`);
+  const authLine = formatAuthLabel(authLogin, Boolean(auth.token), `via ${auth.source}`);
+  console.log(`Auth:      ${authLine}`);
+
+  const configLine = [
+    projectPath ? `${projectPath} (project)` : null,
+    `${configPaths.user} (user)`,
+  ]
+    .filter(Boolean)
+    .join(" + ");
+  console.log(`Config:    ${configLine}`);
+  console.log(
+    `Repo:      ${detected.repo ?? "none"}${detected.source ? ` (${detected.source})` : ""}`
+  );
+  console.log(`Graphite:  ${graphiteAvailable ? "enabled" : "disabled"}`);
+
+  console.log("\nCache:");
+  console.log(`  Repos:     ${cache.repos}`);
+  console.log(`  Entries:   ${cache.entries}`);
+  if (cache.last_sync) {
+    console.log(`  Last sync: ${formatRelativeTime(cache.last_sync)}`);
+  }
+  console.log(`  Size:      ${formatBytes(cache.size_bytes)}`);
+}
+
 function getCacheSummary(): CacheSummary {
   // Check if database exists
   if (!existsSync(PATHS.db)) {
@@ -153,50 +220,20 @@ export const statusCommand = new Command("status")
       }
 
       if (options.short) {
-        let authLabel = "unauthenticated";
-        if (authLogin) {
-          authLabel = `${authLogin} (${auth.source})`;
-        } else if (auth.token) {
-          authLabel = `token (${auth.source})`;
-        }
-        const repoLabel = detected.repo ?? "none";
-        const cacheLabel = `${cache.repos} repos, ${cache.entries} entries`;
-        const lastSync = cache.last_sync
-          ? `, last sync ${formatRelativeTime(cache.last_sync)}`
-          : "";
-        console.log(
-          `Firewatch v${version} | auth=${authLabel} | repo=${repoLabel} | cache=${cacheLabel}${lastSync}`
-        );
+        printShortOutput(version, authLogin, auth, detected.repo, cache);
         return;
       }
 
-      console.log(`Firewatch v${version}\n`);
-      let authLine = "unauthenticated";
-      if (authLogin) {
-        authLine = `${authLogin} (via ${auth.source})`;
-      } else if (auth.token) {
-        authLine = `token (via ${auth.source})`;
-      }
-      console.log(`Auth:      ${authLine}`);
-      const configLine = [
-        projectPath ? `${projectPath} (project)` : null,
-        `${configPaths.user} (user)`,
-      ]
-        .filter(Boolean)
-        .join(" + ");
-      console.log(`Config:    ${configLine}`);
-      console.log(
-        `Repo:      ${detected.repo ?? "none"}${detected.source ? ` (${detected.source})` : ""}`
+      printFullOutput(
+        version,
+        authLogin,
+        auth,
+        configPaths,
+        projectPath,
+        detected,
+        graphiteAvailable,
+        cache
       );
-      console.log(`Graphite:  ${graphiteAvailable ? "enabled" : "disabled"}`);
-
-      console.log("\nCache:");
-      console.log(`  Repos:     ${cache.repos}`);
-      console.log(`  Entries:   ${cache.entries}`);
-      if (cache.last_sync) {
-        console.log(`  Last sync: ${formatRelativeTime(cache.last_sync)}`);
-      }
-      console.log(`  Size:      ${formatBytes(cache.size_bytes)}`);
     } catch (error) {
       console.error(
         "Status failed:",

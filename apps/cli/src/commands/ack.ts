@@ -332,6 +332,29 @@ interface MultiAckResult {
   error?: string;
 }
 
+interface IdResolutionError {
+  id: string;
+  type: string;
+  error: string;
+}
+
+async function outputNoValidCommentsError(
+  errors: IdResolutionError[],
+  outputJson: boolean
+): Promise<never> {
+  if (outputJson) {
+    for (const e of errors) {
+      await outputStructured({ ok: false, id: e.id, error: e.error }, "jsonl");
+    }
+  } else {
+    console.error("No valid comment IDs found:");
+    for (const e of errors) {
+      console.error(`  ${e.id}: ${e.error}`);
+    }
+  }
+  process.exit(1);
+}
+
 async function handleMultiAck(
   ids: string[],
   options: AckCommandOptions,
@@ -355,20 +378,7 @@ async function handleMultiAck(
   }
 
   if (comments.length === 0) {
-    if (outputJson) {
-      for (const e of errors) {
-        await outputStructured(
-          { ok: false, id: e.id, error: e.error },
-          "jsonl"
-        );
-      }
-    } else {
-      console.error("No valid comment IDs found:");
-      for (const e of errors) {
-        console.error(`  ${e.id}: ${e.error}`);
-      }
-    }
-    process.exit(1);
+    await outputNoValidCommentsError(errors, outputJson);
   }
 
   // Deduplicate by comment ID (different short IDs might resolve to same comment)
