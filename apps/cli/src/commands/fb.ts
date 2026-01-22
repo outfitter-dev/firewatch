@@ -238,8 +238,9 @@ async function handlePrComment(
   pr: number,
   body: string
 ): Promise<void> {
-  const prId = await ctx.client.fetchPullRequestId(ctx.owner, ctx.name, pr);
-  const comment = await ctx.client.addIssueComment(prId, body);
+  const client = requireOnlineClient(ctx);
+  const prId = await client.fetchPullRequestId(ctx.owner, ctx.name, pr);
+  const comment = await client.addIssueComment(prId, body);
 
   const shortId = formatShortId(generateShortId(comment.id, ctx.repo));
   const payload = {
@@ -326,8 +327,9 @@ async function handleReplyToComment(
 
   // Check if this is a review comment (has a thread)
   if (entry.subtype === "review_comment") {
+    const client = requireOnlineClient(ctx);
     // Get thread ID and reply to thread
-    const threadMap = await ctx.client.fetchReviewThreadMap(
+    const threadMap = await client.fetchReviewThreadMap(
       ctx.owner,
       ctx.name,
       entry.pr
@@ -339,10 +341,10 @@ async function handleReplyToComment(
       process.exit(1);
     }
 
-    const reply = await ctx.client.addReviewThreadReply(threadId, body);
+    const reply = await client.addReviewThreadReply(threadId, body);
 
     if (options.resolve) {
-      await ctx.client.resolveReviewThread(threadId);
+      await client.resolveReviewThread(threadId);
     }
 
     const replyShortId = formatShortId(generateShortId(reply.id, ctx.repo));
@@ -374,12 +376,13 @@ async function handleReplyToComment(
   }
 
   // Issue comment - add a new comment (can't thread on issue comments)
-  const prId = await ctx.client.fetchPullRequestId(
+  const client = requireOnlineClient(ctx);
+  const prId = await client.fetchPullRequestId(
     ctx.owner,
     ctx.name,
     entry.pr
   );
-  const comment = await ctx.client.addIssueComment(prId, body);
+  const comment = await client.addIssueComment(prId, body);
 
   const newShortId = formatShortId(generateShortId(comment.id, ctx.repo));
   const replyToShortId = formatShortId(generateShortId(commentId, ctx.repo));
@@ -431,7 +434,8 @@ async function handleResolveComment(
     process.exit(1);
   }
 
-  const threadMap = await ctx.client.fetchReviewThreadMap(
+  const client = requireOnlineClient(ctx);
+  const threadMap = await client.fetchReviewThreadMap(
     ctx.owner,
     ctx.name,
     entry.pr
@@ -443,7 +447,7 @@ async function handleResolveComment(
     process.exit(1);
   }
 
-  await ctx.client.resolveReviewThread(threadId);
+  await client.resolveReviewThread(threadId);
 
   const payload = {
     ok: true,
@@ -486,7 +490,8 @@ async function handleAckComment(
   // Add reaction to GitHub
   let reactionAdded = false;
   try {
-    await ctx.client.addReaction(commentId, "THUMBS_UP");
+    const client = requireOnlineClient(ctx);
+    await client.addReaction(commentId, "THUMBS_UP");
     reactionAdded = true;
   } catch {
     // Reaction may already exist or fail for other reasons - continue with local ack

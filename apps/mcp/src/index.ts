@@ -159,7 +159,9 @@ function jsonLines(items: unknown[]): string {
 }
 
 /** Check if params contain any PR edit fields (title, body, base, draft, ready, milestone) */
-function hasEditFields(params: PrParams): boolean {
+function hasEditFields(
+  params: PrParams | FirewatchParams
+): boolean {
   return !!(
     params.title ||
     params.body ||
@@ -1052,9 +1054,9 @@ async function handleEdit(params: FirewatchParams): Promise<McpToolResult> {
   const ctx = await createMutationContext(params.repo);
 
   await applyPrFieldEdits(ctx, pr, {
-    title: params.title,
-    body: params.body,
-    base: params.base,
+    ...(params.title !== undefined && { title: params.title }),
+    ...(params.body !== undefined && { body: params.body }),
+    ...(params.base !== undefined && { base: params.base }),
   });
 
   if (milestoneName) {
@@ -1392,7 +1394,7 @@ function identifyUnaddressedFeedback(
         return !comment.file_activity_after.modified;
       }
 
-      if (!comment.file) {
+      if (!("file" in comment) || !comment.file) {
         return !hasLaterCommit(comment.repo, comment.pr, comment.created_at);
       }
 
@@ -1407,8 +1409,8 @@ function identifyUnaddressedFeedback(
       author: e.author,
       ...(e.body && { body: e.body.slice(0, 200) }),
       created_at: e.created_at,
-      ...(e.file && { file: e.file }),
-      ...(e.line !== undefined && { line: e.line }),
+      ...("file" in e && e.file && { file: e.file }),
+      ...("line" in e && e.line !== undefined && { line: e.line }),
       ...(e.subtype && { subtype: e.subtype }),
     }));
 }
