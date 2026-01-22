@@ -24,7 +24,7 @@ import { parseRepoInput, validateRepoFormat } from "../repo";
 import { outputStructured } from "../utils/json";
 import { shouldOutputJson } from "../utils/tty";
 
-interface CloseCommandOptions {
+export interface CloseCommandOptions {
   repo?: string;
   all?: boolean;
   yes?: boolean;
@@ -384,6 +384,33 @@ async function handleCloseAll(
   }
 }
 
+export async function closeAction(
+  ids: string[],
+  options: CloseCommandOptions
+): Promise<void> {
+  try {
+    const ctx = await createContext(options);
+
+    if (options.all) {
+      await handleCloseAll(ctx, options.yes ?? false);
+      return;
+    }
+
+    if (ids.length === 0) {
+      console.error("Provide comment/PR IDs or use --all.");
+      process.exit(1);
+    }
+
+    await handleCloseComments(ctx, ids);
+  } catch (error) {
+    console.error(
+      "Close operation failed:",
+      error instanceof Error ? error.message : error
+    );
+    process.exit(1);
+  }
+}
+
 export const closeCommand = new Command("close")
   .description("Close feedback: resolve review threads or close PRs")
   .argument("[ids...]", "Comment IDs (short or full) or PR numbers")
@@ -393,26 +420,4 @@ export const closeCommand = new Command("close")
   .option("--jsonl", "Force structured output")
   .option("--no-jsonl", "Force human-readable output")
   .addOption(new Option("--json").hideHelp())
-  .action(async (ids: string[], options: CloseCommandOptions) => {
-    try {
-      const ctx = await createContext(options);
-
-      if (options.all) {
-        await handleCloseAll(ctx, options.yes ?? false);
-        return;
-      }
-
-      if (ids.length === 0) {
-        console.error("Provide comment/PR IDs or use --all.");
-        process.exit(1);
-      }
-
-      await handleCloseComments(ctx, ids);
-    } catch (error) {
-      console.error(
-        "Close operation failed:",
-        error instanceof Error ? error.message : error
-      );
-      process.exit(1);
-    }
-  });
+  .action(closeAction);

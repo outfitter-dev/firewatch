@@ -4,7 +4,11 @@ import { version } from "../package.json";
 import { ackCommand } from "./commands/ack";
 import { cacheCommand } from "./commands/cache";
 import { claudePluginCommand } from "./commands/claude-plugin";
-import { closeCommand } from "./commands/close";
+import {
+  closeAction,
+  closeCommand,
+  type CloseCommandOptions,
+} from "./commands/close";
 import { configCommand } from "./commands/config";
 import { doctorCommand } from "./commands/doctor";
 import { examplesCommand } from "./commands/examples";
@@ -87,6 +91,22 @@ Examples:
 program.addCommand(prCommand);
 program.addCommand(ackCommand);
 program.addCommand(closeCommand);
+
+// Hidden alias: `fw resolve` -> `fw close`
+const resolveCommand = new Command("resolve")
+  .description("Resolve feedback: alias for close")
+  .argument("[ids...]", "Comment IDs (short or full) or PR numbers")
+  .option("--repo <name>", "Repository (owner/repo format)")
+  .option("-a, --all", "Close all unaddressed feedback")
+  .option("-y, --yes", "Auto-confirm bulk operations")
+  .option("--jsonl", "Force structured output")
+  .option("--no-jsonl", "Force human-readable output")
+  .addOption(new Option("--json").hideHelp())
+  .action((ids: string[], options: CloseCommandOptions) =>
+    closeAction(ids, options)
+  );
+program.addCommand(resolveCommand, { hidden: true });
+
 program.addCommand(fbCommand);
 program.addCommand(cacheCommand);
 program.addCommand(claudePluginCommand);
