@@ -1,97 +1,260 @@
 /**
  * Parity checking between GitHub API and Firewatch cache.
  *
- * Used to verify that Firewatch correctly captures unresolved review threads.
+ * Supports comparison of:
+ * - Review comments (code-level comments with resolution state)
+ * - Issue comments (PR-level discussion comments)
  */
 
-/**
- * Thread data from GitHub GraphQL API.
- */
-export interface GitHubThreadData {
+/** Types of comments that can be compared */
+export type CommentType = "review_comment" | "issue_comment";
+
+/** A comment from either GitHub or Firewatch */
+export interface ParityComment {
+  id: string;
   pr: number;
-  threadId: string;
-  commentId?: string;
+  type: CommentType;
+  author: string;
+  isResolved?: boolean; // Only meaningful for review_comment
 }
 
-/**
- * Result of comparing GitHub and Firewatch thread data.
- */
+/** Data grouped by comment type */
+export interface ParityData {
+  reviewComments: Map<string, ParityComment>;
+  issueComments: Map<string, ParityComment>;
+}
+
+/** Filter options for parity comparison */
+export interface ParityFilterOptions {
+  type?: CommentType | "all";
+  resolved?: boolean;
+  unresolved?: boolean;
+}
+
+/** A single discrepancy between GitHub and Firewatch */
+export interface ParityDiscrepancy {
+  id: string;
+  pr: number;
+  type: CommentType;
+  kind: "missing_in_fw" | "extra_in_fw" | "state_mismatch";
+  ghResolved?: boolean;
+  fwResolved?: boolean;
+  author?: string;
+}
+
+/** Statistics for a comment type */
+export interface CommentStats {
+  gh_total: number;
+  gh_resolved: number;
+  gh_unresolved: number;
+  fw_total: number;
+  fw_resolved: number;
+  fw_unresolved: number;
+}
+
+/** Statistics for issue comments (no resolution state) */
+export interface IssueCommentStats {
+  gh_total: number;
+  fw_total: number;
+}
+
+/** Combined statistics for all comment types */
+export interface ParityStats {
+  review_comments: CommentStats;
+  issue_comments: IssueCommentStats;
+}
+
+/** Result of comprehensive parity comparison */
 export interface ParityResult {
   repo: string;
-  ghThreadCount: number;
-  fwThreadCount: number;
+  filters: ParityFilterOptions;
+  stats: ParityStats;
   match: boolean;
-  ghByPr: Map<number, GitHubThreadData[]>;
-  fwByPr: Map<number, string[]>;
-  missingInFw: GitHubThreadData[];
-  extraInFw: string[];
+  discrepancies: ParityDiscrepancy[];
 }
 
 /**
- * Compare GitHub and Firewatch thread data for parity.
- *
- * @param repo - Repository identifier (owner/name)
- * @param ghByPr - GitHub threads grouped by PR number
- * @param fwByPr - Firewatch comment IDs grouped by PR number
- * @returns Comparison result with match status and discrepancies
+ * Compute statistics from GitHub and Firewatch data.
  */
-export function compareThreads(
-  repo: string,
-  ghByPr: Map<number, GitHubThreadData[]>,
-  fwByPr: Map<number, string[]>
-): ParityResult {
-  // Count totals
-  let ghCount = 0;
-  let fwCount = 0;
+export function computeStats(gh: ParityData, fw: ParityData): ParityStats {
+  const reviewStats: CommentStats = {
+    gh_total: gh.reviewComments.size,
+    gh_resolved: 0,
+    gh_unresolved: 0,
+    fw_total: fw.reviewComments.size,
+    fw_resolved: 0,
+    fw_unresolved: 0,
+  };
 
-  for (const threads of ghByPr.values()) {
-    ghCount += threads.length;
-  }
-  for (const ids of fwByPr.values()) {
-    fwCount += ids.length;
-  }
-
-  // Find missing entries (in GH but not in FW)
-  const missingInFw: GitHubThreadData[] = [];
-  for (const [pr, threads] of ghByPr) {
-    const fwIds = new Set(fwByPr.get(pr));
-    for (const thread of threads) {
-      // Check if comment ID exists in FW (comment IDs are what we store)
-      if (thread.commentId && !fwIds.has(thread.commentId)) {
-        missingInFw.push(thread);
-      }
+  for (const comment of gh.reviewComments.values()) {
+    if (comment.isResolved === true) {
+      reviewStats.gh_resolved++;
+    } else {
+      reviewStats.gh_unresolved++;
     }
   }
 
-  // Find extra entries (in FW but not in GH)
-  const extraInFw: string[] = [];
-  const ghCommentIds = new Set<string>();
-  for (const threads of ghByPr.values()) {
-    for (const thread of threads) {
-      if (thread.commentId) {
-        ghCommentIds.add(thread.commentId);
-      }
-    }
-  }
-  for (const ids of fwByPr.values()) {
-    for (const id of ids) {
-      if (!ghCommentIds.has(id)) {
-        extraInFw.push(id);
-      }
+  for (const comment of fw.reviewComments.values()) {
+    if (comment.isResolved === true) {
+      reviewStats.fw_resolved++;
+    } else {
+      reviewStats.fw_unresolved++;
     }
   }
 
   return {
-    repo,
-    ghThreadCount: ghCount,
-    fwThreadCount: fwCount,
-    match:
-      ghCount === fwCount && missingInFw.length === 0 && extraInFw.length === 0,
-    ghByPr,
-    fwByPr,
-    missingInFw,
-    extraInFw,
+    review_comments: reviewStats,
+    issue_comments: {
+      gh_total: gh.issueComments.size,
+      fw_total: fw.issueComments.size,
+    },
   };
+}
+
+/**
+ * Apply filters to a map of comments.
+ */
+export function filterComments(
+  comments: Map<string, ParityComment>,
+  filters: ParityFilterOptions
+): Map<string, ParityComment> {
+  const result = new Map<string, ParityComment>();
+
+  for (const [id, comment] of comments) {
+    // Type filter
+    if (filters.type && filters.type !== "all" && comment.type !== filters.type) {
+      continue;
+    }
+
+    // Resolution filters (only apply to review comments)
+    if (comment.type === "review_comment") {
+      if (filters.resolved && comment.isResolved !== true) {
+        continue;
+      }
+      if (filters.unresolved && comment.isResolved === true) {
+        continue;
+      }
+    }
+
+    result.set(id, comment);
+  }
+
+  return result;
+}
+
+/**
+ * Compare GitHub and Firewatch data for parity with filtering.
+ *
+ * @param repo - Repository identifier (owner/name)
+ * @param ghData - GitHub comment data
+ * @param fwData - Firewatch comment data
+ * @param filters - Optional filters to apply
+ * @returns Comprehensive comparison result
+ */
+export function compareParityData(
+  repo: string,
+  ghData: ParityData,
+  fwData: ParityData,
+  filters: ParityFilterOptions = {}
+): ParityResult {
+  // Compute stats on unfiltered data
+  const stats = computeStats(ghData, fwData);
+
+  // Merge all comments for comparison, applying filters
+  const ghAll = new Map<string, ParityComment>();
+  const fwAll = new Map<string, ParityComment>();
+
+  // Add review comments
+  for (const [id, comment] of filterComments(ghData.reviewComments, filters)) {
+    ghAll.set(id, comment);
+  }
+  for (const [id, comment] of filterComments(fwData.reviewComments, filters)) {
+    fwAll.set(id, comment);
+  }
+
+  // Add issue comments (skip if filtering by resolution state, since they don't have it)
+  const skipIssueComments =
+    filters.resolved === true || filters.unresolved === true;
+
+  if (!skipIssueComments) {
+    for (const [id, comment] of filterComments(ghData.issueComments, filters)) {
+      ghAll.set(id, comment);
+    }
+    for (const [id, comment] of filterComments(fwData.issueComments, filters)) {
+      fwAll.set(id, comment);
+    }
+  }
+
+  const discrepancies: ParityDiscrepancy[] = [];
+
+  // Find missing in Firewatch (in GH but not in FW)
+  for (const [id, ghComment] of ghAll) {
+    const fwComment = fwAll.get(id);
+    if (!fwComment) {
+      discrepancies.push({
+        id,
+        pr: ghComment.pr,
+        type: ghComment.type,
+        kind: "missing_in_fw",
+        ...(ghComment.isResolved !== undefined && { ghResolved: ghComment.isResolved }),
+        author: ghComment.author,
+      });
+    } else if (
+      ghComment.type === "review_comment" &&
+      ghComment.isResolved !== fwComment.isResolved
+    ) {
+      // State mismatch
+      discrepancies.push({
+        id,
+        pr: ghComment.pr,
+        type: ghComment.type,
+        kind: "state_mismatch",
+        ...(ghComment.isResolved !== undefined && { ghResolved: ghComment.isResolved }),
+        ...(fwComment.isResolved !== undefined && { fwResolved: fwComment.isResolved }),
+        author: ghComment.author,
+      });
+    }
+  }
+
+  // Find extra in Firewatch (in FW but not in GH)
+  for (const [id, fwComment] of fwAll) {
+    if (!ghAll.has(id)) {
+      discrepancies.push({
+        id,
+        pr: fwComment.pr,
+        type: fwComment.type,
+        kind: "extra_in_fw",
+        ...(fwComment.isResolved !== undefined && { fwResolved: fwComment.isResolved }),
+        author: fwComment.author,
+      });
+    }
+  }
+
+  // Sort discrepancies by PR number, then by kind
+  discrepancies.sort((a, b) => {
+    if (a.pr !== b.pr) {
+      return a.pr - b.pr;
+    }
+    return a.kind.localeCompare(b.kind);
+  });
+
+  return {
+    repo,
+    filters,
+    stats,
+    match: discrepancies.length === 0,
+    discrepancies,
+  };
+}
+
+/**
+ * Format resolved state for display.
+ */
+function formatResolvedState(resolved: boolean | undefined): string {
+  if (resolved === undefined) {
+    return "";
+  }
+  return resolved ? ", resolved" : ", unresolved";
 }
 
 /**
@@ -99,39 +262,77 @@ export function compareThreads(
  */
 export function formatParityResult(result: ParityResult): string {
   const lines: string[] = [
-    `\n=== GitHub/Firewatch Parity Check: ${result.repo} ===\n`,
-    `GitHub unresolved threads:    ${result.ghThreadCount}`,
-    `Firewatch unresolved threads: ${result.fwThreadCount}`,
-    `Status: ${result.match ? "✓ MATCH" : "✗ MISMATCH"}`,
+    `\n=== GitHub/Firewatch Parity Check: ${result.repo} ===`,
   ];
 
+  // Show active filters
+  const activeFilters: string[] = [];
+  if (result.filters.type && result.filters.type !== "all") {
+    activeFilters.push(`type=${result.filters.type}`);
+  }
+  if (result.filters.resolved) {
+    activeFilters.push("resolved");
+  }
+  if (result.filters.unresolved) {
+    activeFilters.push("unresolved");
+  }
+  lines.push(
+    `Filters: ${activeFilters.length > 0 ? activeFilters.join(", ") : "none"}\n`
+  );
+
+  // Statistics
+  lines.push("--- Statistics ---");
+  lines.push("Review Comments:");
+  const rc = result.stats.review_comments;
+  lines.push(
+    `  GitHub:    ${rc.gh_total} total (${rc.gh_resolved} resolved, ${rc.gh_unresolved} unresolved)`
+  );
+  lines.push(
+    `  Firewatch: ${rc.fw_total} total (${rc.fw_resolved} resolved, ${rc.fw_unresolved} unresolved)`
+  );
+
+  lines.push("\nIssue Comments:");
+  const ic = result.stats.issue_comments;
+  lines.push(`  GitHub:    ${ic.gh_total} total`);
+  lines.push(`  Firewatch: ${ic.fw_total} total`);
+
+  // Status
+  lines.push(
+    `\nStatus: ${result.match ? "✓ MATCH" : `✗ MISMATCH (${result.discrepancies.length} discrepancies)`}`
+  );
+
+  // Discrepancies
   if (!result.match) {
-    lines.push("\n--- Details ---\n");
+    lines.push("\n--- Discrepancies ---");
 
-    // Show by-PR breakdown
-    lines.push("GitHub threads by PR:");
-    for (const [pr, threads] of result.ghByPr) {
-      lines.push(`  PR #${pr}: ${threads.length} unresolved`);
-    }
+    const missing = result.discrepancies.filter((d) => d.kind === "missing_in_fw");
+    const extra = result.discrepancies.filter((d) => d.kind === "extra_in_fw");
+    const stateMismatch = result.discrepancies.filter(
+      (d) => d.kind === "state_mismatch"
+    );
 
-    lines.push("\nFirewatch threads by PR:");
-    for (const [pr, ids] of result.fwByPr) {
-      lines.push(`  PR #${pr}: ${ids.length} unresolved`);
-    }
-
-    if (result.missingInFw.length > 0) {
-      lines.push("\nMissing in Firewatch (present in GitHub):");
-      for (const thread of result.missingInFw) {
-        lines.push(
-          `  PR #${thread.pr}: ${thread.commentId ?? thread.threadId}`
-        );
+    if (missing.length > 0) {
+      lines.push("Missing in Firewatch:");
+      for (const d of missing) {
+        const resolved = formatResolvedState(d.ghResolved);
+        lines.push(`  PR #${d.pr}: ${d.id} (${d.type}${resolved})`);
       }
     }
 
-    if (result.extraInFw.length > 0) {
-      lines.push("\nExtra in Firewatch (not in GitHub):");
-      for (const id of result.extraInFw) {
-        lines.push(`  ${id}`);
+    if (extra.length > 0) {
+      lines.push("\nExtra in Firewatch:");
+      for (const d of extra) {
+        const resolved = formatResolvedState(d.fwResolved);
+        lines.push(`  PR #${d.pr}: ${d.id} (${d.type}${resolved})`);
+      }
+    }
+
+    if (stateMismatch.length > 0) {
+      lines.push("\nState Mismatch:");
+      for (const d of stateMismatch) {
+        const ghState = d.ghResolved ? "resolved" : "unresolved";
+        const fwState = d.fwResolved ? "resolved" : "unresolved";
+        lines.push(`  PR #${d.pr}: ${d.id} (gh: ${ghState}, fw: ${fwState})`);
       }
     }
   }

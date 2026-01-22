@@ -156,10 +156,19 @@ export {
 
 // Parity
 export {
-  compareThreads,
+  compareParityData,
+  computeStats,
+  filterComments,
   formatParityResult,
-  type GitHubThreadData,
+  type CommentStats,
+  type CommentType,
+  type IssueCommentStats,
+  type ParityComment,
+  type ParityData,
+  type ParityDiscrepancy,
+  type ParityFilterOptions,
   type ParityResult,
+  type ParityStats,
 } from "./parity";
 
 // Batch utilities
