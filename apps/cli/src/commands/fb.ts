@@ -16,8 +16,8 @@ import {
   resolveShortId,
   type AckRecord,
   type FirewatchConfig,
+  type PrState,
 } from "@outfitter/firewatch-core";
-import type { PrState } from "@outfitter/firewatch-core";
 import { Command } from "commander";
 
 import {
@@ -585,7 +585,9 @@ async function handleBulkAck(
   const items = prFeedbacks
     .map((fb) => {
       const entry = entryMap.get(fb.comment_id);
-      if (!entry) return null;
+      if (!entry) {
+        return null;
+      }
       return {
         entry,
         reactionAdded: reactionMap.get(fb.comment_id) ?? false,
@@ -732,7 +734,9 @@ async function handleCrossPrBulkAck(
   const items = feedbacks
     .map((fb) => {
       const entry = entryMap.get(fb.comment_id);
-      if (!entry) return null;
+      if (!entry) {
+        return null;
+      }
       return {
         entry,
         reactionAdded: reactionMap.get(fb.comment_id) ?? false,

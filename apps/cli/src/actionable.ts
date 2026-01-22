@@ -188,15 +188,10 @@ export function identifyUnaddressedFeedback(
   );
 
   // Build commit lookup only if commitImpliesRead is enabled
-  let hasLaterCommit: (
-    repo: string,
-    pr: number,
-    createdAt: string
-  ) => boolean = () => false;
+  const commitsByRepoPr = new Map<string, FirewatchEntry[]>();
   if (commitImpliesRead && username) {
     // Filter commits to only those by the logged-in user
     const usernameLower = username.toLowerCase();
-    const commitsByRepoPr = new Map<string, FirewatchEntry[]>();
     for (const entry of entries) {
       if (entry.type === "commit") {
         // Only count commits from the logged-in user
@@ -209,13 +204,20 @@ export function identifyUnaddressedFeedback(
         }
       }
     }
-    hasLaterCommit = (repo: string, pr: number, createdAt: string): boolean => {
-      const key = `${repo}:${pr}`;
-      const prCommits = commitsByRepoPr.get(key) ?? [];
-      const time = new Date(createdAt).getTime();
-      return prCommits.some((c) => new Date(c.created_at).getTime() > time);
-    };
   }
+  const hasLaterCommit = (
+    repo: string,
+    pr: number,
+    createdAt: string
+  ): boolean => {
+    if (!commitImpliesRead || !username) {
+      return false;
+    }
+    const key = `${repo}:${pr}`;
+    const prCommits = commitsByRepoPr.get(key) ?? [];
+    const time = new Date(createdAt).getTime();
+    return prCommits.some((c) => new Date(c.created_at).getTime() > time);
+  };
 
   return commentEntries
     .filter((comment) => {

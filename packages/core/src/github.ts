@@ -428,11 +428,11 @@ interface CommentReactionsData {
     __typename: string;
     id?: string;
     reactions?: {
-      nodes: Array<{
+      nodes: {
         user?: {
           login: string;
         };
-      }>;
+      }[];
     };
   } | null)[];
 }
@@ -652,7 +652,7 @@ export class GitHubClient {
 
         const logins = node.reactions.nodes
           .map((reaction) => reaction.user?.login)
-          .filter((login): login is string => Boolean(login));
+          .filter((login): login is string => login !== undefined && login !== "");
 
         if (logins.length === 0) {
           continue;

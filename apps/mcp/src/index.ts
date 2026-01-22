@@ -717,8 +717,12 @@ async function handleQuery(params: FirewatchParams): Promise<McpToolResult> {
     await performSync(repos, config, detected.repo, syncOptions);
   }
 
-  const prFilter =
-    prList.length > 1 ? prList : (prList.length === 1 ? prList[0] : undefined);
+  let prFilter: number | number[] | undefined;
+  if (prList.length > 1) {
+    prFilter = prList;
+  } else if (prList.length === 1) {
+    prFilter = prList[0];
+  }
 
   const queryParams = {
     repo: params.all ? undefined : params.repo,
@@ -856,14 +860,21 @@ async function handleStatus(params: FirewatchParams): Promise<McpToolResult> {
   return textResult(JSON.stringify(output));
 }
 
-async function handleAdd(params: FirewatchParams): Promise<McpToolResult> {
-  if (params.resolve && !params.reply_to) {
-    throw new Error("resolve requires reply_to.");
-  }
+// ─────────────────────────────────────────────────────────────────────────────
+// Add/Edit/Rm handler helpers
+// ─────────────────────────────────────────────────────────────────────────────
 
-  const pr = requirePrNumber(params.pr, "add");
+interface MutationContext {
+  repo: string;
+  owner: string;
+  name: string;
+  client: GitHubClient;
+}
 
-  const repo = (await resolveRepo(params.repo)) ?? null;
+async function createMutationContext(
+  repoParam: string | undefined
+): Promise<MutationContext> {
+  const repo = (await resolveRepo(repoParam)) ?? null;
   if (!repo) {
     throw new Error("No repository detected. Provide repo.");
   }
@@ -879,7 +890,125 @@ async function handleAdd(params: FirewatchParams): Promise<McpToolResult> {
     throw new Error(auth.error);
   }
 
-  const client = new GitHubClient(auth.token);
+  return { repo, owner, name, client: new GitHubClient(auth.token) };
+}
+
+async function handleAddReview(
+  ctx: MutationContext,
+  pr: number,
+  reviewType: "approve" | "request-changes" | "comment",
+  body?: string
+): Promise<McpToolResult> {
+  const review = await ctx.client.addReview(
+    ctx.owner,
+    ctx.name,
+    pr,
+    reviewType,
+    body
+  );
+  return textResult(
+    JSON.stringify({
+      ok: true,
+      repo: ctx.repo,
+      pr,
+      review: reviewType,
+      ...(review?.id && { review_id: review.id }),
+      ...(review?.url && { url: review.url }),
+    })
+  );
+}
+
+async function handleAddMetadata(
+  ctx: MutationContext,
+  pr: number,
+  labels: string[],
+  reviewers: string[],
+  assignees: string[]
+): Promise<McpToolResult> {
+  if (labels.length > 0) {
+    await ctx.client.addLabels(ctx.owner, ctx.name, pr, labels);
+  }
+  if (reviewers.length > 0) {
+    await ctx.client.requestReviewers(ctx.owner, ctx.name, pr, reviewers);
+  }
+  if (assignees.length > 0) {
+    await ctx.client.addAssignees(ctx.owner, ctx.name, pr, assignees);
+  }
+
+  return textResult(
+    JSON.stringify({
+      ok: true,
+      repo: ctx.repo,
+      pr,
+      ...(labels.length > 0 && { labels_added: labels }),
+      ...(reviewers.length > 0 && { reviewers_added: reviewers }),
+      ...(assignees.length > 0 && { assignees_added: assignees }),
+    })
+  );
+}
+
+async function handleAddReply(
+  ctx: MutationContext,
+  pr: number,
+  replyTo: string,
+  body: string,
+  shouldResolve: boolean
+): Promise<McpToolResult> {
+  const replyToId = await resolveCommentIdFromShortId(replyTo, ctx.repo);
+  const threadMap = await ctx.client.fetchReviewThreadMap(
+    ctx.owner,
+    ctx.name,
+    pr
+  );
+  const threadId = threadMap.get(replyToId);
+  if (!threadId) {
+    throw new Error(`No review thread found for comment ${replyTo}.`);
+  }
+
+  const reply = await ctx.client.addReviewThreadReply(threadId, body);
+  if (shouldResolve) {
+    await ctx.client.resolveReviewThread(threadId);
+  }
+
+  return textResult(
+    JSON.stringify({
+      ok: true,
+      repo: ctx.repo,
+      pr,
+      comment_id: reply.id,
+      reply_to: replyToId,
+      ...(shouldResolve && { resolved: true }),
+      ...(reply.url && { url: reply.url }),
+    })
+  );
+}
+
+async function handleAddComment(
+  ctx: MutationContext,
+  pr: number,
+  body: string
+): Promise<McpToolResult> {
+  const prId = await ctx.client.fetchPullRequestId(ctx.owner, ctx.name, pr);
+  const comment = await ctx.client.addIssueComment(prId, body);
+
+  return textResult(
+    JSON.stringify({
+      ok: true,
+      repo: ctx.repo,
+      pr,
+      comment_id: comment.id,
+      ...(comment.url && { url: comment.url }),
+    })
+  );
+}
+
+async function handleAdd(params: FirewatchParams): Promise<McpToolResult> {
+  if (params.resolve && !params.reply_to) {
+    throw new Error("resolve requires reply_to.");
+  }
+
+  const pr = requirePrNumber(params.pr, "add");
+  const ctx = await createMutationContext(params.repo);
 
   const labels = toStringList(params.labels ?? params.label);
   const reviewers = toStringList(params.reviewer);
@@ -903,89 +1032,53 @@ async function handleAdd(params: FirewatchParams): Promise<McpToolResult> {
   }
 
   if (hasReview) {
-    const review = await client.addReview(
-      owner,
-      name,
-      pr,
-      params.review!,
-      params.body
-    );
-    return textResult(
-      JSON.stringify({
-        ok: true,
-        repo,
-        pr,
-        review: params.review,
-        ...(review?.id && { review_id: review.id }),
-        ...(review?.url && { url: review.url }),
-      })
-    );
+    return handleAddReview(ctx, pr, params.review!, params.body);
   }
 
   if (hasMetadata) {
-    if (labels.length > 0) {
-      await client.addLabels(owner, name, pr, labels);
-    }
-    if (reviewers.length > 0) {
-      await client.requestReviewers(owner, name, pr, reviewers);
-    }
-    if (assignees.length > 0) {
-      await client.addAssignees(owner, name, pr, assignees);
-    }
-
-    return textResult(
-      JSON.stringify({
-        ok: true,
-        repo,
-        pr,
-        ...(labels.length > 0 && { labels_added: labels }),
-        ...(reviewers.length > 0 && { reviewers_added: reviewers }),
-        ...(assignees.length > 0 && { assignees_added: assignees }),
-      })
-    );
+    return handleAddMetadata(ctx, pr, labels, reviewers, assignees);
   }
 
   const body = params.body ?? "";
 
   if (params.reply_to) {
-    // Resolve short ID to full comment ID if needed
-    const replyToId = await resolveCommentIdFromShortId(params.reply_to, repo);
-    const threadMap = await client.fetchReviewThreadMap(owner, name, pr);
-    const threadId = threadMap.get(replyToId);
-    if (!threadId) {
-      throw new Error(`No review thread found for comment ${params.reply_to}.`);
-    }
-
-    const reply = await client.addReviewThreadReply(threadId, body);
-    if (params.resolve) {
-      await client.resolveReviewThread(threadId);
-    }
-
-    return textResult(
-      JSON.stringify({
-        ok: true,
-        repo,
-        pr,
-        comment_id: reply.id,
-        reply_to: replyToId,
-        ...(params.resolve && { resolved: true }),
-        ...(reply.url && { url: reply.url }),
-      })
-    );
+    return handleAddReply(ctx, pr, params.reply_to, body, Boolean(params.resolve));
   }
 
-  const prId = await client.fetchPullRequestId(owner, name, pr);
-  const comment = await client.addIssueComment(prId, body);
+  return handleAddComment(ctx, pr, body);
+}
 
-  return textResult(
-    JSON.stringify({
-      ok: true,
-      repo,
-      pr,
-      comment_id: comment.id,
-      ...(comment.url && { url: comment.url }),
-    })
-  );
+async function applyPrFieldEdits(
+  ctx: MutationContext,
+  pr: number,
+  params: { title?: string; body?: string; base?: string }
+): Promise<void> {
+  if (params.title || params.body || params.base) {
+    await ctx.client.editPullRequest(ctx.owner, ctx.name, pr, {
+      ...(params.title && { title: params.title }),
+      ...(params.body && { body: params.body }),
+      ...(params.base && { base: params.base }),
+    });
+  }
+}
+
+async function applyDraftStatus(
+  ctx: MutationContext,
+  pr: number,
+  draft: boolean | undefined,
+  ready: boolean | undefined
+): Promise<void> {
+  if (!draft && !ready) {
+    return;
+  }
+
+  const prId = await ctx.client.fetchPullRequestId(ctx.owner, ctx.name, pr);
+  if (draft) {
+    await ctx.client.convertPullRequestToDraft(prId);
+  }
+  if (ready) {
+    await ctx.client.markPullRequestReady(prId);
+  }
 }
 
 async function handleEdit(params: FirewatchParams): Promise<McpToolResult> {
@@ -1005,50 +1098,24 @@ async function handleEdit(params: FirewatchParams): Promise<McpToolResult> {
     throw new Error("edit requires at least one field.");
   }
 
-  const repo = (await resolveRepo(params.repo)) ?? null;
-  if (!repo) {
-    throw new Error("No repository detected. Provide repo.");
-  }
+  const ctx = await createMutationContext(params.repo);
 
-  const [owner, name] = repo.split("/");
-  if (!owner || !name) {
-    throw new Error(`Invalid repo format: ${repo}. Expected owner/repo.`);
-  }
-
-  const config = await loadConfig();
-  const auth = await detectAuth(config.github_token);
-  if (!auth.token) {
-    throw new Error(auth.error);
-  }
-
-  const client = new GitHubClient(auth.token);
-
-  if (params.title || params.body || params.base) {
-    await client.editPullRequest(owner, name, pr, {
-      ...(params.title && { title: params.title }),
-      ...(params.body && { body: params.body }),
-      ...(params.base && { base: params.base }),
-    });
-  }
+  await applyPrFieldEdits(ctx, pr, {
+    title: params.title,
+    body: params.body,
+    base: params.base,
+  });
 
   if (milestoneName) {
-    await client.setMilestone(owner, name, pr, milestoneName);
+    await ctx.client.setMilestone(ctx.owner, ctx.name, pr, milestoneName);
   }
 
-  if (params.draft || params.ready) {
-    const prId = await client.fetchPullRequestId(owner, name, pr);
-    if (params.draft) {
-      await client.convertPullRequestToDraft(prId);
-    }
-    if (params.ready) {
-      await client.markPullRequestReady(prId);
-    }
-  }
+  await applyDraftStatus(ctx, pr, params.draft, params.ready);
 
   return textResult(
     JSON.stringify({
       ok: true,
-      repo,
+      repo: ctx.repo,
       pr,
       ...(params.title && { title: params.title }),
       ...(params.body && { body: params.body }),
@@ -1395,7 +1462,22 @@ function identifyUnaddressedFeedback(
     }));
 }
 
-async function handleFeedback(params: FeedbackParams): Promise<McpToolResult> {
+// ─────────────────────────────────────────────────────────────────────────────
+// Feedback handler helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface FeedbackContext {
+  repo: string;
+  owner: string;
+  name: string;
+  config: FirewatchConfig;
+  client: GitHubClient;
+  detectedRepo: string | null;
+}
+
+async function createFeedbackContext(
+  params: FeedbackParams
+): Promise<FeedbackContext> {
   const config = await loadConfig();
   const detected = await detectRepo();
   const repo = params.repo ?? detected.repo;
@@ -1415,177 +1497,181 @@ async function handleFeedback(params: FeedbackParams): Promise<McpToolResult> {
   }
 
   const client = new GitHubClient(auth.token);
-
-  // Ensure cache exists
   await ensureRepoCacheIfNeeded(repo, config, detected.repo);
 
-  // Route based on pr vs id
-  const hasPr = params.pr !== undefined;
-  const hasId = params.id !== undefined;
+  return { repo, owner, name, config, client, detectedRepo: detected.repo };
+}
 
-  if (!hasPr && !hasId) {
-    // List all unaddressed feedback across repo
-    const entries = await queryEntries({
-      filters: { repo, type: "comment" },
-    });
-    buildShortIdCache(entries);
+function formatFeedbackOutput(fb: UnaddressedFeedback, repo: string) {
+  return {
+    id: formatShortId(generateShortId(fb.comment_id, repo)),
+    gh_id: fb.comment_id,
+    repo: fb.repo,
+    pr: fb.pr,
+    pr_title: fb.pr_title,
+    author: fb.author,
+    ...(fb.body && { body: fb.body }),
+    created_at: fb.created_at,
+    ...(fb.file && { file: fb.file }),
+    ...(fb.line !== undefined && { line: fb.line }),
+  };
+}
 
-    const ackedIds = await getAckedIds(repo);
-    const feedbacks = identifyUnaddressedFeedback(entries, ackedIds);
+async function handleRepoFeedbackList(
+  ctx: FeedbackContext
+): Promise<McpToolResult> {
+  const entries = await queryEntries({
+    filters: { repo: ctx.repo, type: "comment" },
+  });
+  buildShortIdCache(entries);
 
-    // Filter out bots
-    const filtered = feedbacks.filter((fb) => !isBot(fb.author));
+  const ackedIds = await getAckedIds(ctx.repo);
+  const feedbacks = identifyUnaddressedFeedback(entries, ackedIds);
+  const filtered = feedbacks.filter((fb) => !isBot(fb.author));
+  const output = filtered.map((fb) => formatFeedbackOutput(fb, ctx.repo));
 
-    const output = filtered.map((fb) => ({
-      id: formatShortId(generateShortId(fb.comment_id, repo)),
-      gh_id: fb.comment_id,
-      repo: fb.repo,
-      pr: fb.pr,
-      pr_title: fb.pr_title,
-      author: fb.author,
-      ...(fb.body && { body: fb.body }),
-      created_at: fb.created_at,
-      ...(fb.file && { file: fb.file }),
-      ...(fb.line !== undefined && { line: fb.line }),
+  return textResult(jsonLines(output));
+}
+
+async function handlePrBulkAck(
+  ctx: FeedbackContext,
+  pr: number
+): Promise<McpToolResult> {
+  const entries = await queryEntries({ filters: { repo: ctx.repo, pr } });
+  buildShortIdCache(entries);
+
+  const ackedIds = await getAckedIds(ctx.repo);
+  const feedbacks = identifyUnaddressedFeedback(entries, ackedIds);
+  const prFeedbacks = feedbacks
+    .filter((fb) => fb.pr === pr)
+    .filter((fb) => !isBot(fb.author));
+
+  if (prFeedbacks.length === 0) {
+    return textResult(
+      JSON.stringify({ ok: true, repo: ctx.repo, pr, acked_count: 0 })
+    );
+  }
+
+  const results: { commentId: string; reactionAdded: boolean }[] = [];
+  for (const fb of prFeedbacks) {
+    let reactionAdded = false;
+    try {
+      await ctx.client.addReaction(fb.comment_id, "THUMBS_UP");
+      reactionAdded = true;
+    } catch {
+      // Continue with local ack even if reaction fails
+    }
+    results.push({ commentId: fb.comment_id, reactionAdded });
+  }
+
+  const ackRecords: AckRecord[] = results.map((r) => ({
+    repo: ctx.repo,
+    pr,
+    comment_id: r.commentId,
+    acked_at: new Date().toISOString(),
+    ...(ctx.config.user?.github_username && {
+      acked_by: ctx.config.user.github_username,
+    }),
+    reaction_added: r.reactionAdded,
+  }));
+  await addAcks(ackRecords);
+
+  const reactionsAdded = results.filter((r) => r.reactionAdded).length;
+
+  return textResult(
+    JSON.stringify({
+      ok: true,
+      repo: ctx.repo,
+      pr,
+      acked_count: prFeedbacks.length,
+      reactions_added: reactionsAdded,
+    })
+  );
+}
+
+async function handlePrAddComment(
+  ctx: FeedbackContext,
+  pr: number,
+  body: string
+): Promise<McpToolResult> {
+  const prId = await ctx.client.fetchPullRequestId(ctx.owner, ctx.name, pr);
+  const comment = await ctx.client.addIssueComment(prId, body);
+  const shortId = formatShortId(generateShortId(comment.id, ctx.repo));
+
+  return textResult(
+    JSON.stringify({
+      ok: true,
+      repo: ctx.repo,
+      pr,
+      id: shortId,
+      gh_id: comment.id,
+      ...(comment.url && { url: comment.url }),
+    })
+  );
+}
+
+async function handlePrListFeedback(
+  ctx: FeedbackContext,
+  pr: number,
+  showAll: boolean
+): Promise<McpToolResult> {
+  const entries = await queryEntries({ filters: { repo: ctx.repo, pr } });
+  buildShortIdCache(entries);
+
+  if (showAll) {
+    const comments = entries.filter((e) => e.type === "comment");
+    const output = comments.map((c) => ({
+      id: formatShortId(generateShortId(c.id, ctx.repo)),
+      gh_id: c.id,
+      repo: c.repo,
+      pr: c.pr,
+      author: c.author,
+      subtype: c.subtype,
+      ...(c.body && { body: c.body.slice(0, 200) }),
+      created_at: c.created_at,
+      ...(c.file && { file: c.file }),
+      ...(c.line !== undefined && { line: c.line }),
+      ...(c.thread_resolved !== undefined && {
+        thread_resolved: c.thread_resolved,
+      }),
     }));
-
     return textResult(jsonLines(output));
   }
 
-  if (hasPr && !hasId) {
-    // PR-level operations
-    const pr = requirePrNumber(params.pr, "feedback");
+  const ackedIds = await getAckedIds(ctx.repo);
+  const feedbacks = identifyUnaddressedFeedback(entries, ackedIds);
+  const prFeedbacks = feedbacks
+    .filter((fb) => fb.pr === pr)
+    .filter((fb) => !isBot(fb.author));
 
-    // Bulk ack
-    if (params.ack) {
-      const entries = await queryEntries({ filters: { repo, pr } });
-      buildShortIdCache(entries);
+  const output = prFeedbacks.map((fb) => formatFeedbackOutput(fb, ctx.repo));
+  return textResult(jsonLines(output));
+}
 
-      const ackedIds = await getAckedIds(repo);
-      const feedbacks = identifyUnaddressedFeedback(entries, ackedIds);
-      const prFeedbacks = feedbacks
-        .filter((fb) => fb.pr === pr)
-        .filter((fb) => !isBot(fb.author));
+function handlePrFeedback(
+  ctx: FeedbackContext,
+  params: FeedbackParams
+): Promise<McpToolResult> {
+  const pr = requirePrNumber(params.pr, "feedback");
 
-      if (prFeedbacks.length === 0) {
-        return textResult(
-          JSON.stringify({ ok: true, repo, pr, acked_count: 0 })
-        );
-      }
-
-      // Add reactions and local acks
-      const results: { commentId: string; reactionAdded: boolean }[] = [];
-      for (const fb of prFeedbacks) {
-        let reactionAdded = false;
-        try {
-          await client.addReaction(fb.comment_id, "THUMBS_UP");
-          reactionAdded = true;
-        } catch {
-          // Continue with local ack even if reaction fails
-        }
-        results.push({ commentId: fb.comment_id, reactionAdded });
-      }
-
-      const ackRecords: AckRecord[] = results.map((r) => ({
-        repo,
-        pr,
-        comment_id: r.commentId,
-        acked_at: new Date().toISOString(),
-        ...(config.user?.github_username && {
-          acked_by: config.user.github_username,
-        }),
-        reaction_added: r.reactionAdded,
-      }));
-      await addAcks(ackRecords);
-
-      const reactionsAdded = results.filter((r) => r.reactionAdded).length;
-
-      return textResult(
-        JSON.stringify({
-          ok: true,
-          repo,
-          pr,
-          acked_count: prFeedbacks.length,
-          reactions_added: reactionsAdded,
-        })
-      );
-    }
-
-    // Add new comment to PR
-    if (params.body) {
-      const prId = await client.fetchPullRequestId(owner, name, pr);
-      const comment = await client.addIssueComment(prId, params.body);
-
-      const shortId = formatShortId(generateShortId(comment.id, repo));
-
-      return textResult(
-        JSON.stringify({
-          ok: true,
-          repo,
-          pr,
-          id: shortId,
-          gh_id: comment.id,
-          ...(comment.url && { url: comment.url }),
-        })
-      );
-    }
-
-    // List feedback for PR
-    const entries = await queryEntries({ filters: { repo, pr } });
-    buildShortIdCache(entries);
-
-    if (params.all) {
-      // Show all comments
-      const comments = entries.filter((e) => e.type === "comment");
-      const output = comments.map((c) => ({
-        id: formatShortId(generateShortId(c.id, repo)),
-        gh_id: c.id,
-        repo: c.repo,
-        pr: c.pr,
-        author: c.author,
-        subtype: c.subtype,
-        ...(c.body && { body: c.body.slice(0, 200) }),
-        created_at: c.created_at,
-        ...(c.file && { file: c.file }),
-        ...(c.line !== undefined && { line: c.line }),
-        ...(c.thread_resolved !== undefined && {
-          thread_resolved: c.thread_resolved,
-        }),
-      }));
-      return textResult(jsonLines(output));
-    }
-
-    // Show unaddressed feedback only
-    const ackedIds = await getAckedIds(repo);
-    const feedbacks = identifyUnaddressedFeedback(entries, ackedIds);
-    const prFeedbacks = feedbacks
-      .filter((fb) => fb.pr === pr)
-      .filter((fb) => !isBot(fb.author));
-
-    const output = prFeedbacks.map((fb) => ({
-      id: formatShortId(generateShortId(fb.comment_id, repo)),
-      gh_id: fb.comment_id,
-      repo: fb.repo,
-      pr: fb.pr,
-      author: fb.author,
-      ...(fb.body && { body: fb.body }),
-      created_at: fb.created_at,
-      ...(fb.file && { file: fb.file }),
-      ...(fb.line !== undefined && { line: fb.line }),
-    }));
-
-    return textResult(jsonLines(output));
+  if (params.ack) {
+    return handlePrBulkAck(ctx, pr);
   }
 
-  // Comment-level operations (hasId)
-  const rawId = params.id!;
+  if (params.body) {
+    return handlePrAddComment(ctx, pr, params.body);
+  }
+
+  return handlePrListFeedback(ctx, pr, Boolean(params.all));
+}
+
+async function resolveCommentId(
+  rawId: string,
+  repo: string
+): Promise<{ commentId: string; shortIdDisplay: string }> {
   const idType = classifyId(rawId);
 
-  let commentId: string;
-  let shortIdDisplay: string;
-
   if (idType === "short_id") {
-    // Need to resolve short ID
     const entries = await queryEntries({ filters: { repo, type: "comment" } });
     buildShortIdCache(entries);
 
@@ -1595,180 +1681,190 @@ async function handleFeedback(params: FeedbackParams): Promise<McpToolResult> {
         `Short ID ${formatShortId(rawId)} not found in cache. Run fw_query or fw_fb first.`
       );
     }
-    commentId = resolved.fullId;
-    shortIdDisplay = formatShortId(rawId);
-  } else if (idType === "full_id") {
-    commentId = rawId;
-    shortIdDisplay = formatShortId(generateShortId(commentId, repo));
-  } else {
-    throw new Error(`Invalid ID format: ${rawId}`);
-  }
-
-  // Get entry from cache
-  const entries = await queryEntries({ filters: { repo, id: commentId } });
-  const entry = entries[0];
-
-  if (!entry) {
-    throw new Error(`Comment ${shortIdDisplay} not found.`);
-  }
-
-  // Ack only
-  if (params.ack && !params.body && !params.resolve) {
-    let reactionAdded = false;
-    try {
-      await client.addReaction(commentId, "THUMBS_UP");
-      reactionAdded = true;
-    } catch {
-      // Continue with local ack
-    }
-
-    const ackRecord: AckRecord = {
-      repo,
-      pr: entry.pr,
-      comment_id: commentId,
-      acked_at: new Date().toISOString(),
-      ...(config.user?.github_username && {
-        acked_by: config.user.github_username,
-      }),
-      reaction_added: reactionAdded,
+    return {
+      commentId: resolved.fullId,
+      shortIdDisplay: formatShortId(rawId),
     };
-    await addAck(ackRecord);
+  }
+
+  if (idType === "full_id") {
+    return {
+      commentId: rawId,
+      shortIdDisplay: formatShortId(generateShortId(rawId, repo)),
+    };
+  }
+
+  throw new Error(`Invalid ID format: ${rawId}`);
+}
+
+async function ackWithReaction(
+  ctx: FeedbackContext,
+  commentId: string,
+  pr: number
+): Promise<{ reactionAdded: boolean }> {
+  let reactionAdded = false;
+  try {
+    await ctx.client.addReaction(commentId, "THUMBS_UP");
+    reactionAdded = true;
+  } catch {
+    // Continue with local ack
+  }
+
+  const ackRecord: AckRecord = {
+    repo: ctx.repo,
+    pr,
+    comment_id: commentId,
+    acked_at: new Date().toISOString(),
+    ...(ctx.config.user?.github_username && {
+      acked_by: ctx.config.user.github_username,
+    }),
+    reaction_added: reactionAdded,
+  };
+  await addAck(ackRecord);
+
+  return { reactionAdded };
+}
+
+async function handleCommentAck(
+  ctx: FeedbackContext,
+  commentId: string,
+  shortIdDisplay: string,
+  entry: FirewatchEntry
+): Promise<McpToolResult> {
+  const { reactionAdded } = await ackWithReaction(ctx, commentId, entry.pr);
+
+  return textResult(
+    JSON.stringify({
+      ok: true,
+      repo: ctx.repo,
+      pr: entry.pr,
+      id: shortIdDisplay,
+      gh_id: commentId,
+      acked: true,
+      reaction_added: reactionAdded,
+    })
+  );
+}
+
+async function handleCommentResolve(
+  ctx: FeedbackContext,
+  commentId: string,
+  shortIdDisplay: string,
+  entry: FirewatchEntry
+): Promise<McpToolResult> {
+  if (entry.subtype !== "review_comment") {
+    const { reactionAdded } = await ackWithReaction(ctx, commentId, entry.pr);
 
     return textResult(
       JSON.stringify({
         ok: true,
-        repo,
+        repo: ctx.repo,
         pr: entry.pr,
         id: shortIdDisplay,
         gh_id: commentId,
         acked: true,
         reaction_added: reactionAdded,
+        note: "Issue comments cannot be resolved, acknowledged instead.",
       })
     );
   }
 
-  // Resolve only (no body)
-  if (params.resolve && !params.body) {
-    if (entry.subtype !== "review_comment") {
-      // Issue comment - ack instead of resolve
-      let reactionAdded = false;
-      try {
-        await client.addReaction(commentId, "THUMBS_UP");
-        reactionAdded = true;
-      } catch {
-        // Continue with local ack
-      }
+  const threadMap = await ctx.client.fetchReviewThreadMap(
+    ctx.owner,
+    ctx.name,
+    entry.pr
+  );
+  const threadId = threadMap.get(commentId);
 
-      const ackRecord: AckRecord = {
-        repo,
-        pr: entry.pr,
-        comment_id: commentId,
-        acked_at: new Date().toISOString(),
-        ...(config.user?.github_username && {
-          acked_by: config.user.github_username,
-        }),
-        reaction_added: reactionAdded,
-      };
-      await addAck(ackRecord);
+  if (!threadId) {
+    throw new Error(`No review thread found for comment ${shortIdDisplay}.`);
+  }
 
-      return textResult(
-        JSON.stringify({
-          ok: true,
-          repo,
-          pr: entry.pr,
-          id: shortIdDisplay,
-          gh_id: commentId,
-          acked: true,
-          reaction_added: reactionAdded,
-          note: "Issue comments cannot be resolved, acknowledged instead.",
-        })
-      );
-    }
+  await ctx.client.resolveReviewThread(threadId);
 
-    // Review comment - resolve thread
-    const threadMap = await client.fetchReviewThreadMap(owner, name, entry.pr);
+  return textResult(
+    JSON.stringify({
+      ok: true,
+      repo: ctx.repo,
+      pr: entry.pr,
+      id: shortIdDisplay,
+      gh_id: commentId,
+      thread_id: threadId,
+      resolved: true,
+    })
+  );
+}
+
+async function handleCommentReply(
+  ctx: FeedbackContext,
+  params: FeedbackParams,
+  commentId: string,
+  shortIdDisplay: string,
+  entry: FirewatchEntry
+): Promise<McpToolResult> {
+  const body = params.body!;
+
+  if (entry.subtype === "review_comment") {
+    const threadMap = await ctx.client.fetchReviewThreadMap(
+      ctx.owner,
+      ctx.name,
+      entry.pr
+    );
     const threadId = threadMap.get(commentId);
 
     if (!threadId) {
       throw new Error(`No review thread found for comment ${shortIdDisplay}.`);
     }
 
-    await client.resolveReviewThread(threadId);
+    const reply = await ctx.client.addReviewThreadReply(threadId, body);
 
-    return textResult(
-      JSON.stringify({
-        ok: true,
-        repo,
-        pr: entry.pr,
-        id: shortIdDisplay,
-        gh_id: commentId,
-        thread_id: threadId,
-        resolved: true,
-      })
-    );
-  }
-
-  // Reply (with optional resolve)
-  if (params.body) {
-    if (entry.subtype === "review_comment") {
-      // Reply to review thread
-      const threadMap = await client.fetchReviewThreadMap(
-        owner,
-        name,
-        entry.pr
-      );
-      const threadId = threadMap.get(commentId);
-
-      if (!threadId) {
-        throw new Error(
-          `No review thread found for comment ${shortIdDisplay}.`
-        );
-      }
-
-      const reply = await client.addReviewThreadReply(threadId, params.body);
-
-      if (params.resolve) {
-        await client.resolveReviewThread(threadId);
-      }
-
-      const replyShortId = formatShortId(generateShortId(reply.id, repo));
-
-      return textResult(
-        JSON.stringify({
-          ok: true,
-          repo,
-          pr: entry.pr,
-          id: replyShortId,
-          gh_id: reply.id,
-          reply_to: shortIdDisplay,
-          reply_to_gh_id: commentId,
-          ...(params.resolve && { resolved: true }),
-          ...(reply.url && { url: reply.url }),
-        })
-      );
+    if (params.resolve) {
+      await ctx.client.resolveReviewThread(threadId);
     }
 
-    // Issue comment - add new comment (can't thread on issue comments)
-    const prId = await client.fetchPullRequestId(owner, name, entry.pr);
-    const comment = await client.addIssueComment(prId, params.body);
-
-    const newShortId = formatShortId(generateShortId(comment.id, repo));
+    const replyShortId = formatShortId(generateShortId(reply.id, ctx.repo));
 
     return textResult(
       JSON.stringify({
         ok: true,
-        repo,
+        repo: ctx.repo,
         pr: entry.pr,
-        id: newShortId,
-        gh_id: comment.id,
-        in_reply_to: shortIdDisplay,
-        in_reply_to_gh_id: commentId,
-        ...(comment.url && { url: comment.url }),
+        id: replyShortId,
+        gh_id: reply.id,
+        reply_to: shortIdDisplay,
+        reply_to_gh_id: commentId,
+        ...(params.resolve && { resolved: true }),
+        ...(reply.url && { url: reply.url }),
       })
     );
   }
 
-  // View comment (no mutation params)
+  const prId = await ctx.client.fetchPullRequestId(
+    ctx.owner,
+    ctx.name,
+    entry.pr
+  );
+  const comment = await ctx.client.addIssueComment(prId, body);
+  const newShortId = formatShortId(generateShortId(comment.id, ctx.repo));
+
+  return textResult(
+    JSON.stringify({
+      ok: true,
+      repo: ctx.repo,
+      pr: entry.pr,
+      id: newShortId,
+      gh_id: comment.id,
+      in_reply_to: shortIdDisplay,
+      in_reply_to_gh_id: commentId,
+      ...(comment.url && { url: comment.url }),
+    })
+  );
+}
+
+function viewComment(
+  shortIdDisplay: string,
+  entry: FirewatchEntry
+): McpToolResult {
   return textResult(
     JSON.stringify({
       id: shortIdDisplay,
@@ -1787,6 +1883,56 @@ async function handleFeedback(params: FeedbackParams): Promise<McpToolResult> {
       }),
     })
   );
+}
+
+async function handleCommentFeedback(
+  ctx: FeedbackContext,
+  params: FeedbackParams
+): Promise<McpToolResult> {
+  const { commentId, shortIdDisplay } = await resolveCommentId(
+    params.id!,
+    ctx.repo
+  );
+
+  const entries = await queryEntries({
+    filters: { repo: ctx.repo, id: commentId },
+  });
+  const entry = entries[0];
+
+  if (!entry) {
+    throw new Error(`Comment ${shortIdDisplay} not found.`);
+  }
+
+  if (params.ack && !params.body && !params.resolve) {
+    return handleCommentAck(ctx, commentId, shortIdDisplay, entry);
+  }
+
+  if (params.resolve && !params.body) {
+    return handleCommentResolve(ctx, commentId, shortIdDisplay, entry);
+  }
+
+  if (params.body) {
+    return handleCommentReply(ctx, params, commentId, shortIdDisplay, entry);
+  }
+
+  return viewComment(shortIdDisplay, entry);
+}
+
+async function handleFeedback(params: FeedbackParams): Promise<McpToolResult> {
+  const ctx = await createFeedbackContext(params);
+
+  const hasPr = params.pr !== undefined;
+  const hasId = params.id !== undefined;
+
+  if (!hasPr && !hasId) {
+    return handleRepoFeedbackList(ctx);
+  }
+
+  if (hasPr && !hasId) {
+    return handlePrFeedback(ctx, params);
+  }
+
+  return handleCommentFeedback(ctx, params);
 }
 
 function schemaDoc(name: SchemaName | undefined): object {
