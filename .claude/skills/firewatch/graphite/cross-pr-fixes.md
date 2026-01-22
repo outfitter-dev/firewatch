@@ -5,6 +5,7 @@ How to handle file provenance when a fix belongs in a different PR than where th
 ## The Problem
 
 In Graphite stacks, a reviewer might comment on a file in PR #103 (top of stack), but that file was actually introduced in PR #101 (base of stack). If you fix the file in PR #103:
+
 - The fix won't propagate down the stack
 - PR #101 still has the original issue
 - Rebasing becomes messy
@@ -80,6 +81,7 @@ Edit the file in the origin branch. The fix will propagate up the stack after re
 See [commit-workflow.md](commit-workflow.md) for commit guidance.
 
 For single-branch fixes:
+
 ```bash
 gt modify -m "address review: <summary>"
 ```
@@ -157,6 +159,7 @@ fw add 103 "Fixed in base PR #101, propagated via restack" --reply IC_xyz --reso
 If a file appears in multiple stack PRs, Graphite tracks where it was **introduced**. Subsequent modifications don't change provenance.
 
 To see the full history:
+
 ```bash
 gt log --files src/auth.ts
 ```
@@ -164,6 +167,7 @@ gt log --files src/auth.ts
 ### Conflicting Fixes
 
 If your fix conflicts with changes in higher PRs:
+
 1. `gt restack` will pause on conflict
 2. Resolve the conflict manually
 3. `git add` the resolved file
@@ -172,6 +176,7 @@ If your fix conflicts with changes in higher PRs:
 ### Missing Provenance Data
 
 If `file_provenance` is null:
+
 - The file may have been introduced before stack tracking
 - The file may not be in a Graphite stack
 - Try re-syncing: `fw --refresh`
@@ -179,6 +184,7 @@ If `file_provenance` is null:
 ### Reviewer Wants Fix in Place
 
 Sometimes reviewers want the fix in the commenting PR, not the origin. In that case:
+
 1. Make the fix in the current PR
 2. Explain in your reply: "Fixed here as requested, though file originated in #101"
 3. Be aware this may cause issues if origin PR changes

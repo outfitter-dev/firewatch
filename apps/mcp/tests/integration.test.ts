@@ -1,8 +1,3 @@
-import { afterAll, beforeAll, expect, test } from "bun:test";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import {
@@ -16,6 +11,11 @@ import {
   type FirewatchEntry,
   type PRMetadata,
 } from "@outfitter/firewatch-core";
+import { afterAll, beforeAll, expect, test } from "bun:test";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { createServer } from "../src/index";
 
 const tempRoot = await mkdtemp(join(tmpdir(), "firewatch-mcp-"));
@@ -154,7 +154,9 @@ test("mcp tool query summary short returns per-PR summary", async () => {
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean)
-    .map((line) => JSON.parse(line) as { pr: number; changes_requested: number });
+    .map(
+      (line) => JSON.parse(line) as { pr: number; changes_requested: number }
+    );
 
   expect(lines).toHaveLength(1);
   expect(lines[0]?.pr).toBe(10);

@@ -5,6 +5,10 @@ import {
   type WorklistEntry,
 } from "@outfitter/firewatch-core";
 
+import { c, getAnsis } from "./utils/color";
+import { getCurrentBranch } from "./utils/git";
+import { renderHeader } from "./utils/tree";
+
 export type ActionableCategory =
   | "unaddressed"
   | "changes_requested"
@@ -17,6 +21,7 @@ export interface AttentionItem {
   pr_title: string;
   pr_state: string;
   pr_author: string;
+  pr_branch: string;
   last_activity_at: string;
   reason: "changes_requested" | "no_reviews" | "stale";
   graphite?: WorklistEntry["graphite"];
@@ -26,6 +31,7 @@ export interface UnaddressedFeedback {
   repo: string;
   pr: number;
   pr_title: string;
+  pr_branch: string;
   comment_id: string;
   author: string;
   body?: string;
@@ -41,6 +47,7 @@ export interface ActionableItem {
   pr: number;
   pr_title: string;
   pr_author: string;
+  pr_branch: string;
   pr_state: string;
   description: string;
   count: number;
@@ -76,6 +83,20 @@ function isStaleItem(lastActivityAt: string): boolean {
   return lastActivity < threshold;
 }
 
+function formatAuthorSummary(feedbacks: UnaddressedFeedback[]): string {
+  const authorCounts = new Map<string, number>();
+  for (const fb of feedbacks) {
+    authorCounts.set(fb.author, (authorCounts.get(fb.author) ?? 0) + 1);
+  }
+  const sorted = [...authorCounts.entries()].toSorted((a, b) => b[1] - a[1]);
+  const display = sorted
+    .slice(0, 3)
+    .map(([author, count]) => `${author} (${count})`)
+    .join(", ");
+  const extra = sorted.length > 3 ? `, +${sorted.length - 3} more` : "";
+  return display + extra;
+}
+
 function toAttentionItem(
   item: WorklistEntry,
   reason: AttentionItem["reason"]
@@ -86,6 +107,7 @@ function toAttentionItem(
     pr_title: item.pr_title,
     pr_state: item.pr_state,
     pr_author: item.pr_author,
+    pr_branch: item.pr_branch,
     last_activity_at: item.last_activity_at,
     reason,
     ...(item.graphite && { graphite: item.graphite }),
@@ -98,7 +120,11 @@ export function identifyAttentionItems(worklist: WorklistEntry[]): {
   stale: AttentionItem[];
 } {
   const changes_requested = worklist
-    .filter((w) => (w.review_states?.changes_requested ?? 0) > 0)
+    .filter(
+      (w) =>
+        (w.pr_state === "open" || w.pr_state === "draft") &&
+        (w.review_states?.changes_requested ?? 0) > 0
+    )
     .map((w) => toAttentionItem(w, "changes_requested"));
 
   const unreviewed = worklist
@@ -166,6 +192,7 @@ export function identifyUnaddressedFeedback(
       repo: e.repo,
       pr: e.pr,
       pr_title: e.pr_title,
+      pr_branch: e.pr_branch,
       comment_id: e.id,
       author: e.author,
       ...(e.body && { body: e.body.slice(0, 200) }),
@@ -179,10 +206,9 @@ export function identifyUnaddressedFeedback(
 function buildActionableItems(
   entries: FirewatchEntry[],
   attention: ReturnType<typeof identifyAttentionItems>,
-  unaddressedFeedback: UnaddressedFeedback[]
+  unaddressedFeedback: UnaddressedFeedback[],
+  includeOrphaned = false
 ): ActionableItem[] {
-  const items: ActionableItem[] = [];
-
   // Build O(1) lookup map using repo:pr composite key for cross-repo safety
   const entryByRepoPr = new Map<string, FirewatchEntry>();
   for (const entry of entries) {
@@ -203,85 +229,101 @@ function buildActionableItems(
       continue;
     }
 
-    const list = feedbackByRepoPr.get(key) ?? [];
-    list.push(fb);
-    feedbackByRepoPr.set(key, list);
+    const existing = feedbackByRepoPr.get(key);
+    if (existing) {
+      existing.push(fb);
+    } else {
+      feedbackByRepoPr.set(key, [fb]);
+    }
   }
 
+  // Build unaddressed feedback items
+  const unaddressedItems: ActionableItem[] = [];
   for (const [key, feedbacks] of feedbackByRepoPr) {
     const entry = entryByRepoPr.get(key);
     if (!entry) {
       continue;
     }
 
-    items.push({
+    // Only show unaddressed feedback for open/draft PRs (unless orphaned mode)
+    const isOpenOrDraft =
+      entry.pr_state === "open" || entry.pr_state === "draft";
+    if (!isOpenOrDraft && !includeOrphaned) {
+      continue;
+    }
+
+    unaddressedItems.push({
       category: "unaddressed",
       repo: entry.repo,
       pr: entry.pr,
       pr_title: entry.pr_title,
       pr_author: entry.pr_author,
+      pr_branch: entry.pr_branch,
       pr_state: entry.pr_state,
-      description: `${feedbacks.length} unaddressed review comment${feedbacks.length === 1 ? "" : "s"}`,
+      description: formatAuthorSummary(feedbacks),
       count: feedbacks.length,
       ...(entry.url && { url: entry.url }),
       ...(entry.graphite && { graphite: entry.graphite }),
     });
   }
 
-  for (const item of attention.changes_requested) {
-    if (
-      items.some(
-        (i) =>
-          i.repo === item.repo &&
-          i.pr === item.pr &&
-          i.category === "unaddressed"
-      )
-    ) {
-      continue;
-    }
-
-    items.push({
+  // Build changes_requested items (excluding PRs already in unaddressed)
+  const changesRequestedItems = attention.changes_requested
+    .filter(
+      (item) =>
+        !unaddressedItems.some(
+          (i) => i.repo === item.repo && i.pr === item.pr
+        )
+    )
+    .map((item): ActionableItem => ({
       category: "changes_requested",
       repo: item.repo,
       pr: item.pr,
       pr_title: item.pr_title,
       pr_author: item.pr_author,
+      pr_branch: item.pr_branch,
       pr_state: item.pr_state,
       description: "Changes requested",
       count: 1,
       ...(item.graphite && { graphite: item.graphite }),
-    });
-  }
+    }));
 
-  for (const item of attention.unreviewed) {
-    items.push({
+  // Build awaiting_review items
+  const awaitingReviewItems = attention.unreviewed.map(
+    (item): ActionableItem => ({
       category: "awaiting_review",
       repo: item.repo,
       pr: item.pr,
       pr_title: item.pr_title,
       pr_author: item.pr_author,
+      pr_branch: item.pr_branch,
       pr_state: item.pr_state,
       description: "Awaiting first review",
       count: 1,
       ...(item.graphite && { graphite: item.graphite }),
-    });
-  }
+    })
+  );
 
-  for (const item of attention.stale) {
-    items.push({
-      category: "stale",
-      repo: item.repo,
-      pr: item.pr,
-      pr_title: item.pr_title,
-      pr_author: item.pr_author,
-      pr_state: item.pr_state,
-      description: "No recent activity",
-      count: 1,
-      ...(item.graphite && { graphite: item.graphite }),
-    });
-  }
+  // Build stale items
+  const staleItems = attention.stale.map((item): ActionableItem => ({
+    category: "stale",
+    repo: item.repo,
+    pr: item.pr,
+    pr_title: item.pr_title,
+    pr_author: item.pr_author,
+    pr_branch: item.pr_branch,
+    pr_state: item.pr_state,
+    description: "No recent activity",
+    count: 1,
+    ...(item.graphite && { graphite: item.graphite }),
+  }));
 
-  return items;
+  return [
+    ...unaddressedItems,
+    ...changesRequestedItems,
+    ...awaitingReviewItems,
+    ...staleItems,
+  ];
 }
 
 function filterByPerspective(
@@ -304,12 +346,18 @@ export function buildActionableSummary(
   repo: string,
   entries: FirewatchEntry[],
   perspective?: "mine" | "reviews",
-  username?: string
+  username?: string,
+  includeOrphaned = false
 ): ActionableSummary {
   const worklist = sortWorklist(buildWorklist(entries));
   const attention = identifyAttentionItems(worklist);
   const unaddressedFeedback = identifyUnaddressedFeedback(entries);
-  let items = buildActionableItems(entries, attention, unaddressedFeedback);
+  let items = buildActionableItems(
+    entries,
+    attention,
+    unaddressedFeedback,
+    includeOrphaned
+  );
   items = filterByPerspective(items, username, perspective);
 
   const counts = {
@@ -335,10 +383,10 @@ export function buildActionableSummary(
 }
 
 const CATEGORY_LABELS: Record<ActionableCategory, string> = {
-  unaddressed: "Unaddressed Feedback",
+  unaddressed: "Awaiting Feedback",
   changes_requested: "Changes Requested",
   awaiting_review: "Awaiting Review",
-  stale: "Stale PRs",
+  stale: "Stale",
 };
 
 const CATEGORY_ORDER: ActionableCategory[] = [
@@ -348,15 +396,102 @@ const CATEGORY_ORDER: ActionableCategory[] = [
   "stale",
 ];
 
-export function printActionableSummary(summary: ActionableSummary): void {
-  console.log(`\n=== Firewatch: ${summary.repo} ===`);
+// Glyphs by category
+const GLYPHS = {
+  unaddressed: { current: "◉", other: "◎" },
+  changes_requested: { current: "◉", other: "◎" },
+  awaiting_review: { current: "◯", other: "◯" },
+  stale: { current: "◌", other: "◌" },
+} as const;
 
+type ColorFn = (text: string) => string;
+
+const CATEGORY_COLORS: Record<ActionableCategory, ColorFn> = {
+  unaddressed: c.yellow,
+  changes_requested: c.white,
+  awaiting_review: c.cyan,
+  stale: c.white,
+};
+
+function formatCategoryHeader(
+  label: string,
+  count: number,
+  color: ColorFn
+): string {
+  const a = getAnsis();
+  const prLabel = count === 1 ? "PR" : "PRs";
+  return `${color(a.bold(`${label}:`))} ${color(`${count} ${prLabel}`)}`;
+}
+
+function formatPrLine(
+  item: ActionableItem,
+  category: ActionableCategory,
+  currentBranch: string | null
+): string {
+  const isCurrent = currentBranch === item.pr_branch;
+  const glyph = isCurrent ? GLYPHS[category].current : GLYPHS[category].other;
+  const color = CATEGORY_COLORS[category];
+  return color(`${glyph} #${item.pr} ${item.pr_branch}`);
+}
+
+function formatDetailLine(item: ActionableItem): string | null {
+  // Skip generic status messages - not useful info
+  if (
+    item.description === "Awaiting first review" ||
+    item.description === "No recent activity" ||
+    item.description === "Changes requested"
+  ) {
+    return null;
+  }
+  // Format authors with @ prefix
+  const detail = item.description.replaceAll(
+    /\b([a-zA-Z0-9_-]+) \((\d+)\)/g,
+    "@$1 ($2)"
+  );
+  return c.dim(`  ⎿ ${detail}`);
+}
+
+function renderCategorySection(
+  category: ActionableCategory,
+  items: ActionableItem[],
+  currentBranch: string | null,
+  limit = 5
+): string[] {
+  const color = CATEGORY_COLORS[category];
+  const label = CATEGORY_LABELS[category];
+  const lines: string[] = [formatCategoryHeader(label, items.length, color)];
+
+  for (const item of items.slice(0, limit)) {
+    lines.push(formatPrLine(item, category, currentBranch));
+    const detail = formatDetailLine(item);
+    if (detail) {
+      lines.push(detail);
+    }
+  }
+
+  if (items.length > limit) {
+    const glyph = GLYPHS[category].other;
+    lines.push(c.dim(`${glyph} +${items.length - limit} more`));
+  }
+
+  return lines;
+}
+
+export async function printActionableSummary(
+  summary: ActionableSummary
+): Promise<void> {
+  // Build header
+  const headerParts = ["Firewatch", summary.repo];
   if (summary.perspective) {
     const perspectiveLabel =
       summary.perspective === "mine" ? "My PRs" : "To Review";
-    console.log(
-      `Perspective: ${perspectiveLabel}${summary.username ? ` (${summary.username})` : ""}`
-    );
+    headerParts.push(perspectiveLabel);
+  }
+
+  const headerLines = renderHeader(headerParts, 50);
+  console.log("");
+  for (const line of headerLines) {
+    console.log(line);
   }
 
   if (summary.counts.total === 0) {
@@ -364,8 +499,10 @@ export function printActionableSummary(summary: ActionableSummary): void {
     return;
   }
 
-  console.log(`\nTotal: ${summary.counts.total} actionable items`);
+  // Get current branch for highlighting
+  const currentBranch = await getCurrentBranch();
 
+  // Group items by category
   const byCategory = new Map<ActionableCategory, ActionableItem[]>();
   for (const item of summary.items) {
     const list = byCategory.get(item.category) ?? [];
@@ -373,29 +510,18 @@ export function printActionableSummary(summary: ActionableSummary): void {
     byCategory.set(item.category, list);
   }
 
+  // Render each category
   for (const category of CATEGORY_ORDER) {
     const items = byCategory.get(category);
     if (!items || items.length === 0) {
       continue;
     }
 
-    const label = CATEGORY_LABELS[category];
-    console.log(`\n${label} (${items.length}):`);
+    const categoryLines = renderCategorySection(category, items, currentBranch);
 
-    for (const item of items.slice(0, 5)) {
-      const stackInfo =
-        item.graphite?.stack_position && item.graphite?.stack_size
-          ? ` [${item.graphite.stack_position}/${item.graphite.stack_size}]`
-          : "";
-      const titleTrunc =
-        item.pr_title.length > 50
-          ? `${item.pr_title.slice(0, 47)}...`
-          : item.pr_title;
-      console.log(`  #${item.pr}${stackInfo} ${titleTrunc}`);
-      console.log(`     ${item.description}`);
-    }
-    if (items.length > 5) {
-      console.log(`  +${items.length - 5} more`);
+    console.log("");
+    for (const line of categoryLines) {
+      console.log(line);
     }
   }
 }

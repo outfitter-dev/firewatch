@@ -40,32 +40,35 @@ fw close IC_abc IC_def IC_ghi
 
 Keep replies brief but informative:
 
-| Fix Type | Reply Example |
-|----------|---------------|
-| Renamed | "Renamed to `getUserById` for clarity" |
-| Added check | "Added null check" |
-| Extracted | "Extracted to `validateInput` helper" |
-| Added types | "Added explicit types" |
-| Fixed bug | "Fixed -- was off by one" |
-| Added test | "Added test coverage" |
-| Removed | "Removed dead code" |
-| Refactored | "Refactored per suggestion" |
-| General | "Done" or "Fixed" |
+| Fix Type    | Reply Example                          |
+| ----------- | -------------------------------------- |
+| Renamed     | "Renamed to `getUserById` for clarity" |
+| Added check | "Added null check"                     |
+| Extracted   | "Extracted to `validateInput` helper"  |
+| Added types | "Added explicit types"                 |
+| Fixed bug   | "Fixed -- was off by one"              |
+| Added test  | "Added test coverage"                  |
+| Removed     | "Removed dead code"                    |
+| Refactored  | "Refactored per suggestion"            |
+| General     | "Done" or "Fixed"                      |
 
 ## When to Use Each Method
 
 ### Use Reply + Resolve When:
+
 - You made a code change
 - The fix might not be obvious
 - You want to document what changed
 - The reviewer asked a question you answered with code
 
 ### Use Resolve Only When:
+
 - Fix is trivially obvious from the commit
 - Comment was already addressed before you saw it
 - Multiple comments addressed by same change
 
 ### Use Reply Only (No Resolve) When:
+
 - You need clarification before fully addressing
 - You disagree and want discussion
 - You made a partial fix
@@ -157,12 +160,14 @@ fw --type comment --prs PR_NUMBER | jq -s '{
 ### Thread Already Resolved
 
 If GitHub shows the thread as already resolved:
+
 - `fw close` will succeed but have no effect
 - No harm in calling it redundantly
 
 ### Missing Comment ID
 
 If you can't find the comment ID:
+
 1. Check you're querying the right PR
 2. Try without filters: `fw --prs PR_NUMBER`
 3. Check if the comment is on a different PR in a stack
@@ -170,6 +175,7 @@ If you can't find the comment ID:
 ### Resolution Failed
 
 If `fw close` fails:
+
 1. Verify the comment ID is correct
 2. Check you have write access to the repo
 3. Ensure the comment is a review thread (not issue comment)

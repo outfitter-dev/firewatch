@@ -71,8 +71,10 @@ export {
 
 // GitHub
 export {
+  GITHUB_PR_STATES,
   GitHubClient,
   PR_ACTIVITY_QUERY,
+  type GitHubPRState,
   type GraphQLResponse,
   type PRActivityData,
   type PRNode,

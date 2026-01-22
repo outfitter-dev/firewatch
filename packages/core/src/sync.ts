@@ -1,5 +1,5 @@
 import { ensureDirectories, getDatabase } from "./cache";
-import type { GitHubClient, PRNode } from "./github";
+import type { GitHubClient, GitHubPRState, PRNode } from "./github";
 import type { FirewatchPlugin } from "./plugins/types";
 import {
   getSyncMeta,
@@ -13,9 +13,12 @@ import type { FirewatchEntry, SyncMetadata } from "./schema/entry";
 /**
  * Map GitHub PR state to Firewatch state (for entries).
  * Includes draft as a state for backward compatibility with JSONL.
+ *
+ * GitHub states: OPEN, CLOSED, MERGED (defined in GITHUB_PR_STATES)
+ * Firewatch states: open, closed, merged, draft
  */
 function mapPRState(
-  state: "OPEN" | "CLOSED" | "MERGED",
+  state: GitHubPRState,
   isDraft: boolean
 ): FirewatchEntry["pr_state"] {
   if (isDraft) {
@@ -34,9 +37,12 @@ function mapPRState(
  * Map GitHub PR state to database state.
  * The database stores state and isDraft separately, so this only returns
  * the core state without considering draft status.
+ *
+ * GitHub states: OPEN, CLOSED, MERGED (defined in GITHUB_PR_STATES)
+ * Database states: open, closed, merged
  */
 function mapPRStateForDb(
-  state: "OPEN" | "CLOSED" | "MERGED",
+  state: GitHubPRState,
   merged?: boolean
 ): PRMetadata["state"] {
   // GitHub can return MERGED state directly, or we can check the merged flag
@@ -305,7 +311,7 @@ export async function syncRepo(
     const data = await client.fetchPRActivity(owner, repoName, {
       first: 50,
       after: currentCursor,
-      states: ["OPEN", "CLOSED"],
+      // Uses GITHUB_PR_STATES default (OPEN, CLOSED, MERGED)
     });
 
     const { nodes, pageInfo } = data.repository.pullRequests;

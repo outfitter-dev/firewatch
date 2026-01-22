@@ -146,9 +146,7 @@ function getStatement(db: Database, name: string, sql: string): AnyStatement {
  * Serialize thread_resolved boolean to SQLite integer.
  * true -> 1, false -> 0, undefined -> null
  */
-function serializeThreadResolved(
-  value: boolean | undefined
-): number | null {
+function serializeThreadResolved(value: boolean | undefined): number | null {
   if (value === undefined) {
     return null;
   }
@@ -243,14 +241,18 @@ function applyJsonFields(entry: FirewatchEntry, row: EntryWithPRRow): void {
   }
   if (row.file_activity_json) {
     try {
-      entry.file_activity_after = JSON.parse(row.file_activity_json) as FileActivityAfter;
+      entry.file_activity_after = JSON.parse(
+        row.file_activity_json
+      ) as FileActivityAfter;
     } catch {
       // Ignore parse errors
     }
   }
   if (row.file_provenance_json) {
     try {
-      entry.file_provenance = JSON.parse(row.file_provenance_json) as FileProvenance;
+      entry.file_provenance = JSON.parse(
+        row.file_provenance_json
+      ) as FileProvenance;
     } catch {
       // Ignore parse errors
     }

@@ -36,11 +36,11 @@ Duration formats vary by context:
 
 ### CLI --since flag
 
-| Format | Example | Description         |
-| ------ | ------- | ------------------- |
-| `Nh`   | `24h`   | Hours               |
-| `Nd`   | `7d`    | Days                |
-| `Nw`   | `2w`    | Weeks (N \* 7 days) |
+| Format | Example | Description               |
+| ------ | ------- | ------------------------- |
+| `Nh`   | `24h`   | Hours                     |
+| `Nd`   | `7d`    | Days                      |
+| `Nw`   | `2w`    | Weeks (N \* 7 days)       |
 | `Nm`   | `3m`    | **Months** (not minutes!) |
 
 > **Note:** The `--since` flag does NOT support seconds or minutes. Use `24h` for recent activity, not `30m` (which means 30 months).
