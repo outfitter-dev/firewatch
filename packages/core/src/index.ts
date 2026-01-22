@@ -143,6 +143,7 @@ export {
   isFullCommentId,
   isPrNumber,
   isShortId,
+  normalizeShortId,
   registerShortId,
   resolveId,
   resolveShortId,
