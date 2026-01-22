@@ -1,7 +1,10 @@
 import {
+  DEFAULT_BOT_PATTERNS,
+  DEFAULT_EXCLUDE_AUTHORS,
   buildWorklist,
   isCommentEntry,
   isReviewComment,
+  shouldExcludeAuthor,
   sortWorklist,
   type FirewatchEntry,
   type WorklistEntry,
@@ -72,10 +75,12 @@ export interface ActionableSummary {
 }
 
 const STALE_DAYS_THRESHOLD = 3;
-const BOT_SUFFIXES = ["[bot]", "-bot"];
-
 function isBot(author: string): boolean {
-  return BOT_SUFFIXES.some((suffix) => author.endsWith(suffix));
+  return shouldExcludeAuthor(author, {
+    excludeList: DEFAULT_EXCLUDE_AUTHORS,
+    botPatterns: DEFAULT_BOT_PATTERNS,
+    excludeBots: true,
+  });
 }
 
 function isStaleItem(lastActivityAt: string): boolean {
@@ -196,6 +201,14 @@ export function identifyUnaddressedFeedback(
     .filter((comment) => {
       // Exclude acknowledged comments first (takes precedence over all other checks)
       if (ackedIds?.has(comment.id)) {
+        return false;
+      }
+
+      // Ignore bot-authored comments and self-comments from the PR author
+      if (isBot(comment.author)) {
+        return false;
+      }
+      if (comment.author.toLowerCase() === comment.pr_author.toLowerCase()) {
         return false;
       }
 

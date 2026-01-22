@@ -258,19 +258,10 @@ function loadSyncMeta(
 async function processPR(
   repo: string,
   pr: PRNode,
-  capturedAt: string,
-  plugins?: FirewatchPlugin[]
+  capturedAt: string
 ): Promise<{ metadata: PRMetadata; entries: FirewatchEntry[] }> {
   const metadata = buildPRMetadata(repo, pr);
-  let entries = prToEntries(repo, pr, capturedAt);
-
-  if (plugins) {
-    for (const plugin of plugins) {
-      if (plugin.enrich) {
-        entries = await Promise.all(entries.map((e) => plugin.enrich!(e)));
-      }
-    }
-  }
+  const entries = prToEntries(repo, pr, capturedAt);
 
   return { metadata, entries };
 }
@@ -346,20 +337,31 @@ export async function syncRepo(
         break;
       }
 
-      const { metadata, entries } = await processPR(
-        repo,
-        pr,
-        capturedAt,
-        options.plugins
-      );
+      const { metadata, entries } = await processPR(repo, pr, capturedAt);
       prMetadataList.push(metadata);
       allEntries.push(...entries);
       prsProcessed++;
     }
 
+    const commentIds = allEntries
+      .filter((entry) => entry.type === "comment")
+      .map((entry) => entry.id);
+    const reactionsById = await client.fetchCommentReactions(commentIds);
+    let entriesToWrite = applyCommentReactions(allEntries, reactionsById);
+
+    if (options.plugins) {
+      for (const plugin of options.plugins) {
+        if (plugin.enrich) {
+          entriesToWrite = await Promise.all(
+            entriesToWrite.map((entry) => plugin.enrich!(entry))
+          );
+        }
+      }
+    }
+
     // Write to SQLite (updates PR state on every sync)
-    writeBatchToSQLite(db, prMetadataList, allEntries);
-    entriesAdded += allEntries.length;
+    writeBatchToSQLite(db, prMetadataList, entriesToWrite);
+    entriesAdded += entriesToWrite.length;
 
     hasNextPage = pageInfo.hasNextPage && hasNextPage;
     currentCursor = pageInfo.endCursor;

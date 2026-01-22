@@ -6,6 +6,7 @@
  */
 import type { Database, Statement } from "bun:sqlite";
 
+import { DEFAULT_BOT_PATTERNS, isBot, isExcludedAuthor } from "./authors";
 import type { QueryFilters } from "./query";
 import type {
   EntryType,
@@ -205,22 +206,22 @@ function derivePrState(prState: string, isDraft: boolean): PrState {
  * Apply optional simple fields from row to entry.
  */
 function applyOptionalFields(entry: FirewatchEntry, row: EntryWithPRRow): void {
-  if (row.subtype) {
+  if (row.subtype !== null) {
     entry.subtype = row.subtype;
   }
-  if (row.body) {
+  if (row.body !== null) {
     entry.body = row.body;
   }
-  if (row.state) {
+  if (row.state !== null) {
     entry.state = row.state;
   }
-  if (row.updated_at) {
+  if (row.updated_at !== null) {
     entry.updated_at = row.updated_at;
   }
-  if (row.url) {
+  if (row.url !== null) {
     entry.url = row.url;
   }
-  if (row.file) {
+  if (row.file !== null) {
     entry.file = row.file;
   }
   if (row.line !== null) {
@@ -567,6 +568,7 @@ function buildWhereClause(filters: QueryFilters): {
 /**
  * Query entries with filters, joining with PR table for current state.
  * This is the primary query function that returns entries with up-to-date PR state.
+ * Note: custom plugin filters are applied in the higher-level query module.
  */
 export function queryEntries(
   db: Database,
@@ -592,8 +594,29 @@ export function queryEntries(
   const stmt = db.prepare(query);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Dynamic SQL params
   const rows = stmt.all(params as any) as EntryWithPRRow[];
+  let entries = rows.map(rowToEntry);
 
-  return rows.map(rowToEntry);
+  if (filters.excludeAuthors?.length || filters.excludeBots) {
+    entries = entries.filter((entry) => {
+      if (
+        filters.excludeAuthors?.length &&
+        isExcludedAuthor(entry.author, filters.excludeAuthors)
+      ) {
+        return false;
+      }
+
+      if (filters.excludeBots) {
+        const patterns = filters.botPatterns ?? DEFAULT_BOT_PATTERNS;
+        if (isBot(entry.author, patterns)) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }
+
+  return entries;
 }
 
 /**
