@@ -18,7 +18,7 @@ Fix all outstanding feedback, resolve threads, commit, and submit the stack.
 
 ## Pre-run Context
 
-!`bun apps/cli/bin/fw.ts --refresh --open --summary --json 2>/dev/null | jq -c '{pr, title: .pr_title, stack_pos: .graphite.stack_position, comments: .counts.comments, changes_requested: .review_states.changes_requested}'`
+!`bun apps/cli/bin/fw.ts --refresh --open --summary --jsonl 2>/dev/null | jq -c '{pr, title: .pr_title, stack_pos: .graphite.stack_position, comments: .counts.comments, changes_requested: .review_states.changes_requested}'`
 
 ## Skill Context
 

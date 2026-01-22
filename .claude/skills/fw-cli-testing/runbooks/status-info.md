@@ -30,9 +30,9 @@ Ensure inside a git repo with firewatch configured.
 
 #### JSON Status
 
-**Command**: `bun apps/cli/bin/fw.ts status --json`
-**Expected**: Valid JSON output
-**Validates**: JSON output mode
+**Command**: `bun apps/cli/bin/fw.ts status --jsonl`
+**Expected**: Valid JSONL output
+**Validates**: JSONL output mode
 
 #### Status with Limit
 
