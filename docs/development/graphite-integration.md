@@ -6,17 +6,74 @@
 
 Firewatch's Graphite plugin enriches PR activity entries with stack context. This doc captures CLI capabilities, limitations, and implementation patterns discovered during development.
 
+## Stack Provider Module
+
+The `packages/core/src/stack/` module provides an abstraction for stack-based PR workflows. Currently supports Graphite, designed for future GitHub native stacks.
+
+### Architecture
+
+```
+packages/core/src/stack/
+├── types.ts      # StackProvider interface, Stack, StackBranch types
+├── graphite.ts   # Graphite implementation using gt state
+└── index.ts      # Factory functions, exports
+```
+
+### Key Types
+
+```typescript
+interface StackProvider {
+  name: string;
+  isAvailable(): Promise<boolean>;
+  getStacks(): Promise<Stack[]>;
+  getStackForBranch(branch: string): Promise<StackPosition | null>;
+  getStackPRs(branch: string, direction?: StackDirection): Promise<StackPRs | null>;
+}
+
+type StackDirection = "all" | "up" | "down";
+```
+
+### Usage
+
+```typescript
+import { getStackProvider } from "@outfitter/firewatch-core";
+
+const provider = await getStackProvider();
+if (provider) {
+  const stackPRs = await provider.getStackPRs(currentBranch, "down");
+  // Query feedback for stackPRs.prs
+}
+```
+
+### Graphite Provider Details
+
+- Uses `gt state` for branch relationships (JSON output)
+- Uses `gh pr list --head <branch>` for PR number lookups
+- Caches state, stacks, and PR numbers for performance
+- Call `clearGraphiteCache()` to force refresh
+
 ## gt CLI Capabilities
 
 ### What gt Exposes
 
 | Command                 | Output                     | Useful For                           |
 | ----------------------- | -------------------------- | ------------------------------------ |
+| `gt state`              | JSON with all branch state | **Stack detection (preferred)**      |
 | `gt log --stack`        | Human-readable branch tree | Understanding stack structure        |
 | `gt branch info`        | Branch details             | Current branch context               |
 | `gt branch info --stat` | Diffstat vs parent         | File change summary (human-readable) |
 | `gt branch info --diff` | Full diff vs parent        | Detailed changes (human-readable)    |
 | `gt branch info --json` | JSON with `parent` field   | Programmatic parent lookup           |
+
+**Note**: `gt state` outputs JSON with branch relationships (`parents`, `trunk` fields) and is the primary method used by the stack provider. Example:
+
+```json
+{
+  "main": { "trunk": true },
+  "feat/base": { "parents": [{ "ref": "main", "sha": "abc123" }] },
+  "feat/child": { "parents": [{ "ref": "feat/base", "sha": "def456" }] }
+}
+```
 
 ### What gt Does NOT Expose
 

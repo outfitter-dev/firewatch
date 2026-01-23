@@ -197,3 +197,18 @@ export * from "./schema";
 
 // Re-export plugin types
 export type { FirewatchPlugin } from "./plugins/types";
+
+// Stack providers
+export {
+  clearGraphiteCache,
+  getStackProvider,
+  getStackProviderByName,
+  graphiteStackProvider,
+  registerStackProvider,
+  type Stack,
+  type StackBranch,
+  type StackDirection,
+  type StackPosition,
+  type StackProvider,
+  type StackPRs,
+} from "./stack";

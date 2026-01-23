@@ -10,7 +10,9 @@ import {
   formatShortId,
   generateShortId,
   getAckedIds,
+  getCurrentBranch,
   getPrForCurrentBranch,
+  getStackProvider,
   loadConfig,
   parseSince,
   queryEntries,
@@ -19,6 +21,7 @@ import {
   type AckRecord,
   type FirewatchConfig,
   type PrState,
+  type StackDirection,
 } from "@outfitter/firewatch-core";
 import { Command, Option } from "commander";
 
@@ -36,6 +39,7 @@ import { shouldOutputJson } from "../utils/tty";
 interface FbCommandOptions {
   repo?: string;
   current?: boolean;
+  stack?: string | boolean;
   todo?: boolean;
   all?: boolean;
   ack?: boolean;
@@ -773,6 +777,118 @@ async function handleCrossPrBulkAck(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Stack handling
+// ─────────────────────────────────────────────────────────────────────────────
+
+function parseStackDirection(value: string | boolean): StackDirection {
+  if (typeof value === "boolean" || value === "") {
+    return "all";
+  }
+  const normalized = value.toLowerCase();
+  if (normalized === "up" || normalized === "upstack") {
+    return "up";
+  }
+  if (normalized === "down" || normalized === "downstack") {
+    return "down";
+  }
+  return "all";
+}
+
+async function handleStackFeedback(
+  ctx: FbContext,
+  options: FbCommandOptions
+): Promise<void> {
+  const provider = await getStackProvider();
+  if (!provider) {
+    console.error("No stack provider available. Is Graphite installed?");
+    process.exit(1);
+  }
+
+  const branch = await getCurrentBranch();
+  if (!branch) {
+    console.error("Not in a git repository or could not detect current branch.");
+    process.exit(1);
+  }
+
+  const direction = parseStackDirection(options.stack ?? true);
+  const stackPRs = await provider.getStackPRs(branch, direction);
+
+  if (!stackPRs) {
+    console.error(`Branch '${branch}' is not part of a tracked stack.`);
+    process.exit(1);
+  }
+
+  if (stackPRs.prs.length === 0) {
+    if (ctx.outputJson) {
+      await outputStructured([], "jsonl");
+    } else {
+      console.log("No PRs with open pull requests in this stack.");
+    }
+    return;
+  }
+
+  // Query entries for all PRs in the stack
+  const entries = await queryEntries({
+    filters: {
+      repo: ctx.repo,
+      type: "comment",
+      pr: stackPRs.prs,
+    },
+  });
+
+  buildShortIdCache(entries);
+
+  // Get unaddressed feedback
+  const ackedIds = await getAckedIds(ctx.repo);
+  const feedbacks = identifyUnaddressedFeedback(entries, {
+    ackedIds,
+    username: ctx.config.user?.github_username,
+    commitImpliesRead: ctx.config.feedback?.commit_implies_read,
+  });
+
+  if (ctx.outputJson) {
+    for (const fb of feedbacks) {
+      const shortId = formatShortId(generateShortId(fb.comment_id, ctx.repo));
+      const { comment_id: gh_id, ...rest } = fb;
+      await outputStructured({ ...rest, id: shortId, gh_id }, "jsonl");
+    }
+    return;
+  }
+
+  if (feedbacks.length === 0) {
+    const directionLabels: Record<StackDirection, string> = {
+      all: "stack",
+      down: "downstack",
+      up: "upstack",
+    };
+    console.log(`No unaddressed feedback in ${directionLabels[direction]}.`);
+    return;
+  }
+
+  // Group by PR
+  const byPr = new Map<number, UnaddressedFeedback[]>();
+  for (const fb of feedbacks) {
+    const list = byPr.get(fb.pr) ?? [];
+    list.push(fb);
+    byPr.set(fb.pr, list);
+  }
+
+  // Print in stack order (PRs in stackPRs.prs are already ordered)
+  for (const prNum of stackPRs.prs) {
+    const prFeedbacks = byPr.get(prNum);
+    if (!prFeedbacks || prFeedbacks.length === 0) {
+      continue;
+    }
+    const title = prFeedbacks[0]?.pr_title ?? "";
+    const isCurrent = prNum === stackPRs.currentPr;
+    const marker = isCurrent ? " ← current" : "";
+    printFeedbackSummary(prNum, `${title}${marker}`, prFeedbacks, ctx.repo);
+  }
+
+  console.log(`\nTotal: ${feedbacks.length} items across ${byPr.size} PRs`);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Main command
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -841,6 +957,10 @@ export const fbCommand = new Command("fb")
   .argument("[id]", "PR number or comment ID (short or full)")
   .option("--repo <name>", "Repository (owner/repo format)")
   .option("-c, --current", "Use PR for the current git branch")
+  .option(
+    "-s, --stack [direction]",
+    "Filter to current stack (all, up, down)"
+  )
   .option("-t, --todo", "Show only unaddressed feedback (default)")
   .option("--all", "Show all feedback including resolved")
   .option("--ack", "Acknowledge feedback (+ local record)")
@@ -865,6 +985,16 @@ export const fbCommand = new Command("fb")
 
       const ctx = await createContext(options);
       const body = options.body;
+
+      // Handle --stack: filter to current branch's stack
+      if (options.stack !== undefined) {
+        if (id) {
+          console.error("Cannot use --stack with an explicit ID argument.");
+          process.exit(1);
+        }
+        await handleStackFeedback(ctx, options);
+        return;
+      }
 
       // Handle --current: detect PR from current git branch
       let effectiveId = id;
