@@ -110,7 +110,6 @@ fw fb [options] [id] [body]
 | Flag | Description |
 |------|-------------|
 | `--repo <name>` | Repository (owner/repo format) |
-| `--todo` | Show only unaddressed feedback (default) |
 | `--all` | Show all feedback including resolved |
 | `--ack` | Acknowledge feedback (thumbs-up + local record) |
 | `--resolve` | Resolve the thread after replying |

@@ -32,7 +32,6 @@ The command behavior depends on the arguments provided:
 | `--repo <name>`      | Repository (`owner/repo` format)         |
 | `-c, --current`      | Target current git branch's PR           |
 | `-s, --stack [dir]`  | Filter to current stack (all/up/down)    |
-| `--todo`             | Show only unaddressed feedback (default) |
 | `--all`              | Show all feedback including resolved     |
 | `--ack`              | Acknowledge feedback (👍 + local record) |
 | `--resolve`          | Resolve thread (or resolve after reply)  |
@@ -168,7 +167,7 @@ The `fb` command focuses on actionable feedback:
 - **Review comments** — Inline code review comments with file/line context
 - **Issue comments** — General PR discussion comments
 
-By default (`--todo`), only unaddressed feedback is shown:
+By default, only unaddressed feedback is shown:
 
 - Threads that are not resolved
 - Comments not acknowledged via `--ack`

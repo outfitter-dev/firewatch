@@ -1077,4 +1077,92 @@ export class GitHubClient {
 
     return { id: reaction.id, content: reaction.content };
   }
+
+  /**
+   * Edit an issue comment body.
+   *
+   * @param owner - Repository owner
+   * @param repo - Repository name
+   * @param commentId - The numeric REST API comment ID
+   * @param body - The new comment body
+   */
+  async editIssueComment(
+    owner: string,
+    repo: string,
+    commentId: number,
+    body: string
+  ): Promise<{ id: number; body: string }> {
+    const result = await this.rest<{ id: number; body: string }>(
+      `/repos/${owner}/${repo}/issues/comments/${commentId}`,
+      {
+        method: "PATCH",
+        body: { body },
+      }
+    );
+    if (!result) {
+      throw new Error("No response from GitHub API");
+    }
+    return result;
+  }
+
+  /**
+   * Edit a pull request review comment body.
+   *
+   * @param owner - Repository owner
+   * @param repo - Repository name
+   * @param commentId - The numeric REST API comment ID
+   * @param body - The new comment body
+   */
+  async editReviewComment(
+    owner: string,
+    repo: string,
+    commentId: number,
+    body: string
+  ): Promise<{ id: number; body: string }> {
+    const result = await this.rest<{ id: number; body: string }>(
+      `/repos/${owner}/${repo}/pulls/comments/${commentId}`,
+      {
+        method: "PATCH",
+        body: { body },
+      }
+    );
+    if (!result) {
+      throw new Error("No response from GitHub API");
+    }
+    return result;
+  }
+
+  /**
+   * Delete an issue comment.
+   *
+   * @param owner - Repository owner
+   * @param repo - Repository name
+   * @param commentId - The numeric REST API comment ID
+   */
+  async deleteIssueComment(
+    owner: string,
+    repo: string,
+    commentId: number
+  ): Promise<void> {
+    await this.rest(`/repos/${owner}/${repo}/issues/comments/${commentId}`, {
+      method: "DELETE",
+    });
+  }
+
+  /**
+   * Delete a pull request review comment.
+   *
+   * @param owner - Repository owner
+   * @param repo - Repository name
+   * @param commentId - The numeric REST API comment ID
+   */
+  async deleteReviewComment(
+    owner: string,
+    repo: string,
+    commentId: number
+  ): Promise<void> {
+    await this.rest(`/repos/${owner}/${repo}/pulls/comments/${commentId}`, {
+      method: "DELETE",
+    });
+  }
 }
