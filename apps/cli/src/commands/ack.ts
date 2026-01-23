@@ -13,6 +13,7 @@ import {
   generateShortId,
   isAcked,
   loadConfig,
+  parseSince,
   partitionResolutions,
   queryEntries,
   readAcks,
@@ -20,6 +21,7 @@ import {
   resolveBatchIds,
   resolveShortId,
   type AckRecord,
+  type BatchIdResolution,
   type FirewatchConfig,
   type FirewatchEntry,
 } from "@outfitter/firewatch-core";
@@ -27,14 +29,17 @@ import { Command, Option } from "commander";
 
 import { validateRepoFormat } from "../repo";
 import { outputStructured } from "../utils/json";
+import { resolveStates, type StateOptions } from "../utils/states";
 import { shouldOutputJson } from "../utils/tty";
 
-interface AckCommandOptions {
+interface AckCommandOptions extends StateOptions {
   repo?: string;
   list?: boolean;
   clear?: string;
   jsonl?: boolean;
   json?: boolean;
+  since?: string;
+  before?: string;
 }
 
 async function resolveRepo(repo?: string): Promise<string> {
@@ -333,23 +338,137 @@ interface MultiAckResult {
   error?: string;
 }
 
-interface IdResolutionError {
-  id: string;
-  type: string;
-  error: string;
+async function emitErrors(
+  errors: BatchIdResolution[],
+  outputJson: boolean
+): Promise<void> {
+  const withErrors = errors.filter((e) => e.error !== undefined);
+  if (withErrors.length === 0) {
+    return;
+  }
+
+  if (outputJson) {
+    for (const e of withErrors) {
+      await outputStructured({ ok: false, id: e.id, error: e.error }, "jsonl");
+    }
+  } else {
+    for (const e of withErrors) {
+      console.error(`${e.id}: ${e.error}`);
+    }
+  }
+}
+
+interface TimeFilterOptions {
+  since?: string | undefined;
+  before?: string | undefined;
+}
+
+interface CommentResolution {
+  entry?: FirewatchEntry | undefined;
+  shortId?: string | undefined;
+}
+
+function applyTimeFilters<T extends CommentResolution>(
+  comments: T[],
+  options: TimeFilterOptions
+): T[] {
+  let filtered = comments;
+
+  if (options.since) {
+    const sinceDate = parseSince(options.since);
+    filtered = filtered.filter(
+      (r) => r.entry && new Date(r.entry.created_at) >= sinceDate
+    );
+  }
+
+  if (options.before) {
+    const beforeDate = new Date(options.before);
+    if (Number.isNaN(beforeDate.getTime())) {
+      throw new TypeError(
+        `Invalid date format: ${options.before}. Use ISO format (e.g., 2024-01-15)`
+      );
+    }
+    filtered = filtered.filter(
+      (r) => r.entry && new Date(r.entry.created_at) < beforeDate
+    );
+  }
+
+  return filtered;
+}
+
+interface MultiAckOutputContext {
+  repo: string;
+  allResults: MultiAckResult[];
+  errors: { id: string; error?: string | undefined }[];
+  newlyAcked: number;
+  alreadyAckedCount: number;
+  reactionsAdded: number;
+}
+
+async function outputMultiAckJson(ctx: MultiAckOutputContext): Promise<void> {
+  for (const r of ctx.allResults) {
+    await outputStructured(
+      {
+        ok: true,
+        repo: ctx.repo,
+        pr: r.pr,
+        id: r.shortId,
+        gh_id: r.ghId,
+        acked: true,
+        already_acked: r.alreadyAcked,
+        reaction_added: r.reactionAdded,
+      },
+      "jsonl"
+    );
+  }
+  for (const e of ctx.errors) {
+    await outputStructured({ ok: false, id: e.id, error: e.error }, "jsonl");
+  }
+}
+
+function outputMultiAckHuman(ctx: MultiAckOutputContext): void {
+  const totalProcessed = ctx.newlyAcked + ctx.alreadyAckedCount;
+
+  if (totalProcessed === 0 && ctx.errors.length > 0) {
+    console.error("Failed to acknowledge any comments:");
+    for (const e of ctx.errors) {
+      console.error(`  ${e.id}: ${e.error}`);
+    }
+    process.exit(1);
+  }
+
+  const parts: string[] = [];
+  if (ctx.newlyAcked > 0) {
+    const reactionPart =
+      ctx.reactionsAdded > 0 ? ` (${ctx.reactionsAdded} reactions added)` : "";
+    parts.push(`${ctx.newlyAcked} acknowledged${reactionPart}`);
+  }
+  if (ctx.alreadyAckedCount > 0) {
+    parts.push(`${ctx.alreadyAckedCount} already acknowledged`);
+  }
+
+  console.log(`Acknowledged ${totalProcessed} comments: ${parts.join(", ")}.`);
+
+  if (ctx.errors.length > 0) {
+    console.error(`\nFailed to resolve ${ctx.errors.length} IDs:`);
+    for (const e of ctx.errors) {
+      console.error(`  ${e.id}: ${e.error}`);
+    }
+  }
 }
 
 async function outputNoValidCommentsError(
-  errors: IdResolutionError[],
+  errors: BatchIdResolution[],
   outputJson: boolean
 ): Promise<never> {
+  const withErrors = errors.filter((e) => e.error !== undefined);
   if (outputJson) {
-    for (const e of errors) {
+    for (const e of withErrors) {
       await outputStructured({ ok: false, id: e.id, error: e.error }, "jsonl");
     }
   } else {
     console.error("No valid comment IDs found:");
-    for (const e of errors) {
+    for (const e of withErrors) {
       console.error(`  ${e.id}: ${e.error}`);
     }
   }
@@ -364,8 +483,21 @@ async function handleMultiAck(
 ): Promise<void> {
   const repo = await resolveRepo(options.repo);
 
+  // Resolve state filters (default to all states when acking specific IDs)
+  const states = resolveStates({
+    ...(options.state && { state: options.state }),
+    ...(options.open && { open: true }),
+    ...(options.closed && { closed: true }),
+  });
+  // Only apply state filter if explicitly specified
+  const hasStateFilter = options.state || options.open || options.closed;
+
   // Resolve all IDs using batch utilities
-  const resolutions = await resolveBatchIds(ids, repo);
+  const resolutions = await resolveBatchIds(ids, repo, {
+    filters: {
+      ...(hasStateFilter && states.length > 0 && { states }),
+    },
+  });
   const { comments, errors } = partitionResolutions(resolutions);
 
   // Filter out PR numbers (not supported in ack)
@@ -389,7 +521,32 @@ async function handleMultiAck(
   }
 
   // Deduplicate by comment ID (different short IDs might resolve to same comment)
-  const uniqueComments = deduplicateByCommentId(comments);
+  const deduplicated = deduplicateByCommentId(comments);
+
+  // Apply time filters
+  const uniqueComments = applyTimeFilters(deduplicated, {
+    since: options.since,
+    before: options.before,
+  });
+
+  // Check if filtering removed all comments
+  if (uniqueComments.length === 0 && comments.length > 0) {
+    await emitErrors(errors, outputJson);
+
+    if (outputJson) {
+      await outputStructured(
+        { ok: true, repo, acked_count: 0, message: "No comments match filters" },
+        "jsonl"
+      );
+    } else {
+      console.log("No comments match the specified filters.");
+    }
+
+    if (errors.length > 0) {
+      process.exit(1);
+    }
+    return;
+  }
 
   // Check which are already acked
   const ackChecks = await Promise.all(
@@ -453,62 +610,19 @@ async function handleMultiAck(
   ];
 
   const reactionsAdded = results.filter((r) => r.reactionAdded).length;
+  const outputCtx: MultiAckOutputContext = {
+    repo,
+    allResults,
+    errors,
+    newlyAcked: results.length,
+    alreadyAckedCount: alreadyAcked.length,
+    reactionsAdded,
+  };
 
   if (outputJson) {
-    // Output one line per acked comment
-    for (const r of allResults) {
-      await outputStructured(
-        {
-          ok: true,
-          repo,
-          pr: r.pr,
-          id: r.shortId,
-          gh_id: r.ghId,
-          acked: true,
-          already_acked: r.alreadyAcked,
-          reaction_added: r.reactionAdded,
-        },
-        "jsonl"
-      );
-    }
-    // Output failures
-    for (const e of errors) {
-      await outputStructured({ ok: false, id: e.id, error: e.error }, "jsonl");
-    }
-    return;
-  }
-
-  // Human-readable summary
-  const newlyAcked = results.length;
-  const alreadyAckedCount = alreadyAcked.length;
-  const totalProcessed = newlyAcked + alreadyAckedCount;
-
-  if (totalProcessed === 0 && errors.length > 0) {
-    console.error("Failed to acknowledge any comments:");
-    for (const e of errors) {
-      console.error(`  ${e.id}: ${e.error}`);
-    }
-    process.exit(1);
-  }
-
-  const parts: string[] = [];
-  if (newlyAcked > 0) {
-    const reactionPart =
-      reactionsAdded > 0 ? ` (${reactionsAdded} reactions added)` : "";
-    parts.push(`${newlyAcked} acknowledged${reactionPart}`);
-  }
-  if (alreadyAckedCount > 0) {
-    parts.push(`${alreadyAckedCount} already acknowledged`);
-  }
-
-  console.log(`Acknowledged ${totalProcessed} comments: ${parts.join(", ")}.`);
-
-  // Report failures at end
-  if (errors.length > 0) {
-    console.error(`\nFailed to resolve ${errors.length} IDs:`);
-    for (const e of errors) {
-      console.error(`  ${e.id}: ${e.error}`);
-    }
+    await outputMultiAckJson(outputCtx);
+  } else {
+    outputMultiAckHuman(outputCtx);
   }
 }
 
@@ -519,6 +633,11 @@ export const ackCommand = new Command("ack")
   .option("-l, --list", "List acknowledged comments")
   .option("-x, --clear <id>", "Remove acknowledgement for a comment")
   .option("-y, --yes", "Skip confirmation for bulk operations")
+  .option("--since <duration>", "Filter to comments within duration (e.g., 24h, 7d)")
+  .option("--before <date>", "Filter to comments before ISO date")
+  .option("--open", "Filter to open PRs only")
+  .option("--closed", "Filter to closed PRs only")
+  .option("--state <states>", "Filter by PR state (comma-separated)")
   .option("--jsonl", "Force structured output")
   .option("--no-jsonl", "Force human-readable output")
   .addOption(new Option("--json").hideHelp())
