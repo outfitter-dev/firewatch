@@ -98,11 +98,11 @@ function printFeedbackSummary(
   feedbacks: UnaddressedFeedback[],
   repo: string
 ): void {
-  console.log(`\nPR #${pr}: ${truncate(prTitle, 50)}`);
-  console.log("─".repeat(50));
+  console.error(`\nPR #${pr}: ${truncate(prTitle, 50)}`);
+  console.error("─".repeat(50));
 
   if (feedbacks.length === 0) {
-    console.log("No unaddressed feedback.");
+    console.error("No unaddressed feedback.");
     return;
   }
 
@@ -111,8 +111,8 @@ function printFeedbackSummary(
     console.log(formatFeedbackItem(fb, repo));
   }
 
-  console.log("");
-  console.log(`${feedbacks.length} need attention`);
+  console.error("");
+  console.error(`${feedbacks.length} need attention`);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -150,7 +150,7 @@ async function handleListAll(
   }
 
   if (feedbacks.length === 0) {
-    console.log("No unaddressed feedback across repository.");
+    console.error("No unaddressed feedback across repository.");
     return;
   }
 
@@ -567,7 +567,7 @@ async function handleBulkAck(
         "jsonl"
       );
     } else {
-      console.log(`No unaddressed feedback on PR #${pr}.`);
+      console.error(`No unaddressed feedback on PR #${pr}.`);
     }
     return;
   }
@@ -706,7 +706,7 @@ async function handleCrossPrBulkAck(
         "jsonl"
       );
     } else {
-      console.log("No unaddressed feedback matching filters.");
+      console.error("No unaddressed feedback matching filters.");
     }
     return;
   }
@@ -822,7 +822,7 @@ async function handleStackFeedback(
     if (ctx.outputJson) {
       await outputStructured([], "jsonl");
     } else {
-      console.log("No PRs with open pull requests in this stack.");
+      console.error("No PRs with open pull requests in this stack.");
     }
     return;
   }
@@ -861,7 +861,7 @@ async function handleStackFeedback(
       down: "downstack",
       up: "upstack",
     };
-    console.log(`No unaddressed feedback in ${directionLabels[direction]}.`);
+    console.error(`No unaddressed feedback in ${directionLabels[direction]}.`);
     return;
   }
 

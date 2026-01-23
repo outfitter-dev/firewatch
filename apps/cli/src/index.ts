@@ -26,6 +26,7 @@ import { emitAliasHint } from "./utils/alias-hint";
 
 const program = new Command();
 program.enablePositionalOptions();
+program.showSuggestionAfterError(true);
 
 program
   .name("fw")
@@ -121,9 +122,21 @@ program.addCommand(mcpCommand);
 // Explicit help command since root action intercepts unknown args
 program
   .command("help")
-  .description("Display help for fw")
-  .action(() => {
-    program.help();
+  .description("Display help for fw or a subcommand")
+  .argument("[command]", "Command to get help for")
+  .action((commandName?: string) => {
+    if (!commandName) {
+      program.help();
+      return;
+    }
+    const subcommand = program.commands.find((cmd) => cmd.name() === commandName);
+    if (subcommand) {
+      subcommand.help();
+    } else {
+      console.error(`Unknown command: ${commandName}`);
+      console.error(`Run 'fw --help' for available commands.`);
+      process.exit(1);
+    }
   });
 
 export { program };
