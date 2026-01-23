@@ -7,6 +7,7 @@ import {
   PATHS,
   addAck,
   addAcks,
+  batchAddReactions,
   buildShortIdCache,
   classifyId,
   countEntries,
@@ -29,6 +30,7 @@ import {
   parseDurationMs,
   parseSince,
   queryEntries,
+  resolveBatchIds,
   resolveShortId,
   shouldExcludeAuthor,
   syncRepo,
@@ -394,24 +396,16 @@ async function resolveCommentIdFromShortId(
     return cached.fullId;
   }
 
-  // If not in cache, build cache from entries and try again
+  // If not in cache, use batch resolution (queries, builds cache, resolves)
   const repoFilter = repo ?? (await resolveRepo());
   if (!repoFilter) {
     throw new Error("Cannot resolve short ID without repo context.");
   }
 
-  const entries = await queryEntries({
-    filters: {
-      repo: repoFilter,
-      type: "comment",
-    },
-  });
+  const [resolution] = await resolveBatchIds([id], repoFilter);
 
-  buildShortIdCache(entries);
-
-  const resolved = resolveShortId(id);
-  if (resolved) {
-    return resolved.fullId;
+  if (resolution?.type === "comment" && resolution.entry) {
+    return resolution.entry.id;
   }
 
   throw new Error(
@@ -1505,31 +1499,29 @@ async function handlePrBulkAck(
     );
   }
 
-  const results: { commentId: string; reactionAdded: boolean }[] = [];
-  for (const fb of prFeedbacks) {
-    let reactionAdded = false;
-    try {
-      await ctx.client.addReaction(fb.comment_id, "THUMBS_UP");
-      reactionAdded = true;
-    } catch {
-      // Continue with local ack even if reaction fails
-    }
-    results.push({ commentId: fb.comment_id, reactionAdded });
-  }
+  // Add reactions in parallel using batch utility
+  const commentIds = prFeedbacks.map((fb) => fb.comment_id);
+  const reactionResults = await batchAddReactions(commentIds, ctx.client);
 
-  const ackRecords: AckRecord[] = results.map((r) => ({
+  // Build reaction map for ack records
+  const reactionMap = new Map(
+    reactionResults.map((r) => [r.commentId, r.reactionAdded])
+  );
+
+  const now = new Date().toISOString();
+  const ackRecords: AckRecord[] = prFeedbacks.map((fb) => ({
     repo: ctx.repo,
     pr,
-    comment_id: r.commentId,
-    acked_at: new Date().toISOString(),
+    comment_id: fb.comment_id,
+    acked_at: now,
     ...(ctx.config.user?.github_username && {
       acked_by: ctx.config.user.github_username,
     }),
-    reaction_added: r.reactionAdded,
+    reaction_added: reactionMap.get(fb.comment_id) ?? false,
   }));
   await addAcks(ackRecords);
 
-  const reactionsAdded = results.filter((r) => r.reactionAdded).length;
+  const reactionsAdded = reactionResults.filter((r) => r.reactionAdded).length;
 
   return textResult(
     JSON.stringify({
@@ -1625,19 +1617,19 @@ async function resolveCommentId(
   const idType = classifyId(rawId);
 
   if (idType === "short_id") {
-    const entries = await queryEntries({ filters: { repo, type: "comment" } });
-    buildShortIdCache(entries);
+    // Use batch resolution (queries, builds cache, resolves)
+    const [resolution] = await resolveBatchIds([rawId], repo);
 
-    const resolved = resolveShortId(rawId);
-    if (!resolved) {
-      throw new Error(
-        `Short ID ${formatShortId(rawId)} not found in cache. Run fw_query or fw_fb first.`
-      );
+    if (resolution?.type === "comment" && resolution.entry) {
+      return {
+        commentId: resolution.entry.id,
+        shortIdDisplay: resolution.shortId ?? formatShortId(rawId),
+      };
     }
-    return {
-      commentId: resolved.fullId,
-      shortIdDisplay: formatShortId(rawId),
-    };
+
+    throw new Error(
+      `Short ID ${formatShortId(rawId)} not found in cache. Run fw_query or fw_fb first.`
+    );
   }
 
   if (idType === "full_id") {
