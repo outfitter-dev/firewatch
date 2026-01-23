@@ -15,13 +15,14 @@ import { examplesCommand } from "./commands/examples";
 import { fbCommand } from "./commands/fb";
 import { mcpCommand } from "./commands/mcp";
 import { prCommand } from "./commands/pr";
+import { schemaCommand } from "./commands/schema";
+import { statusCommand } from "./commands/status";
 import { executeCliQuery } from "./query";
 import {
   applyGlobalOptions,
   type QueryCommandOptions,
 } from "./query-helpers";
-import { schemaCommand } from "./commands/schema";
-import { statusCommand } from "./commands/status";
+import { emitAliasHint } from "./utils/alias-hint";
 
 const program = new Command();
 program.enablePositionalOptions();
@@ -102,9 +103,10 @@ const resolveCommand = new Command("resolve")
   .option("--jsonl", "Force structured output")
   .option("--no-jsonl", "Force human-readable output")
   .addOption(new Option("--json").hideHelp())
-  .action((ids: string[], options: CloseCommandOptions) =>
-    closeAction(ids, options)
-  );
+  .action((ids: string[], options: CloseCommandOptions) => {
+    emitAliasHint("fw resolve", "fw close");
+    return closeAction(ids, options);
+  });
 program.addCommand(resolveCommand, { hidden: true });
 
 program.addCommand(fbCommand);
