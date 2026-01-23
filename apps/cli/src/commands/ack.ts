@@ -379,7 +379,13 @@ async function handleMultiAck(
   }
 
   if (comments.length === 0) {
-    await outputNoValidCommentsError(errors, outputJson);
+    // Map to IdResolutionError format (ensure error is defined)
+    const errorList = errors.map((e) => ({
+      id: e.id,
+      type: e.type,
+      error: e.error ?? "Unknown error",
+    }));
+    await outputNoValidCommentsError(errorList, outputJson);
   }
 
   // Deduplicate by comment ID (different short IDs might resolve to same comment)
