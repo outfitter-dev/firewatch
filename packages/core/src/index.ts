@@ -213,3 +213,32 @@ export {
   type StackProvider,
   type StackPRs,
 } from "./stack";
+
+// Render utilities
+export {
+  BOX,
+  CATEGORY,
+  CONTINUATION,
+  SEPARATOR,
+  STATUS,
+  detectOutputTarget,
+  detectViewport,
+  formatDisplayId,
+  isDisplayId,
+  isTTY,
+  normalizeWhitespace,
+  padEnd,
+  padStart,
+  parseDisplayId,
+  renderCategory,
+  renderDivider,
+  renderHeader,
+  renderTree,
+  truncate,
+  wrapText,
+  type HeaderLevel,
+  type OutputTarget,
+  type TreeNode,
+  type TreeOptions,
+  type Viewport,
+} from "./render";

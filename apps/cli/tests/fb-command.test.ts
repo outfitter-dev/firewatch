@@ -218,7 +218,7 @@ describe("fw fb", () => {
     // Each entry should have id (short ID format)
     const entry = JSON.parse(lines[0]!);
     expect(entry).toHaveProperty("id");
-    expect(entry.id).toMatch(/^@[a-f0-9]{5}$/);
+    expect(entry.id).toMatch(/^\[@[a-f0-9]{5}\]$/);
     // Should also have gh_id for the full GitHub ID
     expect(entry).toHaveProperty("gh_id");
   });

@@ -576,7 +576,7 @@ export async function printActionableSummary(
     headerParts.push(perspectiveLabel);
   }
 
-  const headerLines = renderHeader(headerParts, 50);
+  const headerLines = renderHeader(headerParts, { width: 50 });
   console.log("");
   for (const line of headerLines) {
     console.log(line);

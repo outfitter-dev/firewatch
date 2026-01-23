@@ -23,17 +23,27 @@ export function generateShortId(commentId: string, repo: string): string {
 }
 
 /**
- * Check if a string looks like a short ID (5-character hex string, optionally prefixed with `@`).
+ * Check if a string looks like a short ID.
+ * Accepts: `a1b2c`, `@a1b2c`, or `[@a1b2c]` (display format).
  */
 export function isShortId(id: string): boolean {
-  return /^@?[a-f0-9]{5}$/i.test(id);
+  return /^(?:\[@[a-f0-9]{5}\]|@?[a-f0-9]{5})$/i.test(id);
 }
 
 /**
- * Strip the `@` prefix from a short ID if present.
+ * Strip the `@` prefix and brackets from a short ID if present.
+ * Handles all formats: `a1b2c`, `@a1b2c`, `[@a1b2c]`.
  */
 export function stripShortIdPrefix(id: string): string {
-  return id.startsWith("@") ? id.slice(1) : id;
+  // Handle [@id] format
+  if (id.startsWith("[@") && id.endsWith("]")) {
+    return id.slice(2, -1);
+  }
+  // Handle @id format
+  if (id.startsWith("@")) {
+    return id.slice(1);
+  }
+  return id;
 }
 
 /**

@@ -7,7 +7,7 @@ import {
   buildShortIdCache,
   classifyId,
   detectAuth,
-  formatShortId,
+  formatDisplayId,
   generateShortId,
   getAckedIds,
   getCurrentBranch,
@@ -89,7 +89,7 @@ function formatFeedbackItem(fb: UnaddressedFeedback, repo: string): string {
   const bodyPreview = fb.body
     ? truncate(fb.body.replaceAll("\n", " "), 60)
     : "";
-  return `[${formatShortId(shortId)}] @${fb.author} ${location}\n  "${bodyPreview}"`;
+  return `${formatDisplayId(shortId)} @${fb.author} ${location}\n  "${bodyPreview}"`;
 }
 
 function printFeedbackSummary(
@@ -142,7 +142,7 @@ async function handleListAll(
 
   if (ctx.outputJson) {
     for (const fb of feedbacks) {
-      const shortId = formatShortId(generateShortId(fb.comment_id, ctx.repo));
+      const shortId = formatDisplayId(generateShortId(fb.comment_id, ctx.repo));
       const { comment_id: gh_id, ...rest } = fb;
       await outputStructured({ ...rest, id: shortId, gh_id }, "jsonl");
     }
@@ -187,7 +187,7 @@ async function handlePrList(
     const comments = entries.filter((e) => e.type === "comment");
     if (ctx.outputJson) {
       for (const c of comments) {
-        const shortId = formatShortId(generateShortId(c.id, ctx.repo));
+        const shortId = formatDisplayId(generateShortId(c.id, ctx.repo));
         const { id: gh_id, ...rest } = c;
         await outputStructured({ ...rest, id: shortId, gh_id }, "jsonl");
       }
@@ -203,7 +203,7 @@ async function handlePrList(
       const location = c.file ? `${c.file}:${c.line ?? "?"}` : "(comment)";
       const resolved = c.thread_resolved ? " ✓" : "";
       console.log(
-        `\n[${formatShortId(shortId)}] @${c.author} ${location}${resolved}`
+        `\n${formatDisplayId(shortId)} @${c.author} ${location}${resolved}`
       );
       if (c.body) {
         console.log(`  "${truncate(c.body.replaceAll("\n", " "), 60)}"`);
@@ -225,7 +225,7 @@ async function handlePrList(
 
   if (ctx.outputJson) {
     for (const fb of prFeedbacks) {
-      const shortId = formatShortId(generateShortId(fb.comment_id, ctx.repo));
+      const shortId = formatDisplayId(generateShortId(fb.comment_id, ctx.repo));
       const { comment_id: gh_id, ...rest } = fb;
       await outputStructured({ ...rest, id: shortId, gh_id }, "jsonl");
     }
@@ -245,12 +245,12 @@ async function handlePrComment(
   const prId = await client.fetchPullRequestId(ctx.owner, ctx.name, pr);
   const comment = await client.addIssueComment(prId, body);
 
-  const shortId = formatShortId(generateShortId(comment.id, ctx.repo));
+  const shortId = generateShortId(comment.id, ctx.repo);
   const payload = {
     ok: true,
     repo: ctx.repo,
     pr,
-    id: shortId,
+    id: formatDisplayId(shortId),
     gh_id: comment.id,
     ...(comment.url && { url: comment.url }),
   };
@@ -259,7 +259,7 @@ async function handlePrComment(
     await outputStructured(payload, "jsonl");
   } else {
     console.log(
-      `Added comment to ${ctx.repo}#${pr}. [${formatShortId(shortId)}]`
+      `Added comment to ${ctx.repo}#${pr}. ${formatDisplayId(shortId)}`
     );
     if (comment.url) {
       console.log(comment.url);
@@ -289,7 +289,7 @@ async function handleViewComment(
 
   if (ctx.outputJson) {
     const { id: gh_id, ...rest } = entry;
-    await outputStructured({ ...rest, id: formatShortId(sId), gh_id }, "jsonl");
+    await outputStructured({ ...rest, id: formatDisplayId(sId), gh_id }, "jsonl");
     return;
   }
 
@@ -299,7 +299,7 @@ async function handleViewComment(
   const resolved = entry.thread_resolved ? " (resolved)" : "";
 
   console.log(
-    `\n[${formatShortId(sId)}] @${entry.author} ${location}${resolved}`
+    `\n${formatDisplayId(sId)} @${entry.author} ${location}${resolved}`
   );
   console.log(`PR #${entry.pr}: ${entry.pr_title}`);
   console.log(`Created: ${entry.created_at}`);
@@ -350,15 +350,15 @@ async function handleReplyToComment(
       await client.resolveReviewThread(threadId);
     }
 
-    const replyShortId = formatShortId(generateShortId(reply.id, ctx.repo));
-    const replyToShortId = formatShortId(generateShortId(commentId, ctx.repo));
+    const replyShortId = generateShortId(reply.id, ctx.repo);
+    const replyToShortId = generateShortId(commentId, ctx.repo);
     const payload = {
       ok: true,
       repo: ctx.repo,
       pr: entry.pr,
-      id: replyShortId,
+      id: formatDisplayId(replyShortId),
       gh_id: reply.id,
-      reply_to: replyToShortId,
+      reply_to: formatDisplayId(replyToShortId),
       reply_to_gh_id: commentId,
       ...(options.resolve && { resolved: true }),
       ...(reply.url && { url: reply.url }),
@@ -369,7 +369,7 @@ async function handleReplyToComment(
     } else {
       const resolveMsg = options.resolve ? " and resolved thread" : "";
       console.log(
-        `Replied to [${replyToShortId}]${resolveMsg}. [${replyShortId}]`
+        `Replied to ${formatDisplayId(replyToShortId)}${resolveMsg}. ${formatDisplayId(replyShortId)}`
       );
       if (reply.url) {
         console.log(reply.url);
@@ -387,15 +387,15 @@ async function handleReplyToComment(
   );
   const comment = await client.addIssueComment(prId, body);
 
-  const newShortId = formatShortId(generateShortId(comment.id, ctx.repo));
-  const replyToShortId = formatShortId(generateShortId(commentId, ctx.repo));
+  const newShortId = generateShortId(comment.id, ctx.repo);
+  const replyToShortId = generateShortId(commentId, ctx.repo);
   const payload = {
     ok: true,
     repo: ctx.repo,
     pr: entry.pr,
-    id: newShortId,
+    id: formatDisplayId(newShortId),
     gh_id: comment.id,
-    in_reply_to: replyToShortId,
+    in_reply_to: formatDisplayId(replyToShortId),
     in_reply_to_gh_id: commentId,
     ...(comment.url && { url: comment.url }),
   };
@@ -403,7 +403,7 @@ async function handleReplyToComment(
   if (ctx.outputJson) {
     await outputStructured(payload, "jsonl");
   } else {
-    console.log(`Added comment to ${ctx.repo}#${entry.pr}. [${newShortId}]`);
+    console.log(`Added comment to ${ctx.repo}#${entry.pr}. ${formatDisplayId(newShortId)}`);
     if (comment.url) {
       console.log(comment.url);
     }
@@ -426,13 +426,13 @@ async function handleResolveComment(
   const sId = shortId ?? generateShortId(commentId, ctx.repo);
 
   if (!entry) {
-    console.error(`Comment [${formatShortId(sId)}] not found.`);
+    console.error(`Comment ${formatDisplayId(sId)} not found.`);
     process.exit(1);
   }
 
   if (entry.subtype !== "review_comment") {
     console.error(
-      `Comment [${formatShortId(sId)}] is an issue comment. Use --ack instead.`
+      `Comment ${formatDisplayId(sId)} is an issue comment. Use --ack instead.`
     );
     process.exit(1);
   }
@@ -446,7 +446,7 @@ async function handleResolveComment(
   const threadId = threadMap.get(commentId);
 
   if (!threadId) {
-    console.error(`No review thread found for comment [${formatShortId(sId)}].`);
+    console.error(`No review thread found for comment ${formatDisplayId(sId)}.`);
     process.exit(1);
   }
 
@@ -456,7 +456,7 @@ async function handleResolveComment(
     ok: true,
     repo: ctx.repo,
     pr: entry.pr,
-    id: formatShortId(sId),
+    id: formatDisplayId(sId),
     gh_id: commentId,
     thread_id: threadId,
     resolved: true,
@@ -465,7 +465,7 @@ async function handleResolveComment(
   if (ctx.outputJson) {
     await outputStructured(payload, "jsonl");
   } else {
-    console.log(`Resolved thread for [${formatShortId(sId)}].`);
+    console.log(`Resolved thread for ${formatDisplayId(sId)}.`);
   }
 }
 
@@ -486,7 +486,7 @@ async function handleAckComment(
   const sId = shortId ?? generateShortId(commentId, ctx.repo);
 
   if (!entry) {
-    console.error(`Comment [${formatShortId(sId)}] not found.`);
+    console.error(`Comment ${formatDisplayId(sId)} not found.`);
     process.exit(1);
   }
 
@@ -517,7 +517,7 @@ async function handleAckComment(
     ok: true,
     repo: ctx.repo,
     pr: entry.pr,
-    id: formatShortId(sId),
+    id: formatDisplayId(sId),
     gh_id: commentId,
     acked: true,
     reaction_added: reactionAdded,
@@ -527,7 +527,7 @@ async function handleAckComment(
     await outputStructured(payload, "jsonl");
   } else {
     const reactionMsg = reactionAdded ? " (👍 added)" : "";
-    console.log(`Acknowledged [${formatShortId(sId)}]${reactionMsg}.`);
+    console.log(`Acknowledged ${formatDisplayId(sId)}${reactionMsg}.`);
   }
 }
 
@@ -848,7 +848,7 @@ async function handleStackFeedback(
 
   if (ctx.outputJson) {
     for (const fb of feedbacks) {
-      const shortId = formatShortId(generateShortId(fb.comment_id, ctx.repo));
+      const shortId = formatDisplayId(generateShortId(fb.comment_id, ctx.repo));
       const { comment_id: gh_id, ...rest } = fb;
       await outputStructured({ ...rest, id: shortId, gh_id }, "jsonl");
     }
@@ -1049,7 +1049,7 @@ export const fbCommand = new Command("fb")
         resolved = await findCommentByShortId(effectiveId, ctx.repo);
         if (!resolved) {
           console.error(
-            `Short ID [${formatShortId(effectiveId)}] not found in repository.`
+            `Short ID ${formatDisplayId(effectiveId)} not found in repository.`
           );
           process.exit(1);
         }

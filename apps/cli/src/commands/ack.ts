@@ -9,7 +9,7 @@ import {
   deduplicateByCommentId,
   detectAuth,
   detectRepo,
-  formatShortId,
+  formatDisplayId,
   generateShortId,
   isAcked,
   loadConfig,
@@ -75,7 +75,7 @@ function resolveCommentFromEntries(
   if (idType === "short_id") {
     const mapping = resolveShortId(id);
     if (!mapping) {
-      throw new Error(`Short ID [${formatShortId(id)}] not found in cache.`);
+      throw new Error(`Short ID ${formatDisplayId(id)} not found in cache.`);
     }
     commentId = mapping.fullId;
   } else if (idType !== "full_id") {
@@ -85,11 +85,11 @@ function resolveCommentFromEntries(
   const entry = entries.find((candidate) => candidate.id === commentId);
   if (!entry) {
     throw new Error(
-      `Comment [${formatShortId(generateShortId(commentId, repo))}] not found.`
+      `Comment ${formatDisplayId(generateShortId(commentId, repo))} not found.`
     );
   }
 
-  const shortId = formatShortId(generateShortId(entry.id, entry.repo));
+  const shortId = formatDisplayId(generateShortId(entry.id, entry.repo));
   return { entry, shortId };
 }
 
@@ -110,10 +110,10 @@ async function resolveCommentEntry(
 }
 
 function formatAckLine(ack: AckRecord): string {
-  const shortId = formatShortId(generateShortId(ack.comment_id, ack.repo));
+  const shortId = formatDisplayId(generateShortId(ack.comment_id, ack.repo));
   const actor = ack.acked_by ? ` \`@${ack.acked_by}\`` : "";
   const reaction = ack.reaction_added ? "reaction" : "local";
-  return `[${shortId}] ${ack.repo}#${ack.pr} ${ack.acked_at} ${reaction}${actor}`;
+  return `${shortId} ${ack.repo}#${ack.pr} ${ack.acked_at} ${reaction}${actor}`;
 }
 
 interface ResolvedComment {
@@ -144,7 +144,7 @@ async function resolveCommentForClear(
     if (idType === "full_id") {
       return {
         commentId: inputId,
-        shortId: formatShortId(generateShortId(inputId, repo)),
+        shortId: formatDisplayId(generateShortId(inputId, repo)),
       };
     }
 
@@ -160,13 +160,13 @@ async function resolveCommentForClear(
 
       if (!matchingAck) {
         throw new Error(
-          `Short ID [${formatShortId(inputId)}] not found in cache or acks.`
+          `Short ID ${formatDisplayId(inputId)} not found in cache or acks.`
         );
       }
 
       return {
         commentId: matchingAck.comment_id,
-        shortId: formatShortId(generateShortId(matchingAck.comment_id, repo)),
+        shortId: formatDisplayId(generateShortId(matchingAck.comment_id, repo)),
         pr: matchingAck.pr,
       };
     }
@@ -191,7 +191,7 @@ async function handleList(
     for (const ack of filtered) {
       await outputStructured(
         {
-          id: formatShortId(generateShortId(ack.comment_id, ack.repo)),
+          id: formatDisplayId(generateShortId(ack.comment_id, ack.repo)),
           gh_id: ack.comment_id,
           ...ack,
         },

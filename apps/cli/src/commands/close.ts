@@ -6,7 +6,7 @@ import {
   deduplicateByCommentId,
   detectAuth,
   detectRepo,
-  formatShortId,
+  formatDisplayId,
   generateShortId,
   getAckedIds,
   loadConfig,
@@ -283,7 +283,7 @@ async function handleCloseComments(
     const result = await closeComment(
       ctx,
       entry.id,
-      comment.shortId ?? formatShortId(generateShortId(entry.id, ctx.repo)),
+      comment.shortId ?? formatDisplayId(generateShortId(entry.id, ctx.repo)),
       entry.pr,
       entry.subtype
     );
@@ -349,7 +349,7 @@ async function handleCloseAll(
       continue;
     }
 
-    const shortId = formatShortId(generateShortId(entry.id, ctx.repo));
+    const shortId = formatDisplayId(generateShortId(entry.id, ctx.repo));
     const result = await closeComment(
       ctx,
       entry.id,
