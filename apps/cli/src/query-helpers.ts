@@ -62,6 +62,7 @@ export interface QueryCommandOptions {
   offset?: number;
   summary?: boolean;
   jsonl?: boolean;
+  json?: boolean;
   debug?: boolean;
   noColor?: boolean;
 }

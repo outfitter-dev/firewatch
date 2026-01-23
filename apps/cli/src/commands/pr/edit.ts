@@ -3,7 +3,7 @@ import {
   detectAuth,
   loadConfig,
 } from "@outfitter/firewatch-core";
-import { Command } from "commander";
+import { Command, Option } from "commander";
 
 import { parseRepoInput, parsePrNumber, resolveRepoOrThrow } from "../../repo";
 import { outputStructured } from "../../utils/json";
@@ -25,6 +25,7 @@ interface EditCommandOptions {
   addAssignee?: string[];
   removeAssignee?: string[];
   jsonl?: boolean;
+  json?: boolean;
 }
 
 function collect(value: string, previous: string[] = []): string[] {
@@ -302,6 +303,7 @@ export const editCommand = new Command("edit")
   .option("--remove-assignee <user>", "Remove assignee (repeatable)", collect)
   .option("--jsonl", "Force structured output")
   .option("--no-jsonl", "Force human-readable output")
+  .addOption(new Option("--json").hideHelp())
   .action(async (pr: number, options: EditCommandOptions) => {
     try {
       // Validate conflicting options

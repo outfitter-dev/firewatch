@@ -3,7 +3,7 @@ import {
   detectAuth,
   loadConfig,
 } from "@outfitter/firewatch-core";
-import { Command } from "commander";
+import { Command, Option } from "commander";
 
 import { parseRepoInput, parsePrNumber, resolveRepoOrThrow } from "../../repo";
 import { outputStructured } from "../../utils/json";
@@ -18,6 +18,7 @@ interface ReviewCommandOptions {
   comment?: boolean;
   body?: string;
   jsonl?: boolean;
+  json?: boolean;
 }
 
 const EVENT_LABELS: Record<ReviewEvent, string> = {
@@ -94,6 +95,7 @@ export const reviewCommand = new Command("review")
   )
   .option("--jsonl", "Force structured output")
   .option("--no-jsonl", "Force human-readable output")
+  .addOption(new Option("--json").hideHelp())
   .action(async (pr: number, options: ReviewCommandOptions) => {
     try {
       const rawEvent = determineReviewEvent(options);

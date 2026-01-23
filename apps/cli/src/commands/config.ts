@@ -6,7 +6,7 @@ import {
   parseConfigText,
   serializeConfigObject,
 } from "@outfitter/firewatch-core";
-import { Command } from "commander";
+import { Command, Option } from "commander";
 import { mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
 
@@ -18,6 +18,7 @@ interface ConfigCommandOptions {
   path?: boolean;
   local?: boolean;
   jsonl?: boolean;
+  json?: boolean;
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -146,6 +147,7 @@ export const configCommand = new Command("config")
   .option("--local", "Target project config (.firewatch.toml)")
   .option("--jsonl", "Force structured output")
   .option("--no-jsonl", "Force human-readable output")
+  .addOption(new Option("--json").hideHelp())
   .action(
     async (
       key: string | undefined,

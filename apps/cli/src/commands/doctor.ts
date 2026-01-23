@@ -9,7 +9,7 @@ import {
   loadConfig,
 } from "@outfitter/firewatch-core";
 import { getGraphiteStacks } from "@outfitter/firewatch-core/plugins";
-import { Command } from "commander";
+import { Command, Option } from "commander";
 import { constants as fsConstants } from "node:fs";
 import { access } from "node:fs/promises";
 
@@ -19,6 +19,7 @@ import { shouldOutputJson } from "../utils/tty";
 
 interface DoctorCommandOptions {
   jsonl?: boolean;
+  json?: boolean;
   fix?: boolean;
 }
 
@@ -185,6 +186,7 @@ export const doctorCommand = new Command("doctor")
   .description("Diagnose Firewatch setup")
   .option("--jsonl", "Force structured output")
   .option("--no-jsonl", "Force human-readable output")
+  .addOption(new Option("--json").hideHelp())
   .option("--fix", "Attempt to fix issues automatically")
   .action(async (options: DoctorCommandOptions) => {
     try {

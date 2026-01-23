@@ -1,4 +1,4 @@
-import { Command } from "commander";
+import { Command, Option } from "commander";
 
 import { version } from "../package.json";
 import { ackCommand } from "./commands/ack";
@@ -58,6 +58,7 @@ program
   .option("--summary", "Aggregate entries into per-PR summary")
   .option("-j, --jsonl", "Force structured output")
   .option("--no-jsonl", "Force human-readable output")
+  .addOption(new Option("--json").hideHelp())
   .option("--debug", "Enable debug logging")
   .option("--no-color", "Disable color output")
   .addHelpText(

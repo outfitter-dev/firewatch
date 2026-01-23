@@ -5,7 +5,7 @@ import {
   getDatabase,
   PATHS,
 } from "@outfitter/firewatch-core";
-import { Command } from "commander";
+import { Command, Option } from "commander";
 import { existsSync, statSync } from "node:fs";
 import { rm } from "node:fs/promises";
 
@@ -14,6 +14,7 @@ import { formatRelativeTime, shouldOutputJson } from "../utils/tty";
 
 interface CacheStatusOptions {
   jsonl?: boolean;
+  json?: boolean;
 }
 
 interface CacheClearOptions {
@@ -58,6 +59,7 @@ const statusSubcommand = new Command("status")
   .description("Show cache status and statistics")
   .option("--jsonl", "Force structured output")
   .option("--no-jsonl", "Force human-readable output")
+  .addOption(new Option("--json").hideHelp())
   .action(async (options: CacheStatusOptions) => {
     try {
       const db = getDatabase();

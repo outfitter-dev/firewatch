@@ -1,4 +1,4 @@
-import { Command } from "commander";
+import { Command, Option } from "commander";
 
 import { executeCliQuery } from "../../query";
 import {
@@ -38,6 +38,7 @@ export const listCommand = new Command("list")
   .option("--summary", "Aggregate entries into per-PR summary")
   .option("-j, --jsonl", "Force structured output")
   .option("--no-jsonl", "Force human-readable output")
+  .addOption(new Option("--json").hideHelp())
   .option("--debug", "Enable debug logging")
   .option("--no-color", "Disable color output")
   .action(async (options: QueryCommandOptions) => {

@@ -17,7 +17,7 @@ import {
   type FirewatchConfig,
   type FirewatchEntry,
 } from "@outfitter/firewatch-core";
-import { Command } from "commander";
+import { Command, Option } from "commander";
 
 import { identifyUnaddressedFeedback } from "../actionable";
 import { parseRepoInput, validateRepoFormat } from "../repo";
@@ -29,6 +29,7 @@ interface CloseCommandOptions {
   all?: boolean;
   yes?: boolean;
   jsonl?: boolean;
+  json?: boolean;
 }
 
 interface CloseContext {
@@ -391,6 +392,7 @@ export const closeCommand = new Command("close")
   .option("-y, --yes", "Auto-confirm bulk operations")
   .option("--jsonl", "Force structured output")
   .option("--no-jsonl", "Force human-readable output")
+  .addOption(new Option("--json").hideHelp())
   .action(async (ids: string[], options: CloseCommandOptions) => {
     try {
       const ctx = await createContext(options);

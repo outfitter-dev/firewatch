@@ -18,7 +18,7 @@ import {
   type FirewatchConfig,
   type PrState,
 } from "@outfitter/firewatch-core";
-import { Command } from "commander";
+import { Command, Option } from "commander";
 
 import {
   identifyUnaddressedFeedback,
@@ -37,6 +37,7 @@ interface FbCommandOptions {
   resolve?: boolean;
   body?: string;
   jsonl?: boolean;
+  json?: boolean;
   offline?: boolean;
   // Filter options for bulk ack
   before?: string;
@@ -867,6 +868,7 @@ export const fbCommand = new Command("fb")
   .option("-b, --body <text>", "Comment body for new comment or reply")
   .option("--jsonl", "Force structured output")
   .option("--no-jsonl", "Force human-readable output")
+  .addOption(new Option("--json").hideHelp())
   .option("--offline", "Use cached data only (no GitHub API calls)")
   .option("--before <date>", "Comments created before ISO date")
   .option("--since <duration>", "Comments within duration (e.g., 7d, 24h)")

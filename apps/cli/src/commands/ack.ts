@@ -23,7 +23,7 @@ import {
   type FirewatchConfig,
   type FirewatchEntry,
 } from "@outfitter/firewatch-core";
-import { Command } from "commander";
+import { Command, Option } from "commander";
 
 import { validateRepoFormat } from "../repo";
 import { outputStructured } from "../utils/json";
@@ -34,6 +34,7 @@ interface AckCommandOptions {
   list?: boolean;
   clear?: string;
   jsonl?: boolean;
+  json?: boolean;
 }
 
 async function resolveRepo(repo?: string): Promise<string> {
@@ -513,6 +514,7 @@ export const ackCommand = new Command("ack")
   .option("-c, --clear <id>", "Remove acknowledgement for a comment")
   .option("--jsonl", "Force structured output")
   .option("--no-jsonl", "Force human-readable output")
+  .addOption(new Option("--json").hideHelp())
   .action(async (ids: string[], options: AckCommandOptions) => {
     const config = await loadConfig();
     const outputJson = shouldOutputJson(options, config.output?.default_format);
