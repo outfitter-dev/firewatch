@@ -11,6 +11,7 @@ import {
   detectRepo,
   formatDisplayId,
   generateShortId,
+  getAckedIds,
   isAcked,
   loadConfig,
   parseSince,
@@ -27,6 +28,7 @@ import {
 } from "@outfitter/firewatch-core";
 import { Command, Option } from "commander";
 
+import { identifyUnaddressedFeedback } from "../actionable";
 import { validateRepoFormat } from "../repo";
 import { outputStructured } from "../utils/json";
 import { resolveStates, type StateOptions } from "../utils/states";
@@ -36,6 +38,7 @@ interface AckCommandOptions extends StateOptions {
   repo?: string;
   list?: boolean;
   clear?: string;
+  yes?: boolean;
   jsonl?: boolean;
   json?: boolean;
   since?: string;
@@ -327,6 +330,108 @@ async function handleAck(
     return;
   }
   console.log(`Acknowledged [${shortId}]${reactionMsg}.`);
+}
+
+/**
+ * Bulk acknowledge all unaddressed feedback in a PR.
+ */
+async function handlePrBulkAck(
+  prNum: number,
+  options: AckCommandOptions,
+  config: FirewatchConfig,
+  outputJson: boolean
+): Promise<void> {
+  const repo = await resolveRepo(options.repo);
+
+  const entries = await queryEntries({
+    filters: {
+      repo,
+      pr: prNum,
+      type: "comment",
+    },
+  });
+
+  buildShortIdCache(entries);
+
+  const ackedIds = await getAckedIds(repo);
+  const feedbacks = identifyUnaddressedFeedback(entries, {
+    ackedIds,
+    username: config.user?.github_username,
+    commitImpliesRead: config.feedback?.commit_implies_read,
+  });
+
+  if (feedbacks.length === 0) {
+    if (outputJson) {
+      await outputStructured(
+        { ok: true, repo, pr: prNum, acked_count: 0 },
+        "jsonl"
+      );
+    } else {
+      console.error(`No unaddressed feedback on PR #${prNum}.`);
+    }
+    return;
+  }
+
+  // Require confirmation for bulk operations unless --yes
+  if (!options.yes && !outputJson) {
+    console.error(`Found ${feedbacks.length} unaddressed feedback items on PR #${prNum}.`);
+    console.error("Use --yes to confirm bulk acknowledgement.");
+    return;
+  }
+
+  // Setup client for reactions
+  const auth = await detectAuth(config.github_token);
+  const client = auth.token ? new GitHubClient(auth.token) : null;
+
+  const commentIds = feedbacks.map((fb) => fb.comment_id);
+  const reactionResults = client
+    ? await batchAddReactions(commentIds, client)
+    : commentIds.map((id) => ({ commentId: id, reactionAdded: false }));
+
+  const reactionMap = new Map(
+    reactionResults.map((r) => [r.commentId, r.reactionAdded])
+  );
+
+  const entryMap = new Map(entries.map((e) => [e.id, e]));
+
+  const items = feedbacks
+    .map((fb) => {
+      const entry = entryMap.get(fb.comment_id);
+      if (!entry) {
+        return null;
+      }
+      return {
+        entry,
+        reactionAdded: reactionMap.get(fb.comment_id) ?? false,
+      };
+    })
+    .filter((item): item is NonNullable<typeof item> => item !== null);
+
+  const ackRecords = buildAckRecords(items, {
+    repo,
+    username: config.user?.github_username,
+  });
+  await addAcks(ackRecords);
+
+  const reactionsAdded = reactionResults.filter((r) => r.reactionAdded).length;
+
+  const payload = {
+    ok: true,
+    repo,
+    pr: prNum,
+    acked_count: feedbacks.length,
+    reactions_added: reactionsAdded,
+  };
+
+  if (outputJson) {
+    await outputStructured(payload, "jsonl");
+  } else {
+    const reactionMsg =
+      reactionsAdded > 0 ? ` (${reactionsAdded} reactions added)` : "";
+    console.log(
+      `Acknowledged ${feedbacks.length} feedback items on PR #${prNum}${reactionMsg}.`
+    );
+  }
 }
 
 interface MultiAckResult {
@@ -627,8 +732,8 @@ async function handleMultiAck(
 }
 
 export const ackCommand = new Command("ack")
-  .description("Acknowledge feedback comments (local + optional reaction)")
-  .argument("[ids...]", "Comment IDs (short or full)")
+  .description("Acknowledge feedback comments or all feedback in a PR")
+  .argument("[ids...]", "Comment IDs (short @xxxxx or full) or PR numbers")
   .option("--repo <name>", "Repository (owner/repo format)")
   .option("-l, --list", "List acknowledged comments")
   .option("-x, --clear <id>", "Remove acknowledgement for a comment")
@@ -656,17 +761,47 @@ export const ackCommand = new Command("ack")
     }
 
     if (ids.length === 0) {
-      console.error("Provide comment ID(s) or use --list.");
+      console.error("Provide comment ID(s), PR number, or use --list.");
       process.exit(1);
     }
 
-    // Single ID: keep existing behavior for backward compatibility
+    // Single ID: check if it's a PR number for bulk ack
     if (ids.length === 1) {
-      // Safe assertion: we've verified ids.length === 1
-      await handleAck(ids[0]!, options, config, outputJson);
+      const id = ids[0]!;
+      const idType = classifyId(id);
+
+      // PR number: bulk ack all feedback in the PR
+      if (idType === "pr_number") {
+        const prNum = Number.parseInt(id, 10);
+        await handlePrBulkAck(prNum, options, config, outputJson);
+        return;
+      }
+
+      // Comment ID: single ack (backward compatible)
+      await handleAck(id, options, config, outputJson);
       return;
     }
 
-    // Multiple IDs: use batch processing
-    await handleMultiAck(ids, options, config, outputJson);
+    // Multiple IDs: check for PR numbers and handle separately
+    const prIds: number[] = [];
+    const commentIds: string[] = [];
+
+    for (const id of ids) {
+      const idType = classifyId(id);
+      if (idType === "pr_number") {
+        prIds.push(Number.parseInt(id, 10));
+      } else {
+        commentIds.push(id);
+      }
+    }
+
+    // Handle PR bulk acks
+    for (const prNum of prIds) {
+      await handlePrBulkAck(prNum, options, config, outputJson);
+    }
+
+    // Handle comment IDs with batch processing
+    if (commentIds.length > 0) {
+      await handleMultiAck(commentIds, options, config, outputJson);
+    }
   });

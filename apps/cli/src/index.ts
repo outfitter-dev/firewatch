@@ -12,10 +12,8 @@ import {
 import { configCommand } from "./commands/config";
 import { doctorCommand } from "./commands/doctor";
 import { examplesCommand } from "./commands/examples";
-import {
-  feedbackCommand,
-  feedbackReplyAction,
-} from "./commands/feedback";
+import { feedbackCommand } from "./commands/feedback";
+import { replyCommand } from "./commands/reply";
 import { listCommand } from "./commands/list";
 import { mcpCommand } from "./commands/mcp";
 import { viewCommand } from "./commands/view";
@@ -124,6 +122,7 @@ const resolveCommand = new Command("resolve")
 program.addCommand(resolveCommand, { hidden: true });
 
 program.addCommand(feedbackCommand);
+program.addCommand(replyCommand);
 program.addCommand(listCommand);
 program.addCommand(viewCommand);
 program.addCommand(cacheCommand);
@@ -136,34 +135,6 @@ program.addCommand(examplesCommand);
 program.addCommand(mcpCommand);
 
 // Hidden top-level aliases for common operations
-const replyAlias = new Command("reply")
-  .description("Reply to a comment (alias for feedback reply)")
-  .argument("<id>", "Comment ID")
-  .argument("[body]", "Reply text")
-  .option("--repo <name>", "Repository (owner/repo format)")
-  .option("-b, --body <text>", "Reply text (alternative to positional)")
-  .option("--resolve", "Resolve the thread after replying")
-  .option("--jsonl", "Force structured output")
-  .option("--no-jsonl", "Force human-readable output")
-  .addOption(new Option("--json").hideHelp())
-  .action(
-    (
-      id: string,
-      body: string | undefined,
-      opts: {
-        repo?: string;
-        body?: string;
-        resolve?: boolean;
-        jsonl?: boolean;
-        json?: boolean;
-      }
-    ) => {
-      emitAliasHint("fw reply", "fw feedback reply");
-      return feedbackReplyAction([id], body, opts);
-    }
-  );
-program.addCommand(replyAlias, { hidden: true });
-
 const commentAlias = new Command("comment")
   .description("Add PR comment (alias for pr comment)")
   .argument("<pr>", "PR number")
