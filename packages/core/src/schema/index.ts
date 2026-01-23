@@ -46,5 +46,7 @@ export {
 export {
   CONFIG_SCHEMA_DOC,
   ENTRY_SCHEMA_DOC,
+  FB_SCHEMA_DOC,
+  STATUS_SCHEMA_DOC,
   WORKLIST_SCHEMA_DOC,
 } from "./docs";
