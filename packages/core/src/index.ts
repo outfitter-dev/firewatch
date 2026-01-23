@@ -117,6 +117,7 @@ export {
 
 // Config
 export {
+  applyEnvOverrides,
   findProjectConfigPath,
   getConfigPaths,
   getProjectConfigPath,
