@@ -281,7 +281,7 @@ async function handleViewComment(
 
   const entry = entries[0];
   if (!entry) {
-    console.error(`Comment ${shortId ?? commentId} not found.`);
+    console.error(`Comment [${shortId ?? commentId}] not found.`);
     process.exit(1);
   }
 
@@ -369,7 +369,7 @@ async function handleReplyToComment(
     } else {
       const resolveMsg = options.resolve ? " and resolved thread" : "";
       console.log(
-        `Replied to ${replyToShortId}${resolveMsg}. [${replyShortId}]`
+        `Replied to [${replyToShortId}]${resolveMsg}. [${replyShortId}]`
       );
       if (reply.url) {
         console.log(reply.url);
@@ -426,13 +426,13 @@ async function handleResolveComment(
   const sId = shortId ?? generateShortId(commentId, ctx.repo);
 
   if (!entry) {
-    console.error(`Comment ${formatShortId(sId)} not found.`);
+    console.error(`Comment [${formatShortId(sId)}] not found.`);
     process.exit(1);
   }
 
   if (entry.subtype !== "review_comment") {
     console.error(
-      `Comment ${formatShortId(sId)} is an issue comment. Use --ack instead.`
+      `Comment [${formatShortId(sId)}] is an issue comment. Use --ack instead.`
     );
     process.exit(1);
   }
@@ -446,7 +446,7 @@ async function handleResolveComment(
   const threadId = threadMap.get(commentId);
 
   if (!threadId) {
-    console.error(`No review thread found for comment ${formatShortId(sId)}.`);
+    console.error(`No review thread found for comment [${formatShortId(sId)}].`);
     process.exit(1);
   }
 
@@ -465,7 +465,7 @@ async function handleResolveComment(
   if (ctx.outputJson) {
     await outputStructured(payload, "jsonl");
   } else {
-    console.log(`Resolved thread for ${formatShortId(sId)}.`);
+    console.log(`Resolved thread for [${formatShortId(sId)}].`);
   }
 }
 
@@ -486,7 +486,7 @@ async function handleAckComment(
   const sId = shortId ?? generateShortId(commentId, ctx.repo);
 
   if (!entry) {
-    console.error(`Comment ${formatShortId(sId)} not found.`);
+    console.error(`Comment [${formatShortId(sId)}] not found.`);
     process.exit(1);
   }
 
@@ -527,7 +527,7 @@ async function handleAckComment(
     await outputStructured(payload, "jsonl");
   } else {
     const reactionMsg = reactionAdded ? " (👍 added)" : "";
-    console.log(`Acknowledged ${formatShortId(sId)}${reactionMsg}.`);
+    console.log(`Acknowledged [${formatShortId(sId)}]${reactionMsg}.`);
   }
 }
 
@@ -1049,7 +1049,7 @@ export const fbCommand = new Command("fb")
         resolved = await findCommentByShortId(effectiveId, ctx.repo);
         if (!resolved) {
           console.error(
-            `Short ID ${formatShortId(effectiveId)} not found in repository.`
+            `Short ID [${formatShortId(effectiveId)}] not found in repository.`
           );
           process.exit(1);
         }

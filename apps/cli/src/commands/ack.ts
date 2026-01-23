@@ -75,7 +75,7 @@ function resolveCommentFromEntries(
   if (idType === "short_id") {
     const mapping = resolveShortId(id);
     if (!mapping) {
-      throw new Error(`Short ID ${formatShortId(id)} not found in cache.`);
+      throw new Error(`Short ID [${formatShortId(id)}] not found in cache.`);
     }
     commentId = mapping.fullId;
   } else if (idType !== "full_id") {
@@ -85,7 +85,7 @@ function resolveCommentFromEntries(
   const entry = entries.find((candidate) => candidate.id === commentId);
   if (!entry) {
     throw new Error(
-      `Comment ${formatShortId(generateShortId(commentId, repo))} not found.`
+      `Comment [${formatShortId(generateShortId(commentId, repo))}] not found.`
     );
   }
 
@@ -113,7 +113,7 @@ function formatAckLine(ack: AckRecord): string {
   const shortId = formatShortId(generateShortId(ack.comment_id, ack.repo));
   const actor = ack.acked_by ? ` \`@${ack.acked_by}\`` : "";
   const reaction = ack.reaction_added ? "reaction" : "local";
-  return `${shortId} ${ack.repo}#${ack.pr} ${ack.acked_at} ${reaction}${actor}`;
+  return `[${shortId}] ${ack.repo}#${ack.pr} ${ack.acked_at} ${reaction}${actor}`;
 }
 
 interface ResolvedComment {
@@ -160,7 +160,7 @@ async function resolveCommentForClear(
 
       if (!matchingAck) {
         throw new Error(
-          `Short ID ${formatShortId(inputId)} not found in cache or acks.`
+          `Short ID [${formatShortId(inputId)}] not found in cache or acks.`
         );
       }
 
@@ -240,11 +240,11 @@ async function handleClear(
   }
 
   if (removed === 0) {
-    console.log(`No acknowledgement found for ${shortId}.`);
+    console.log(`No acknowledgement found for [${shortId}].`);
     return;
   }
 
-  console.log(`Cleared acknowledgement for ${shortId}.`);
+  console.log(`Cleared acknowledgement for [${shortId}].`);
 }
 
 async function handleAck(
@@ -272,7 +272,7 @@ async function handleAck(
         "jsonl"
       );
     } else {
-      console.log(`${shortId} already acknowledged.`);
+      console.log(`[${shortId}] already acknowledged.`);
     }
     return;
   }
@@ -322,11 +322,11 @@ async function handleAck(
   const reactionMsg = reactionAdded ? " (reaction added)" : "";
   if (!auth.token) {
     console.log(
-      `Acknowledged ${shortId}${reactionMsg}. No GitHub token; stored locally only.`
+      `Acknowledged [${shortId}]${reactionMsg}. No GitHub token; stored locally only.`
     );
     return;
   }
-  console.log(`Acknowledged ${shortId}${reactionMsg}.`);
+  console.log(`Acknowledged [${shortId}]${reactionMsg}.`);
 }
 
 interface MultiAckResult {
