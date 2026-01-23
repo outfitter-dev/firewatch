@@ -73,7 +73,9 @@ Examples:
   fw --summary                    Per-PR rollup
   fw --type comment --since 24h   Recent comments
   fw --mine                       Activity on my PRs
-  fw examples                     Common jq patterns (escaping tips)`
+  fw examples                     Common jq patterns (escaping tips)
+
+Global options like --no-color and --debug apply to all subcommands.`
   )
   .action(async (options: QueryCommandOptions) => {
     applyGlobalOptions(options);
