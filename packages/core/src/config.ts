@@ -570,8 +570,15 @@ export function serializeConfigObject(config: Record<string, unknown>): string {
 
 /**
  * Save configuration to the config file.
+ * If the config contains a github_token, the file is set to mode 0600 for security.
  */
 export async function saveConfig(config: FirewatchConfig): Promise<void> {
   const content = serializeConfigObject(config as Record<string, unknown>);
   await Bun.write(PATHS.configFile, content);
+
+  // Secure file permissions if it contains a token
+  if (config.github_token) {
+    const { chmod } = await import("node:fs/promises");
+    await chmod(PATHS.configFile, 0o600);
+  }
 }

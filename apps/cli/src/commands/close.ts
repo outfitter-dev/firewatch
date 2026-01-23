@@ -237,12 +237,20 @@ async function outputCommentResults(
 
 async function handleCloseComments(
   ctx: CloseContext,
-  ids: string[]
+  ids: string[],
+  autoConfirm = false
 ): Promise<void> {
   const resolutions = await resolveBatchIds(ids, ctx.repo);
   const { comments, prs, errors } = partitionResolutions(resolutions);
 
-  // Handle PR numbers (close PRs)
+  // Handle PR numbers (close PRs) - require confirmation
+  if (prs.length > 0 && !autoConfirm && !ctx.outputJson) {
+    const prNums = prs.map((p) => `#${p.pr}`).join(", ");
+    console.error(`This will close PR${prs.length > 1 ? "s" : ""}: ${prNums}`);
+    console.error("Use --yes to confirm.");
+    return;
+  }
+
   for (const prRes of prs) {
     await closePR(ctx, prRes.pr!);
   }
@@ -320,14 +328,14 @@ async function handleCloseAll(
         "jsonl"
       );
     } else {
-      console.log("No unaddressed feedback to close.");
+      console.error("No unaddressed feedback to close.");
     }
     return;
   }
 
   if (!autoConfirm && !ctx.outputJson) {
-    console.log(`Found ${feedbacks.length} unaddressed feedback items.`);
-    console.log("Use --yes to confirm closing all.");
+    console.error(`Found ${feedbacks.length} unaddressed feedback items.`);
+    console.error("Use --yes to confirm closing all.");
     return;
   }
 
@@ -401,7 +409,7 @@ export async function closeAction(
       process.exit(1);
     }
 
-    await handleCloseComments(ctx, ids);
+    await handleCloseComments(ctx, ids, options.yes ?? false);
   } catch (error) {
     console.error(
       "Close operation failed:",

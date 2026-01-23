@@ -202,11 +202,11 @@ async function handleList(
   }
 
   if (filtered.length === 0) {
-    console.log("No acknowledgements recorded.");
+    console.error("No acknowledgements recorded.");
     return;
   }
 
-  console.log(`Acknowledged comments (${filtered.length}):`);
+  console.error(`Acknowledged comments (${filtered.length}):`);
   for (const ack of filtered) {
     console.log(formatAckLine(ack));
   }
@@ -240,7 +240,7 @@ async function handleClear(
   }
 
   if (removed === 0) {
-    console.log(`No acknowledgement found for [${shortId}].`);
+    console.error(`No acknowledgement found for [${shortId}].`);
     return;
   }
 
@@ -539,7 +539,7 @@ async function handleMultiAck(
         "jsonl"
       );
     } else {
-      console.log("No comments match the specified filters.");
+      console.error("No comments match the specified filters.");
     }
 
     if (errors.length > 0) {
