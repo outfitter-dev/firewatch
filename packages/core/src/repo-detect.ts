@@ -217,3 +217,64 @@ export async function detectRepo(
 
   return { repo: null, source: null, cwd };
 }
+
+/**
+ * Get the current git branch name.
+ */
+export async function getCurrentBranch(
+  cwd: string = process.cwd()
+): Promise<string | null> {
+  const result = await $`git rev-parse --abbrev-ref HEAD`
+    .cwd(cwd)
+    .nothrow()
+    .quiet();
+  if (result.exitCode !== 0) {
+    return null;
+  }
+  const branch = result.text().trim();
+  return branch === "HEAD" ? null : branch;
+}
+
+/**
+ * Result of PR detection for current branch.
+ */
+export interface BranchPrResult {
+  /** PR number if found */
+  pr: number | null;
+  /** Branch name */
+  branch: string | null;
+  /** Error message if detection failed */
+  error?: string;
+}
+
+/**
+ * Get the PR number for the current branch using gh CLI.
+ */
+export async function getPrForCurrentBranch(
+  cwd: string = process.cwd()
+): Promise<BranchPrResult> {
+  const branch = await getCurrentBranch(cwd);
+  if (!branch) {
+    return { pr: null, branch: null, error: "Not in a git repository" };
+  }
+
+  if (branch === "main" || branch === "master") {
+    return { pr: null, branch, error: "Cannot get PR for main/master branch" };
+  }
+
+  const result = await $`gh pr view --json number --jq .number`
+    .cwd(cwd)
+    .nothrow()
+    .quiet();
+
+  if (result.exitCode !== 0) {
+    return { pr: null, branch, error: "No PR found for current branch" };
+  }
+
+  const prNum = Number.parseInt(result.text().trim(), 10);
+  if (Number.isNaN(prNum)) {
+    return { pr: null, branch, error: "Failed to parse PR number" };
+  }
+
+  return { pr: prNum, branch };
+}

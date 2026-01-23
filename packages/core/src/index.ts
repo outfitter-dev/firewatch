@@ -107,7 +107,13 @@ export { buildWorklist, sortWorklist } from "./worklist";
 export { parseDurationMs, parseSince } from "./time";
 
 // Repo Detection
-export { detectRepo, type RepoDetectResult } from "./repo-detect";
+export {
+  detectRepo,
+  getCurrentBranch,
+  getPrForCurrentBranch,
+  type BranchPrResult,
+  type RepoDetectResult,
+} from "./repo-detect";
 
 // Config
 export {
