@@ -3,7 +3,6 @@ import { Command, Option } from "commander";
 import { version } from "../package.json";
 import { ackCommand } from "./commands/ack";
 import { approveCommand } from "./commands/approve";
-import { cacheCommand } from "./commands/cache";
 import { claudePluginCommand } from "./commands/claude-plugin";
 import {
   closeAction,
@@ -15,13 +14,11 @@ import { configCommand } from "./commands/config";
 import { doctorCommand } from "./commands/doctor";
 import { editCommand } from "./commands/edit";
 import { examplesCommand } from "./commands/examples";
-import { feedbackCommand } from "./commands/feedback";
 import { replyCommand } from "./commands/reply";
 import { listCommand } from "./commands/list";
 import { mcpCommand } from "./commands/mcp";
 import { rejectCommand } from "./commands/reject";
 import { viewCommand } from "./commands/view";
-import { prCommand } from "./commands/pr";
 import { queryCommand } from "./commands/query";
 import { schemaCommand } from "./commands/schema";
 import { statusCommand } from "./commands/status";
@@ -84,7 +81,7 @@ Examples:
   fw query --summary                    Per-PR rollup
   fw query --type comment --since 24h   Recent comments
   fw query --mine                       Activity on my PRs
-  fw feedback list                      Unaddressed PR feedback
+  fw list                               Unaddressed PR feedback
   fw examples                           Common jq patterns
 
 Global options like --no-color and --debug apply to all subcommands.
@@ -106,7 +103,6 @@ Query options on root 'fw' are supported but 'fw query' is preferred.`
 
 program.addCommand(queryCommand);
 program.addCommand(syncCommand);
-program.addCommand(prCommand);
 program.addCommand(editCommand);
 program.addCommand(ackCommand);
 program.addCommand(closeCommand);
@@ -130,11 +126,9 @@ const resolveCommand = new Command("resolve")
   });
 program.addCommand(resolveCommand, { hidden: true });
 
-program.addCommand(feedbackCommand);
 program.addCommand(replyCommand);
 program.addCommand(listCommand);
 program.addCommand(viewCommand);
-program.addCommand(cacheCommand);
 program.addCommand(claudePluginCommand);
 program.addCommand(statusCommand);
 program.addCommand(configCommand);
