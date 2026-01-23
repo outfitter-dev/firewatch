@@ -74,23 +74,25 @@ packages/
 
 ### CLI Commands
 
-| Command      | Description                                                       |
-| ------------ | ----------------------------------------------------------------- |
-| `fw`         | Query cached activity (auto-syncs; `--summary` for per-PR rollup) |
-| `fb`         | Feedback: list/view/reply/ack/resolve (`--stack` for stack-aware) |
-| `ack`        | Acknowledge feedback items (mark as seen)                         |
-| `close`      | Resolve review comment threads by ID                              |
-| `pr list`    | List PRs with filtering options                                   |
-| `pr edit`    | Update PR fields (title, body, draft/ready)                       |
-| `pr comment` | Add comments to PRs                                               |
-| `pr review`  | Submit PR reviews                                                 |
-| `cache`      | Cache management (clear, inspect)                                 |
-| `status`     | Firewatch state info (`--short` for compact view)                 |
-| `config`     | View/edit configuration                                           |
-| `doctor`     | Diagnose auth/cache/repo issues                                   |
-| `schema`     | Print JSON schema for output formats                              |
-| `examples`   | Show usage examples                                               |
-| `mcp`        | Start MCP server for AI tool integration                          |
+| Command    | Description                                    |
+| ---------- | ---------------------------------------------- |
+| `query`    | Query cached activity (JSONL output for jq)    |
+| `list`     | Opinionated feedback view (`list prs` for PRs) |
+| `view`     | View PR or comment details (polymorphic)       |
+| `reply`    | Reply to a comment                             |
+| `comment`  | Add PR-level comment                           |
+| `ack`      | Acknowledge feedback (local tracking)          |
+| `close`    | Resolve thread or close PR (polymorphic)       |
+| `approve`  | Approve PR (GitHub review)                     |
+| `reject`   | Request changes on PR (GitHub review)          |
+| `edit`     | Edit PR or comment (polymorphic)               |
+| `sync`     | Sync cache (`--clear` to reset)                |
+| `status`   | Show Firewatch state                           |
+| `config`   | View/edit configuration                        |
+| `doctor`   | Diagnose setup issues                          |
+| `schema`   | Print JSON schema                              |
+| `examples` | Show jq patterns                               |
+| `mcp`      | Start MCP server                               |
 
 ### Key Patterns
 
@@ -117,11 +119,12 @@ packages/
 
 **Write operations:**
 
-1. `fw pr comment <pr> "text"` → `GitHubClient.addComment()` → GitHub API
-2. `fw pr review <pr> --approve` → `GitHubClient.submitReview()` → GitHub API
-3. `fw close <comment-id>` → `GitHubClient.resolveThread()` → GitHub API
-4. `fw pr edit <pr> --title ...` → `GitHubClient.editPullRequest()` → GitHub API
-5. `fw fb <id> "reply"` → `GitHubClient.replyToComment()` → GitHub API
+1. `fw comment <pr> "text"` → `GitHubClient.addComment()` → GitHub API
+2. `fw reply <id> "text"` → `GitHubClient.replyToComment()` → GitHub API
+3. `fw approve <pr>` → `GitHubClient.submitReview()` → GitHub API
+4. `fw reject <pr>` → `GitHubClient.submitReview()` → GitHub API
+5. `fw close <id>` → `GitHubClient.resolveThread()` or `closePR()` → GitHub API
+6. `fw edit <id>` → `GitHubClient.editPullRequest()` or `editComment()` → GitHub API
 
 ### Cache Structure
 
