@@ -16,7 +16,9 @@ import {
   feedbackCommand,
   feedbackReplyAction,
 } from "./commands/feedback";
+import { listCommand } from "./commands/list";
 import { mcpCommand } from "./commands/mcp";
+import { viewCommand } from "./commands/view";
 import { prCommand, prCommentAction } from "./commands/pr";
 import { queryCommand } from "./commands/query";
 import { schemaCommand } from "./commands/schema";
@@ -122,6 +124,8 @@ const resolveCommand = new Command("resolve")
 program.addCommand(resolveCommand, { hidden: true });
 
 program.addCommand(feedbackCommand);
+program.addCommand(listCommand);
+program.addCommand(viewCommand);
 program.addCommand(cacheCommand);
 program.addCommand(claudePluginCommand);
 program.addCommand(statusCommand);
