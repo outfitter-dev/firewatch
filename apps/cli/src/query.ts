@@ -70,10 +70,6 @@ export function validateQueryOptions(options: QueryCommandOptions): void {
     );
   }
 
-  if (options.offline && options.refresh) {
-    throw new Error("--offline cannot be used with --refresh.");
-  }
-
   if (options.mine && options.reviews) {
     throw new Error("Cannot use both --mine and --reviews together.");
   }

@@ -8,7 +8,7 @@ import {
   type PRMetadata,
 } from "@outfitter/firewatch-core";
 import { afterAll, describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -29,6 +29,9 @@ const paths =
 await mkdir(paths.cache, { recursive: true });
 await mkdir(paths.config, { recursive: true });
 await mkdir(paths.data, { recursive: true });
+
+// Create config to disable auto-sync (no network calls in tests)
+await writeFile(join(paths.config, "config.toml"), "[sync]\nauto_sync = false\n");
 
 const repo = "outfitter-dev/firewatch";
 const dbPath = join(paths.cache, "firewatch.db");
@@ -192,7 +195,6 @@ describe("fw fb", () => {
     expect(stdout).toContain("--all");
     expect(stdout).toContain("--ack");
     expect(stdout).toContain("--resolve");
-    expect(stdout).toContain("--offline");
   });
 
   test("fb lists feedback with short IDs", async () => {
@@ -202,7 +204,6 @@ describe("fw fb", () => {
       repo,
       "--all",
       "--jsonl",
-      "--offline",
     ]);
 
     expect(exitCode).toBe(0);
@@ -230,7 +231,6 @@ describe("fw fb", () => {
       repo,
       "--all",
       "--jsonl",
-      "--offline",
     ]);
 
     expect(exitCode).toBe(0);
@@ -254,7 +254,6 @@ describe("fw fb", () => {
       repo,
       "--todo",
       "--jsonl",
-      "--offline",
     ]);
 
     expect(exitCode).toBe(0);
@@ -280,7 +279,6 @@ describe("fw fb", () => {
       repo,
       "--all",
       "--no-jsonl",
-      "--offline",
     ]);
 
     expect(exitCode).toBe(0);
