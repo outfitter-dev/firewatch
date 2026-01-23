@@ -7,6 +7,122 @@ import {
 
 const PROJECT_CONFIG_FILENAME = ".firewatch.toml";
 
+// --------------------------------------------------------------------------
+// Environment variable overrides
+// --------------------------------------------------------------------------
+
+type EnvParser<T> = (value: string) => T;
+
+const parseEnvBoolean: EnvParser<boolean> = (value) => {
+  const lower = value.toLowerCase();
+  return lower === "true" || lower === "1";
+};
+
+const parseEnvInteger: EnvParser<number> = (value) => {
+  const num = Number.parseInt(value, 10);
+  if (Number.isNaN(num)) {
+    throw new TypeError(`Invalid integer value: ${value}`);
+  }
+  return num;
+};
+
+const parseEnvString: EnvParser<string> = (value) => value;
+
+const parseEnvCommaSeparated: EnvParser<string[]> = (value) => {
+  if (!value.trim()) {
+    return [];
+  }
+  return value.split(",").map((s) => s.trim());
+};
+
+interface EnvMapping {
+  path: string[];
+  parse: EnvParser<unknown>;
+}
+
+/**
+ * Mapping of environment variable names to config paths and parsers.
+ *
+ * Naming convention: FIREWATCH_{SECTION}_{KEY} (all uppercase, underscores)
+ *
+ * Precedence (highest to lowest):
+ * 1. Environment variables
+ * 2. Project config (.firewatch.toml)
+ * 3. User config (~/.config/firewatch/config.toml)
+ * 4. Schema defaults
+ */
+const ENV_MAP: Record<string, EnvMapping> = {
+  // Top-level config
+  FIREWATCH_GITHUB_TOKEN: { path: ["github_token"], parse: parseEnvString },
+  FIREWATCH_REPOS: { path: ["repos"], parse: parseEnvCommaSeparated },
+  FIREWATCH_MAX_PRS_PER_SYNC: {
+    path: ["max_prs_per_sync"],
+    parse: parseEnvInteger,
+  },
+
+  // Sync section
+  FIREWATCH_SYNC_AUTO_SYNC: {
+    path: ["sync", "auto_sync"],
+    parse: parseEnvBoolean,
+  },
+  FIREWATCH_SYNC_STALE_THRESHOLD: {
+    path: ["sync", "stale_threshold"],
+    parse: parseEnvString,
+  },
+
+  // Output section
+  FIREWATCH_OUTPUT_DEFAULT_FORMAT: {
+    path: ["output", "default_format"],
+    parse: parseEnvString,
+  },
+
+  // User section
+  FIREWATCH_USER_GITHUB_USERNAME: {
+    path: ["user", "github_username"],
+    parse: parseEnvString,
+  },
+
+  // Filters section
+  FIREWATCH_FILTERS_EXCLUDE_BOTS: {
+    path: ["filters", "exclude_bots"],
+    parse: parseEnvBoolean,
+  },
+  FIREWATCH_FILTERS_EXCLUDE_AUTHORS: {
+    path: ["filters", "exclude_authors"],
+    parse: parseEnvCommaSeparated,
+  },
+  FIREWATCH_FILTERS_BOT_PATTERNS: {
+    path: ["filters", "bot_patterns"],
+    parse: parseEnvCommaSeparated,
+  },
+
+  // Feedback section
+  FIREWATCH_FEEDBACK_COMMIT_IMPLIES_READ: {
+    path: ["feedback", "commit_implies_read"],
+    parse: parseEnvBoolean,
+  },
+};
+
+/**
+ * Apply environment variable overrides to config.
+ * Env vars take precedence over file-based config.
+ */
+export function applyEnvOverrides(
+  config: Record<string, unknown>
+): Record<string, unknown> {
+  for (const [envKey, { path, parse }] of Object.entries(ENV_MAP)) {
+    const value = process.env[envKey];
+    if (value !== undefined) {
+      try {
+        setNestedValue(config, path, parse(value));
+      } catch {
+        // Skip invalid env values silently - let Zod validation catch type errors
+      }
+    }
+  }
+  return config;
+}
+
 interface ConfigPaths {
   user: string;
   project?: string;
@@ -27,9 +143,10 @@ export async function loadConfig(
     : null;
 
   const merged = mergeConfig(userConfig ?? {}, projectConfig ?? {});
+  const withEnv = applyEnvOverrides(merged as Record<string, unknown>);
 
   try {
-    return FirewatchConfigSchema.parse(merged);
+    return FirewatchConfigSchema.parse(withEnv);
   } catch (error) {
     if (options.strict) {
       throw error;
