@@ -8,7 +8,7 @@ import {
   type PRMetadata,
 } from "@outfitter/firewatch-core";
 import { afterAll, describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -29,6 +29,9 @@ const paths =
 await mkdir(paths.cache, { recursive: true });
 await mkdir(paths.config, { recursive: true });
 await mkdir(paths.data, { recursive: true });
+
+// Create config to disable auto-sync (no network calls in tests)
+await writeFile(join(paths.config, "config.toml"), "[sync]\nauto_sync = false\n");
 
 const repo = "outfitter-dev/firewatch";
 const dbPath = join(paths.cache, "firewatch.db");
@@ -178,14 +181,13 @@ describe("fw pr", () => {
     expect(stdout).toContain("review");
   });
 
-  test("pr list outputs entries in offline mode", async () => {
+  test("pr list outputs entries from cache", async () => {
     const { stdout, stderr, exitCode } = await runCli([
       "pr",
       "list",
       "--repo",
       repo,
       "--jsonl",
-      "--offline",
     ]);
 
     expect(exitCode).toBe(0);
@@ -205,7 +207,6 @@ describe("fw pr", () => {
       "--repo",
       repo,
       "--summary",
-      "--offline",
     ]);
 
     expect(exitCode).toBe(0);
@@ -228,7 +229,6 @@ describe("fw pr", () => {
       "--type",
       "review",
       "--jsonl",
-      "--offline",
     ]);
 
     expect(exitCode).toBe(0);
@@ -250,7 +250,6 @@ describe("fw pr", () => {
       "--pr",
       "51",
       "--jsonl",
-      "--offline",
     ]);
 
     expect(exitCode).toBe(0);

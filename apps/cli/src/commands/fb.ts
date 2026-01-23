@@ -41,7 +41,6 @@ interface FbCommandOptions {
   body?: string;
   jsonl?: boolean;
   json?: boolean;
-  offline?: boolean;
   // Filter options for bulk ack
   before?: string;
   since?: string;
@@ -57,21 +56,21 @@ interface FbContext {
   owner: string;
   name: string;
   outputJson: boolean;
-  offline: boolean;
 }
 
 /**
- * Ensures the context has an online client for write operations.
- * Throws if --offline flag was used.
+ * Ensures the context has a client for write operations.
+ * Throws if auth is not available.
  */
-function requireOnlineClient(ctx: FbContext): GitHubClient {
-  if (ctx.offline || !ctx.client) {
+function requireClient(ctx: FbContext): GitHubClient {
+  if (!ctx.client) {
     throw new Error(
-      "This operation requires GitHub API access. Remove --offline flag to proceed."
+      "This operation requires GitHub API access. Ensure you have a valid token."
     );
   }
   return ctx.client;
 }
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Output formatting
@@ -242,7 +241,7 @@ async function handlePrComment(
   pr: number,
   body: string
 ): Promise<void> {
-  const client = requireOnlineClient(ctx);
+  const client = requireClient(ctx);
   const prId = await client.fetchPullRequestId(ctx.owner, ctx.name, pr);
   const comment = await client.addIssueComment(prId, body);
 
@@ -331,7 +330,7 @@ async function handleReplyToComment(
 
   // Check if this is a review comment (has a thread)
   if (entry.subtype === "review_comment") {
-    const client = requireOnlineClient(ctx);
+    const client = requireClient(ctx);
     // Get thread ID and reply to thread
     const threadMap = await client.fetchReviewThreadMap(
       ctx.owner,
@@ -380,7 +379,7 @@ async function handleReplyToComment(
   }
 
   // Issue comment - add a new comment (can't thread on issue comments)
-  const client = requireOnlineClient(ctx);
+  const client = requireClient(ctx);
   const prId = await client.fetchPullRequestId(
     ctx.owner,
     ctx.name,
@@ -438,7 +437,7 @@ async function handleResolveComment(
     process.exit(1);
   }
 
-  const client = requireOnlineClient(ctx);
+  const client = requireClient(ctx);
   const threadMap = await client.fetchReviewThreadMap(
     ctx.owner,
     ctx.name,
@@ -494,7 +493,7 @@ async function handleAckComment(
   // Add reaction to GitHub
   let reactionAdded = false;
   try {
-    const client = requireOnlineClient(ctx);
+    const client = requireClient(ctx);
     await client.addReaction(commentId, "THUMBS_UP");
     reactionAdded = true;
   } catch {
@@ -575,9 +574,7 @@ async function handleBulkAck(
 
   // Add reactions to all comments in parallel
   const commentIds = prFeedbacks.map((fb) => fb.comment_id);
-  const reactionResults = ctx.client
-    ? await batchAddReactions(commentIds, ctx.client)
-    : commentIds.map((commentId) => ({ commentId, reactionAdded: false }));
+  const reactionResults = await batchAddReactions(commentIds, requireClient(ctx));
 
   // Build reaction map for ack records
   const reactionMap = new Map(
@@ -724,9 +721,7 @@ async function handleCrossPrBulkAck(
 
   // Add reactions in parallel using batch utility
   const commentIds = feedbacks.map((fb) => fb.comment_id);
-  const reactionResults = ctx.client
-    ? await batchAddReactions(commentIds, ctx.client)
-    : commentIds.map((commentId) => ({ commentId, reactionAdded: false }));
+  const reactionResults = await batchAddReactions(commentIds, requireClient(ctx));
 
   // Build reaction map for ack records
   const reactionMap = new Map(
@@ -789,16 +784,10 @@ async function createContext(options: FbCommandOptions): Promise<FbContext> {
   const config = await loadConfig();
   const repo = await resolveRepoOrThrow(options.repo);
   const { owner, name } = parseRepoInput(repo);
-  const offline = options.offline ?? false;
 
-  let client: GitHubClient | null = null;
-  if (!offline) {
-    const auth = await detectAuth(config.github_token);
-    if (!auth.token) {
-      throw new Error(auth.error);
-    }
-    client = new GitHubClient(auth.token);
-  }
+  // Auth is optional - only required for write operations
+  const auth = await detectAuth(config.github_token);
+  const client = auth.token ? new GitHubClient(auth.token) : null;
 
   return {
     client,
@@ -807,7 +796,6 @@ async function createContext(options: FbCommandOptions): Promise<FbContext> {
     owner,
     name,
     outputJson: shouldOutputJson(options, config.output?.default_format),
-    offline,
   };
 }
 
@@ -858,14 +846,13 @@ export const fbCommand = new Command("fb")
   .option("--repo <name>", "Repository (owner/repo format)")
   .option("-t, --todo", "Show only unaddressed feedback (default)")
   .option("--all", "Show all feedback including resolved")
-  .option("-a, --ack", "Acknowledge feedback (👍 + local record)")
-  .option("-r, --resolve", "Resolve the thread after replying")
+  .option("--ack", "Acknowledge feedback (+ local record)")
+  .option("--resolve", "Resolve the thread after replying")
   .addOption(new Option("--close").hideHelp())
   .option("-b, --body <text>", "Comment body for new comment or reply")
   .option("--jsonl", "Force structured output")
   .option("--no-jsonl", "Force human-readable output")
   .addOption(new Option("--json").hideHelp())
-  .option("--offline", "Use cached data only (no GitHub API calls)")
   .option("--before <date>", "Comments created before ISO date")
   .option("--since <duration>", "Comments within duration (e.g., 7d, 24h)")
   .option("--open", "Only open PRs")
@@ -899,13 +886,11 @@ export const fbCommand = new Command("fb")
         const pr = Number.parseInt(id, 10);
 
         if (options.ack) {
-          requireOnlineClient(ctx);
           await handleBulkAck(ctx, pr, options);
           return;
         }
 
         if (body) {
-          requireOnlineClient(ctx);
           await handlePrComment(ctx, pr, body);
           return;
         }
@@ -937,21 +922,18 @@ export const fbCommand = new Command("fb")
 
       // Ack
       if (options.ack) {
-        requireOnlineClient(ctx);
         await handleAckComment(ctx, commentId, shortId);
         return;
       }
 
       // Resolve
       if (options.resolve && !body) {
-        requireOnlineClient(ctx);
         await handleResolveComment(ctx, commentId, shortId);
         return;
       }
 
       // Reply
       if (body) {
-        requireOnlineClient(ctx);
         await handleReplyToComment(ctx, commentId, body, options);
         return;
       }

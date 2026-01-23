@@ -56,7 +56,6 @@ export interface QueryCommandOptions {
   noBots?: boolean;
   since?: string;
   before?: string;
-  offline?: boolean;
   refresh?: boolean | "full";
   limit?: number;
   offset?: number;
@@ -431,15 +430,6 @@ export async function ensureFreshRepos(
   detectedRepo: string | null
 ): Promise<void> {
   if (repos.length === 0) {
-    return;
-  }
-
-  if (options.offline) {
-    for (const repo of repos) {
-      if (!hasRepoCache(repo)) {
-        throw new Error(`Offline mode: no cache for ${repo}.`);
-      }
-    }
     return;
   }
 

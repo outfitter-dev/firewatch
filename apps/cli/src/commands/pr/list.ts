@@ -31,7 +31,6 @@ export const listCommand = new Command("list")
     "Filter by time window. Formats: Nh, Nd, Nw, Nm (months). Examples: 24h, 7d"
   )
   .option("--before <date>", "Entries created before ISO date (e.g., 2024-01-15)")
-  .option("--offline", "Use cache only, no network")
   .option("--refresh [full]", "Force sync before query")
   .option("-n, --limit <count>", "Limit number of results", Number.parseInt)
   .option("--offset <count>", "Skip first N results", Number.parseInt)
