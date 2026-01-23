@@ -64,12 +64,6 @@ export interface CliQueryContext {
  * Throws with user-friendly error message if validation fails.
  */
 export function validateQueryOptions(options: QueryCommandOptions): void {
-  if (typeof options.refresh === "string" && options.refresh !== "full") {
-    throw new Error(
-      "Invalid --refresh value. Use --refresh or --refresh full."
-    );
-  }
-
   if (options.mine && options.reviews) {
     throw new Error("Cannot use both --mine and --reviews together.");
   }

@@ -37,7 +37,6 @@ export const queryCommand = new Command("query")
     "--before <date>",
     "Entries created before ISO date (e.g., 2024-01-15)"
   )
-  .option("--refresh [full]", "Force sync before query")
   .option("-n, --limit <count>", "Limit number of results", validateLimit)
   .option("--offset <count>", "Skip first N results", Number.parseInt)
   .option("--summary", "Aggregate entries into per-PR summary")

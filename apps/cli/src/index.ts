@@ -25,6 +25,7 @@ import { prCommand } from "./commands/pr";
 import { queryCommand } from "./commands/query";
 import { schemaCommand } from "./commands/schema";
 import { statusCommand } from "./commands/status";
+import { syncCommand } from "./commands/sync";
 import { executeCliQuery } from "./query";
 import {
   applyGlobalOptions,
@@ -68,7 +69,6 @@ program
     "Filter by time window. Formats: Nh, Nd, Nw, Nm (months). Examples: 24h, 7d"
   )
   .option("--before <date>", "Entries created before ISO date (e.g., 2024-01-15)")
-  .option("--refresh [full]", "Force sync before query")
   .option("-n, --limit <count>", "Limit number of results", validateLimit)
   .option("--offset <count>", "Skip first N results", Number.parseInt)
   .option("--summary", "Aggregate entries into per-PR summary")
@@ -105,6 +105,7 @@ Query options on root 'fw' are supported but 'fw query' is preferred.`
   });
 
 program.addCommand(queryCommand);
+program.addCommand(syncCommand);
 program.addCommand(prCommand);
 program.addCommand(editCommand);
 program.addCommand(ackCommand);
