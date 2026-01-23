@@ -29,6 +29,7 @@ import { parseRepoInput, resolveRepoOrThrow } from "../repo";
 import { emitAliasHint } from "../utils/alias-hint";
 import { outputStructured } from "../utils/json";
 import { resolveStates } from "../utils/states";
+import { truncate } from "../utils/tree";
 import { shouldOutputJson } from "../utils/tty";
 
 interface FbCommandOptions {
@@ -75,13 +76,6 @@ function requireClient(ctx: FbContext): GitHubClient {
 // ─────────────────────────────────────────────────────────────────────────────
 // Output formatting
 // ─────────────────────────────────────────────────────────────────────────────
-
-function truncate(str: string, maxLen: number): string {
-  if (str.length <= maxLen) {
-    return str;
-  }
-  return `${str.slice(0, maxLen - 1)}…`;
-}
 
 function formatFeedbackItem(fb: UnaddressedFeedback, repo: string): string {
   const shortId = generateShortId(fb.comment_id, repo);
