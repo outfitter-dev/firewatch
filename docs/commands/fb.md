@@ -22,18 +22,22 @@ The command behavior depends on the arguments provided:
 | `<id> --ack`     | Acknowledge feedback         |
 | `<id> --resolve` | Resolve review thread        |
 | `<pr> --ack`     | Bulk acknowledge PR feedback |
+| `--current`      | Feedback on current branch's PR |
+| `--stack`        | Feedback on current stack's PRs |
 
 ## Options
 
-| Option          | Description                              |
-| --------------- | ---------------------------------------- |
-| `--repo <name>` | Repository (`owner/repo` format)         |
-| `--todo`        | Show only unaddressed feedback (default) |
-| `--all`         | Show all feedback including resolved     |
-| `--ack`         | Acknowledge feedback (👍 + local record) |
-| `--resolve`     | Resolve thread (or resolve after reply)  |
-| `--json`        | Force JSON output                        |
-| `--no-json`     | Force human-readable output              |
+| Option               | Description                              |
+| -------------------- | ---------------------------------------- |
+| `--repo <name>`      | Repository (`owner/repo` format)         |
+| `-c, --current`      | Target current git branch's PR           |
+| `-s, --stack [dir]`  | Filter to current stack (all/up/down)    |
+| `--todo`             | Show only unaddressed feedback (default) |
+| `--all`              | Show all feedback including resolved     |
+| `--ack`              | Acknowledge feedback (👍 + local record) |
+| `--resolve`          | Resolve thread (or resolve after reply)  |
+| `--json`             | Force JSON output                        |
+| `--no-json`          | Force human-readable output              |
 
 ## Short IDs
 
@@ -62,6 +66,22 @@ fw fb 42 --all
 
 # Force JSON output
 fw fb --json
+```
+
+### Branch & Stack Targeting
+
+```bash
+# Feedback on current git branch's PR
+fw fb --current
+
+# Feedback on entire stack (requires Graphite)
+fw fb --stack
+
+# Feedback on current PR + downstack (toward trunk)
+fw fb --stack down
+
+# Feedback on current PR + upstack (toward tip)
+fw fb --stack up
 ```
 
 ### Viewing Comments
@@ -154,6 +174,33 @@ By default (`--todo`), only unaddressed feedback is shown:
 - Comments not acknowledged via `--ack`
 
 Use `--all` to see all comments including resolved threads.
+
+## Stack Integration
+
+The `--stack` flag enables stack-aware feedback queries for Graphite users. It detects the current branch's stack and filters feedback to only those PRs.
+
+### Stack Directions
+
+| Direction | PRs Included                                |
+| --------- | ------------------------------------------- |
+| `all`     | All PRs in the stack (default)              |
+| `down`    | Current PR + ancestors (toward trunk)       |
+| `up`      | Current PR + descendants (toward tip)       |
+
+### Requirements
+
+- Graphite CLI (`gt`) must be installed and available
+- Current directory must be in a Graphite-managed repository
+- Branch must be part of a stack (not trunk)
+
+### How It Works
+
+1. Detects current git branch
+2. Uses `gt state` to find stack structure
+3. Resolves PR numbers via `gh pr list`
+4. Filters feedback entries to matching PRs
+
+See [Graphite Integration](../development/graphite-integration.md) for implementation details.
 
 ## Related Commands
 

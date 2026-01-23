@@ -57,6 +57,7 @@ packages/
 │   ├── time.ts             # Duration parsing (7d, 24h, etc.)
 │   ├── repo-detect.ts      # Auto-detect repo from git/package.json/Cargo.toml
 │   ├── schema/             # Zod schemas for type safety
+│   ├── stack/              # Stack provider abstraction (Graphite, future GitHub)
 │   └── plugins/            # Plugin interface (e.g., Graphite stacks)
 ├── shared/                 # @outfitter/firewatch-shared - Shared utilities
 └── claude-plugin/          # Local Claude Code plugin marketplace
@@ -76,6 +77,7 @@ packages/
 | Command  | Description                                                       |
 | -------- | ----------------------------------------------------------------- |
 | `fw`     | Query cached activity (auto-syncs; `--summary` for per-PR rollup) |
+| `fb`     | Feedback: list/view/reply/ack/resolve (`--stack` for stack-aware) |
 | `add`    | Add comments, reviews, or metadata                                |
 | `close`  | Resolve review comment threads by ID                              |
 | `edit`   | Update PR fields or draft/ready                                   |
