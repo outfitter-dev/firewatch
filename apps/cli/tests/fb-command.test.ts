@@ -186,20 +186,22 @@ async function runCli(
 }
 
 describe("fw fb", () => {
-  test("fb --help shows usage", async () => {
+  test("fb --help shows subcommands", async () => {
     const { stdout, exitCode } = await runCli(["fb", "--help"]);
 
     expect(exitCode).toBe(0);
-    expect(stdout).toContain("Feedback abstraction");
-    expect(stdout).toContain("--todo");
-    expect(stdout).toContain("--all");
-    expect(stdout).toContain("--ack");
-    expect(stdout).toContain("--resolve");
+    expect(stdout).toContain("Manage PR feedback");
+    expect(stdout).toContain("list");
+    expect(stdout).toContain("view");
+    expect(stdout).toContain("reply");
+    expect(stdout).toContain("ack");
+    expect(stdout).toContain("resolve");
   });
 
-  test("fb lists feedback with short IDs", async () => {
+  test("fb list --all outputs feedback with short IDs", async () => {
     const { stdout, exitCode } = await runCli([
       "fb",
+      "list",
       "--repo",
       repo,
       "--all",
@@ -223,9 +225,11 @@ describe("fw fb", () => {
     expect(entry).toHaveProperty("gh_id");
   });
 
-  test("fb <pr> filters to specific PR", async () => {
+  test("fb list --pr filters to specific PR", async () => {
     const { stdout, exitCode } = await runCli([
       "fb",
+      "list",
+      "--pr",
       "60",
       "--repo",
       repo,
@@ -247,12 +251,12 @@ describe("fw fb", () => {
     }
   });
 
-  test("fb --todo filters to unaddressed feedback only", async () => {
+  test("fb list (default) filters to unaddressed feedback only", async () => {
     const { stdout, exitCode } = await runCli([
       "fb",
+      "list",
       "--repo",
       repo,
-      "--todo",
       "--jsonl",
     ]);
 
@@ -266,14 +270,16 @@ describe("fw fb", () => {
     // Should exclude resolved threads
     for (const line of lines) {
       const entry = JSON.parse(line);
-      // Resolved threads should not appear in --todo output
+      // Resolved threads should not appear in list output
       expect(entry.thread_resolved).not.toBe(true);
     }
   });
 
-  test("fb text output shows formatted feedback", async () => {
+  test("fb list --pr text output shows formatted feedback", async () => {
     const { stdout, exitCode } = await runCli([
       "fb",
+      "list",
+      "--pr",
       "60",
       "--repo",
       repo,

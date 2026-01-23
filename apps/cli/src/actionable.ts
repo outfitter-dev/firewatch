@@ -10,15 +10,16 @@ import {
   type WorklistEntry,
 } from "@outfitter/firewatch-core";
 
-import { c, getAnsis } from "./utils/color";
+import {
+  CATEGORY_ORDER,
+  renderCategorySection,
+  renderStyledHeader,
+  type ActionableCategory,
+  type ActionableItem as RenderActionableItem,
+} from "./render";
 import { getCurrentBranch } from "./utils/git";
-import { renderHeader } from "./utils/tree";
 
-export type ActionableCategory =
-  | "unaddressed"
-  | "changes_requested"
-  | "awaiting_review"
-  | "stale";
+export type { ActionableCategory };
 
 export interface AttentionItem {
   repo: string;
@@ -470,105 +471,11 @@ export function buildActionableSummary(
   };
 }
 
-const CATEGORY_LABELS: Record<ActionableCategory, string> = {
-  unaddressed: "Awaiting Feedback",
-  changes_requested: "Changes Requested",
-  awaiting_review: "Awaiting Review",
-  stale: "Stale",
-};
-
-const CATEGORY_ORDER: ActionableCategory[] = [
-  "unaddressed",
-  "changes_requested",
-  "awaiting_review",
-  "stale",
-];
-
-// Glyphs by category
-const GLYPHS = {
-  unaddressed: { current: "◉", other: "◎" },
-  changes_requested: { current: "◉", other: "◎" },
-  awaiting_review: { current: "◯", other: "◯" },
-  stale: { current: "◌", other: "◌" },
-} as const;
-
-type ColorFn = (text: string) => string;
-
-const CATEGORY_COLORS: Record<ActionableCategory, ColorFn> = {
-  unaddressed: c.yellow,
-  changes_requested: c.white,
-  awaiting_review: c.cyan,
-  stale: c.white,
-};
-
-function formatCategoryHeader(
-  label: string,
-  count: number,
-  color: ColorFn
-): string {
-  const a = getAnsis();
-  const prLabel = count === 1 ? "PR" : "PRs";
-  return `${color(a.bold(`${label}:`))} ${color(`${count} ${prLabel}`)}`;
-}
-
-function formatPrLine(
-  item: ActionableItem,
-  category: ActionableCategory,
-  currentBranch: string | null
-): string {
-  const isCurrent = currentBranch === item.pr_branch;
-  const glyph = isCurrent ? GLYPHS[category].current : GLYPHS[category].other;
-  const color = CATEGORY_COLORS[category];
-  return color(`${glyph} #${item.pr} ${item.pr_branch}`);
-}
-
-function formatDetailLine(item: ActionableItem): string | null {
-  // Skip generic status messages - not useful info
-  if (
-    item.description === "Awaiting first review" ||
-    item.description === "No recent activity" ||
-    item.description === "Changes requested"
-  ) {
-    return null;
-  }
-  // Format authors with @ prefix
-  const detail = item.description.replaceAll(
-    /\b([a-zA-Z0-9_-]+) \((\d+)\)/g,
-    "@$1 ($2)"
-  );
-  return c.dim(`  ⎿ ${detail}`);
-}
-
-function renderCategorySection(
-  category: ActionableCategory,
-  items: ActionableItem[],
-  currentBranch: string | null,
-  limit = 5
-): string[] {
-  const color = CATEGORY_COLORS[category];
-  const label = CATEGORY_LABELS[category];
-  const lines: string[] = [formatCategoryHeader(label, items.length, color)];
-
-  for (const item of items.slice(0, limit)) {
-    lines.push(formatPrLine(item, category, currentBranch));
-    const detail = formatDetailLine(item);
-    if (detail) {
-      lines.push(detail);
-    }
-  }
-
-  if (items.length > limit) {
-    const glyph = GLYPHS[category].other;
-    lines.push(c.dim(`${glyph} +${items.length - limit} more`));
-  }
-
-  return lines;
-}
 
 export async function printActionableSummary(
   summary: ActionableSummary
 ): Promise<void> {
-  // Build header
+  // Build header parts
   const headerParts = ["Firewatch", summary.repo];
   if (summary.perspective) {
     const perspectiveLabel =
@@ -576,7 +483,11 @@ export async function printActionableSummary(
     headerParts.push(perspectiveLabel);
   }
 
-  const headerLines = renderHeader(headerParts, { width: 50 });
+  // Render styled header with count
+  const headerLines = renderStyledHeader(headerParts, {
+    width: 50,
+    count: summary.counts.total,
+  });
   console.log("");
   for (const line of headerLines) {
     console.log(line);
@@ -605,7 +516,17 @@ export async function printActionableSummary(
       continue;
     }
 
-    const categoryLines = renderCategorySection(category, items, currentBranch);
+    // Map to render items format
+    const renderItems: RenderActionableItem[] = items.map((item) => ({
+      pr: item.pr,
+      pr_branch: item.pr_branch,
+      pr_title: item.pr_title,
+      description: item.description,
+    }));
+
+    const categoryLines = renderCategorySection(category, renderItems, {
+      currentBranch,
+    });
 
     console.log("");
     for (const line of categoryLines) {

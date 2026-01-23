@@ -26,6 +26,7 @@ import {
   getGraphiteStacks,
   graphitePlugin,
 } from "@outfitter/firewatch-core/plugins";
+import { InvalidArgumentError } from "commander";
 import { existsSync, readdirSync } from "node:fs";
 import ora from "ora";
 
@@ -53,6 +54,7 @@ export interface QueryCommandOptions {
   type?: string;
   label?: string;
   author?: string;
+  excludeAuthor?: string;
   noBots?: boolean;
   since?: string;
   before?: string;
@@ -96,6 +98,33 @@ export function applyGlobalOptions(options: QueryCommandOptions): void {
   if (options.debug) {
     process.env.FIREWATCH_DEBUG = "1";
   }
+}
+
+// ============================================================================
+// Validation Functions
+// ============================================================================
+
+/**
+ * Validate and parse a limit value.
+ * @throws InvalidArgumentError if the value is not a valid non-negative integer.
+ */
+export function validateLimit(value: string): number {
+  const n = Number.parseInt(value, 10);
+  if (Number.isNaN(n) || n < 0) {
+    throw new InvalidArgumentError("Limit must be a non-negative integer");
+  }
+  return n;
+}
+
+/**
+ * Validate a repo slug format.
+ * @throws InvalidArgumentError if the value is empty or not in owner/repo format.
+ */
+export function validateRepoSlug(value: string): string {
+  if (!value || !value.includes("/")) {
+    throw new InvalidArgumentError("Repo must be in owner/repo format");
+  }
+  return value;
 }
 
 // ============================================================================
@@ -239,11 +268,15 @@ export function resolveAuthorFilters(
   const excludeBots = options.noBots || config.filters?.exclude_bots;
   const botPatterns = resolveBotPatterns(config);
 
+  // Merge explicit --exclude-author with !name syntax exclusions
+  const explicitExcludes = parseCsvList(options.excludeAuthor);
+  const allExcludes = [...exclude, ...explicitExcludes];
+
   const configExclusions = config.filters?.exclude_authors ?? [];
   const mergedExclusions =
-    excludeBots || exclude.length > 0 || configExclusions.length > 0
+    excludeBots || allExcludes.length > 0 || configExclusions.length > 0
       ? mergeExcludeAuthors(
-          [...configExclusions, ...exclude],
+          [...configExclusions, ...allExcludes],
           excludeBots ?? false
         )
       : undefined;

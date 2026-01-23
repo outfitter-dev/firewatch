@@ -69,6 +69,7 @@ export const ENTRY_TYPES = EntryTypeSchema.options;
 export const FirewatchEntrySchema = z.object({
   // Identity
   id: z.string(),
+  database_id: z.number().int().positive().optional(), // REST API numeric ID (for comments)
   short_id: z.string().optional(),
   repo: z.string(),
   pr: z.number().int().positive(),
