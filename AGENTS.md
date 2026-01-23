@@ -46,16 +46,23 @@ apps/
 
 packages/
 ├── core/                   # @outfitter/firewatch-core - Pure library logic
+│   ├── ack.ts              # Local acknowledgement tracking
 │   ├── auth.ts             # Adaptive auth: gh CLI → env → config
-│   ├── github.ts           # GraphQL client using native fetch
-│   ├── cache.ts            # XDG-compliant JSONL storage
-│   ├── sync.ts             # Incremental sync with cursor tracking
-│   ├── query.ts            # JSONL filtering and output
+│   ├── authors.ts          # Author filtering and bot detection
+│   ├── batch.ts            # Batch operations (reactions, ID resolution)
+│   ├── cache.ts            # XDG-compliant paths and directory setup
 │   ├── check.ts            # Staleness detection & file activity hints
-│   ├── worklist.ts         # Per-PR summary aggregation, stack-aware ordering
 │   ├── config.ts           # Config loading (.firewatch.toml, XDG config)
-│   ├── time.ts             # Duration parsing (7d, 24h, etc.)
+│   ├── db.ts               # SQLite database initialization
+│   ├── github.ts           # GraphQL client using native fetch
+│   ├── parity.ts           # CLI/MCP shared operations
+│   ├── query.ts            # Entry filtering with SQLite queries
 │   ├── repo-detect.ts      # Auto-detect repo from git/package.json/Cargo.toml
+│   ├── repository.ts       # SQLite repository operations (CRUD, sync metadata)
+│   ├── short-id.ts         # Short ID generation and resolution
+│   ├── sync.ts             # Incremental sync with cursor tracking
+│   ├── time.ts             # Duration parsing (7d, 24h, etc.)
+│   ├── worklist.ts         # Per-PR summary aggregation, stack-aware ordering
 │   ├── schema/             # Zod schemas for type safety
 │   ├── stack/              # Stack provider abstraction (Graphite, future GitHub)
 │   └── plugins/            # Plugin interface (e.g., Graphite stacks)
@@ -100,7 +107,7 @@ packages/
 
 **Adaptive auth** (`packages/core/src/auth.ts`): Tries gh CLI first, then environment variables, then config file token.
 
-**Denormalized JSONL**: Each entry is self-contained with PR context embedded. No joins needed for jq queries.
+**SQLite storage**: Entries stored in SQLite with denormalized PR context. Output as JSONL for jq composition.
 
 **Plugin enrichment** (`packages/core/src/plugins/`): Plugins can enrich entries during sync (e.g., add Graphite stack metadata) and provide custom query filters. The Graphite plugin adds stack position, parent PR tracking, and file provenance.
 
@@ -112,55 +119,54 @@ packages/
 
 **Read operations:**
 
-1. `fw` (auto-sync if stale) → `detectAuth()` → `GitHubClient.fetchPRActivity()` (GraphQL) → plugin enrichment → `appendJsonl()`
-2. `fw` → `readJsonl()` → filter → `outputJsonl()` (stdout, pipe to jq)
-3. `fw --summary` → `readJsonl()` → `buildWorklist()` → formatted output
+1. `fw query` (auto-sync if stale) → `detectAuth()` → `GitHubClient.fetchPRActivity()` (GraphQL) → plugin enrichment → SQLite insert
+2. `fw query` → `queryEntries()` (SQLite) → filter → JSONL output (stdout, pipe to jq)
+3. `fw list` → `queryEntries()` → `buildWorklist()` → formatted worklist output
 4. `fw status` → cache/auth/config diagnostics
 
 **Write operations:**
 
-1. `fw comment <pr> "text"` → `GitHubClient.addComment()` → GitHub API
-2. `fw reply <id> "text"` → `GitHubClient.replyToComment()` → GitHub API
-3. `fw approve <pr>` → `GitHubClient.submitReview()` → GitHub API
-4. `fw reject <pr>` → `GitHubClient.submitReview()` → GitHub API
-5. `fw close <id>` → `GitHubClient.resolveThread()` or `closePR()` → GitHub API
+1. `fw comment <pr> "text"` → `GitHubClient.addIssueComment()` → GitHub API
+2. `fw reply <id> "text"` → `GitHubClient.addReviewThreadReply()` → GitHub API
+3. `fw approve <pr>` → `GitHubClient.addReview()` → GitHub API
+4. `fw reject <pr>` → `GitHubClient.addReview()` → GitHub API
+5. `fw close <id>` → `GitHubClient.resolveReviewThread()` or `closePR()` → GitHub API
 6. `fw edit <id>` → `GitHubClient.editPullRequest()` or `editComment()` → GitHub API
 
 ### Cache Structure
 
 XDG-compliant paths (cross-platform via `env-paths`):
 
-- `~/.cache/firewatch/repos/*.jsonl` — Per-repo activity entries
-- `~/.cache/firewatch/meta.jsonl` — Sync state with cursors
+- `~/.cache/firewatch/firewatch.db` — SQLite database (entries, PRs, sync metadata, acks)
 - `~/.config/firewatch/config.toml` — User configuration
 - `.firewatch.toml` — Project-local configuration (optional)
 
 ### MCP Server
 
-The MCP server (`apps/mcp/`) exposes a single `firewatch` tool with an `action` parameter. This unified design keeps the tool surface simple for AI agents.
+The MCP server (`apps/mcp/`) exposes 6 tools with auth-gated write operations.
 
-**Actions:**
+**Base tools (always available):**
 
-| Action   | Description                                                         |
-| -------- | ------------------------------------------------------------------- |
-| `query`  | Filter entries (supports CLI query options; `summary` for worklist) |
-| `add`    | Post comments/reviews or add metadata                               |
-| `close`  | Resolve review comment threads                                      |
-| `edit`   | Update PR fields or draft/ready                                     |
-| `rm`     | Remove labels/reviewers/assignees/milestone                         |
-| `status` | Firewatch state info (`status_short: true` for compact)             |
-| `config` | Read config (read-only)                                             |
-| `doctor` | Diagnose auth/cache/repo                                            |
-| `schema` | Output JSON schema for entries/worklist/config                      |
-| `help`   | Usage documentation                                                 |
+| Tool        | Description                                           |
+| ----------- | ----------------------------------------------------- |
+| `fw_query`  | Query cached PR activity (supports summary, filters)  |
+| `fw_status` | Cache and auth status (`short` for compact)           |
+| `fw_doctor` | Diagnose auth/cache/repo issues (`fix` to auto-repair)|
+| `fw_help`   | Usage docs, JSON schemas, config inspection           |
+
+**Write tools (require authentication):**
+
+| Tool    | Description                                               |
+| ------- | --------------------------------------------------------- |
+| `fw_pr` | PR mutations: edit fields, manage metadata, submit reviews|
+| `fw_fb` | Unified feedback: list, view, reply, ack, resolve         |
 
 **Example calls:**
 
 ```json
-{"action": "schema"}
-{"action": "query", "since": "24h", "type": "review"}
-{"action": "query", "summary": true, "summary_short": true}
-{"action": "add", "pr": 42, "body": "LGTM", "reply_to": "IC_...", "resolve": true}
+{"since": "24h", "type": "review", "summary": true}
+{"pr": 42, "action": "edit", "title": "feat: new feature"}
+{"id": "@a7f3c", "body": "Fixed", "resolve": true}
 ```
 
 Start via `fw mcp` or directly with `bun apps/mcp/bin/fw-mcp.ts`.
