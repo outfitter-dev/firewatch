@@ -20,6 +20,7 @@ export const queryCommand = new Command("query")
   .option("--draft", "Filter to draft PRs")
   .option("--active", "Alias for --open --draft")
   .option("--orphaned", "Unresolved review comments on merged/closed PRs")
+  .option("--include-frozen", "Include activity after freeze timestamps")
   .option("--state <states>", "Explicit comma-separated PR states")
   .option(
     "--type <types>",

@@ -559,6 +559,12 @@ function buildWhereClause(filters: QueryFilters): {
     conditions.push("p.state IN ('merged', 'closed')");
   }
 
+  // Freeze filter: hide entries after the PR's freeze timestamp
+  // Unless includeFrozen is explicitly set to true
+  if (!filters.includeFrozen) {
+    conditions.push("(p.frozen_at IS NULL OR e.created_at <= p.frozen_at)");
+  }
+
   return {
     sql: conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "",
     params,

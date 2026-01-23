@@ -100,6 +100,17 @@ export {
   type CheckResult,
 } from "./check";
 
+// Freeze
+export {
+  countHiddenEntries,
+  freezePR,
+  getFreezeInfo,
+  getFrozenPRs,
+  isFrozen,
+  unfreezePR,
+  type FreezeInfo,
+} from "./freeze";
+
 // Worklist
 export { buildWorklist, sortWorklist } from "./worklist";
 

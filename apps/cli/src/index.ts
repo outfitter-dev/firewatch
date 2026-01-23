@@ -14,7 +14,9 @@ import { configCommand } from "./commands/config";
 import { doctorCommand } from "./commands/doctor";
 import { editCommand } from "./commands/edit";
 import { examplesCommand } from "./commands/examples";
+import { freezeCommand } from "./commands/freeze";
 import { replyCommand } from "./commands/reply";
+import { unfreezeCommand } from "./commands/unfreeze";
 import { listCommand } from "./commands/list";
 import { mcpCommand } from "./commands/mcp";
 import { rejectCommand } from "./commands/reject";
@@ -52,6 +54,7 @@ program
   .option("--draft", "Filter to draft PRs")
   .option("--active", "Alias for --open --draft")
   .option("--orphaned", "Unresolved review comments on merged/closed PRs")
+  .option("--include-frozen", "Include activity after freeze timestamps")
   .option("--state <states>", "Explicit comma-separated PR states")
   .option(
     "--type <types>",
@@ -112,6 +115,8 @@ program.addCommand(closeCommand);
 program.addCommand(commentCommand);
 program.addCommand(approveCommand);
 program.addCommand(rejectCommand);
+program.addCommand(freezeCommand);
+program.addCommand(unfreezeCommand);
 
 // Hidden alias: `fw resolve` -> `fw close`
 const resolveCommand = new Command("resolve")

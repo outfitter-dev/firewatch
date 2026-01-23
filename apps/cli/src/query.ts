@@ -186,6 +186,7 @@ export function buildCliQueryFilters(
         botPatterns: authorFilters.botPatterns,
       }),
       ...(options.orphaned && { orphaned: true }),
+      ...(options.includeFrozen && { includeFrozen: true }),
     },
     ...(options.limit !== undefined && { limit: options.limit }),
     ...(options.offset !== undefined && { offset: options.offset }),

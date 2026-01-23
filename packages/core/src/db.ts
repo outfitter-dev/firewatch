@@ -11,7 +11,7 @@ import { Database } from "bun:sqlite";
  * Current schema version.
  * Increment this when making schema changes and add migration logic.
  */
-export const CURRENT_SCHEMA_VERSION = 3;
+export const CURRENT_SCHEMA_VERSION = 4;
 
 /**
  * Opens a SQLite database with optimal settings for Firewatch.
@@ -86,6 +86,7 @@ CREATE TABLE IF NOT EXISTS prs (
   branch TEXT,
   labels TEXT,
   updated_at TEXT,
+  frozen_at TEXT,
   PRIMARY KEY (repo, number)
 );
 
@@ -190,6 +191,12 @@ export function migrateSchema(db: Database, targetVersion: number): void {
     if (version === 2 && targetVersion >= 3) {
       db.exec("ALTER TABLE entries ADD COLUMN reactions_json TEXT");
       version = 3;
+    }
+
+    // Migration 3 -> 4: Add frozen_at column for PR freeze feature
+    if (version === 3 && targetVersion >= 4) {
+      db.exec("ALTER TABLE prs ADD COLUMN frozen_at TEXT");
+      version = 4;
     }
 
     setSchemaVersion(db, version);
