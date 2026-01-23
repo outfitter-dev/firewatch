@@ -11,6 +11,8 @@ import {
   getProjectConfigPath,
   getRepos,
   loadConfig,
+  type AuthResult,
+  type RepoDetectResult,
 } from "@outfitter/firewatch-core";
 import { getGraphiteStacks } from "@outfitter/firewatch-core/plugins";
 import { Command } from "commander";
@@ -59,7 +61,7 @@ function formatAuthLabel(
 function printShortOutput(
   version: string,
   authLogin: string | undefined,
-  auth: { token?: string; source: string },
+  auth: AuthResult,
   repoName: string | null,
   cache: CacheSummary
 ): void {
@@ -77,10 +79,10 @@ function printShortOutput(
 function printFullOutput(
   version: string,
   authLogin: string | undefined,
-  auth: { token?: string; source: string },
+  auth: AuthResult,
   configPaths: { user: string },
   projectPath: string | null,
-  detected: { repo: string | null; source?: string },
+  detected: RepoDetectResult,
   graphiteAvailable: boolean,
   cache: CacheSummary
 ): void {
