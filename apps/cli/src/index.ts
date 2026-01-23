@@ -128,6 +128,6 @@ program
 
 export { program };
 
-export function run(): void {
-  program.parse();
+export async function run(): Promise<void> {
+  await program.parseAsync();
 }
