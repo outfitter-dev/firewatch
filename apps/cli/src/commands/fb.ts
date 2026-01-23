@@ -10,6 +10,7 @@ import {
   formatShortId,
   generateShortId,
   getAckedIds,
+  getPrForCurrentBranch,
   loadConfig,
   parseSince,
   queryEntries,
@@ -34,6 +35,7 @@ import { shouldOutputJson } from "../utils/tty";
 
 interface FbCommandOptions {
   repo?: string;
+  current?: boolean;
   todo?: boolean;
   all?: boolean;
   ack?: boolean;
@@ -838,6 +840,7 @@ export const fbCommand = new Command("fb")
   .description("Feedback abstraction: list, view, reply, resolve")
   .argument("[id]", "PR number or comment ID (short or full)")
   .option("--repo <name>", "Repository (owner/repo format)")
+  .option("-c, --current", "Use PR for the current git branch")
   .option("-t, --todo", "Show only unaddressed feedback (default)")
   .option("--all", "Show all feedback including resolved")
   .option("--ack", "Acknowledge feedback (+ local record)")
@@ -863,8 +866,23 @@ export const fbCommand = new Command("fb")
       const ctx = await createContext(options);
       const body = options.body;
 
+      // Handle --current: detect PR from current git branch
+      let effectiveId = id;
+      if (options.current) {
+        if (id) {
+          console.error("Cannot use --current with an explicit ID argument.");
+          process.exit(1);
+        }
+        const result = await getPrForCurrentBranch();
+        if (result.error || result.pr === null) {
+          console.error(result.error ?? "Could not detect PR for current branch.");
+          process.exit(1);
+        }
+        effectiveId = String(result.pr);
+      }
+
       // No ID: list all unaddressed feedback or bulk ack across PRs
-      if (!id) {
+      if (!effectiveId) {
         if (options.ack) {
           await handleCrossPrBulkAck(ctx, options);
           return;
@@ -873,11 +891,11 @@ export const fbCommand = new Command("fb")
         return;
       }
 
-      const idType = classifyId(id);
+      const idType = classifyId(effectiveId);
 
       // PR number
       if (idType === "pr_number") {
-        const pr = Number.parseInt(id, 10);
+        const pr = Number.parseInt(effectiveId, 10);
 
         if (options.ack) {
           await handleBulkAck(ctx, pr, options);
@@ -894,21 +912,21 @@ export const fbCommand = new Command("fb")
       }
 
       // Comment ID (short or full)
-      let resolved = resolveCommentId(id, ctx.repo);
+      let resolved = resolveCommentId(effectiveId, ctx.repo);
 
       // If short ID wasn't in cache, try to find it
       if (!resolved && idType === "short_id") {
-        resolved = await findCommentByShortId(id, ctx.repo);
+        resolved = await findCommentByShortId(effectiveId, ctx.repo);
         if (!resolved) {
           console.error(
-            `Short ID ${formatShortId(id)} not found in repository.`
+            `Short ID ${formatShortId(effectiveId)} not found in repository.`
           );
           process.exit(1);
         }
       }
 
       if (!resolved) {
-        console.error(`Invalid ID format: ${id}`);
+        console.error(`Invalid ID format: ${effectiveId}`);
         process.exit(1);
       }
 
