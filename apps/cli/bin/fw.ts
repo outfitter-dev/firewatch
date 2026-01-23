@@ -46,7 +46,10 @@ function setupShutdownHandlers(): void {
 
   // Uncaught exceptions
   process.on("uncaughtException", (err) => {
-    console.error("Uncaught exception:", err);
+    console.error(
+      "Uncaught exception:",
+      err instanceof Error ? err.message : err
+    );
     shutdown();
     process.exit(1);
   });

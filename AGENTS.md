@@ -74,19 +74,23 @@ packages/
 
 ### CLI Commands
 
-| Command  | Description                                                       |
-| -------- | ----------------------------------------------------------------- |
-| `fw`     | Query cached activity (auto-syncs; `--summary` for per-PR rollup) |
-| `fb`     | Feedback: list/view/reply/ack/resolve (`--stack` for stack-aware) |
-| `add`    | Add comments, reviews, or metadata                                |
-| `close`  | Resolve review comment threads by ID                              |
-| `edit`   | Update PR fields or draft/ready                                   |
-| `rm`     | Remove labels/reviewers/assignees/milestone                       |
-| `status` | Firewatch state info (`--short` for compact view)                 |
-| `config` | View/edit configuration                                           |
-| `doctor` | Diagnose auth/cache/repo issues                                   |
-| `schema` | Print JSON schema for output formats                              |
-| `mcp`    | Start MCP server for AI tool integration                          |
+| Command      | Description                                                       |
+| ------------ | ----------------------------------------------------------------- |
+| `fw`         | Query cached activity (auto-syncs; `--summary` for per-PR rollup) |
+| `fb`         | Feedback: list/view/reply/ack/resolve (`--stack` for stack-aware) |
+| `ack`        | Acknowledge feedback items (mark as seen)                         |
+| `close`      | Resolve review comment threads by ID                              |
+| `pr list`    | List PRs with filtering options                                   |
+| `pr edit`    | Update PR fields (title, body, draft/ready)                       |
+| `pr comment` | Add comments to PRs                                               |
+| `pr review`  | Submit PR reviews                                                 |
+| `cache`      | Cache management (clear, inspect)                                 |
+| `status`     | Firewatch state info (`--short` for compact view)                 |
+| `config`     | View/edit configuration                                           |
+| `doctor`     | Diagnose auth/cache/repo issues                                   |
+| `schema`     | Print JSON schema for output formats                              |
+| `examples`   | Show usage examples                                               |
+| `mcp`        | Start MCP server for AI tool integration                          |
 
 ### Key Patterns
 
@@ -113,10 +117,11 @@ packages/
 
 **Write operations:**
 
-1. `fw add <pr> "text"` → `GitHubClient.addComment()` → GitHub API
-2. `fw close <comment-id>` → `GitHubClient.resolveThread()` → GitHub API
-3. `fw edit <pr> --title ...` → `GitHubClient.editPullRequest()` → GitHub API
-4. `fw rm <pr> --label ...` → `GitHubClient.removeLabels()` → GitHub API
+1. `fw pr comment <pr> "text"` → `GitHubClient.addComment()` → GitHub API
+2. `fw pr review <pr> --approve` → `GitHubClient.submitReview()` → GitHub API
+3. `fw close <comment-id>` → `GitHubClient.resolveThread()` → GitHub API
+4. `fw pr edit <pr> --title ...` → `GitHubClient.editPullRequest()` → GitHub API
+5. `fw fb <id> "reply"` → `GitHubClient.replyToComment()` → GitHub API
 
 ### Cache Structure
 

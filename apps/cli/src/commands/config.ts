@@ -148,6 +148,13 @@ export const configCommand = new Command("config")
   .option("--jsonl", "Force structured output")
   .option("--no-jsonl", "Force human-readable output")
   .addOption(new Option("--json").hideHelp())
+  .addHelpText(
+    "after",
+    `
+Note: For GitHub authentication, prefer 'gh auth login' over storing tokens
+in config. This avoids exposing tokens in shell history and leverages the
+GitHub CLI's secure credential storage.`
+  )
   .action(
     async (
       key: string | undefined,
