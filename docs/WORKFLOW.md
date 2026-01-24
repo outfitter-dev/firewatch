@@ -60,7 +60,7 @@ fw --no-sync
 # Force refresh before query
 fw --refresh
 
-# Full refresh (ignore cursor)
+# Full refresh (ignore last sync)
 fw --refresh full
 ```
 

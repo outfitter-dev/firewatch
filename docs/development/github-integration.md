@@ -36,8 +36,8 @@ We fetch PR activity using the `pullRequests` connection with nested:
 ### Pagination Strategy
 
 - Use cursor-based pagination (`after: $cursor`)
-- Store last cursor in `~/.cache/firewatch/meta.jsonl` per repo
-- Incremental sync: only fetch new activity since last cursor
+- Store last sync metadata in the `sync_meta` table (SQLite)
+- Incremental sync: start from most recent and stop at last sync time
 
 ### Rate Limiting
 

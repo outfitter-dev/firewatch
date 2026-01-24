@@ -62,7 +62,7 @@ fw [options]
 | Option             | Description                                     |
 | ------------------ | ----------------------------------------------- |
 | `--no-sync`        | Use cache only, no network                      |
-| `--refresh [full]` | Force sync before query (`full` ignores cursor) |
+| `--refresh [full]` | Force sync before query (`full` ignores last sync) |
 
 ### Pagination
 

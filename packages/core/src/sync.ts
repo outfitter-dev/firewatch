@@ -25,14 +25,14 @@ function mapPRState(
   state: GitHubPRState,
   isDraft: boolean
 ): FirewatchEntry["pr_state"] {
-  if (isDraft) {
-    return "draft";
-  }
   if (state === "MERGED") {
     return "merged";
   }
   if (state === "CLOSED") {
     return "closed";
+  }
+  if (isDraft) {
+    return "draft";
   }
   return "open";
 }
@@ -214,7 +214,7 @@ function prToEntries(
  * Sync options.
  */
 export interface SyncOptions {
-  /** Force full refresh (ignore cursor) */
+  /** Force full refresh (ignore incremental window) */
   full?: boolean;
 
   /** Only sync PRs updated since this date */
@@ -323,7 +323,13 @@ export async function syncRepo(
   const capturedAt = new Date().toISOString();
   const db = getDatabase();
   const syncMeta = loadSyncMeta(db, repo);
-  const cursor = options.full ? null : (syncMeta?.cursor ?? null);
+  const syncSince =
+    options.since ??
+    (!options.full && syncMeta?.last_sync
+      ? new Date(syncMeta.last_sync)
+      : undefined);
+  const useTimeWindow = Boolean(syncSince);
+  const cursor = options.full || useTimeWindow ? null : (syncMeta?.cursor ?? null);
 
   let entriesAdded = 0;
   let prsProcessed = 0;
@@ -342,7 +348,7 @@ export async function syncRepo(
     const allEntries: FirewatchEntry[] = [];
 
     for (const pr of nodes) {
-      if (options.since && new Date(pr.updatedAt) < options.since) {
+      if (syncSince && new Date(pr.updatedAt) < syncSince) {
         hasNextPage = false;
         break;
       }
@@ -377,10 +383,12 @@ export async function syncRepo(
     currentCursor = pageInfo.endCursor;
   }
 
+  // Cursor is only meaningful for cursor-based syncs (no time window).
+  const storedCursor = useTimeWindow ? undefined : currentCursor ?? undefined;
   const newMeta: SyncMetadata = {
     repo,
     last_sync: capturedAt,
-    cursor: currentCursor ?? undefined,
+    cursor: storedCursor,
     pr_count: (syncMeta?.pr_count ?? 0) + prsProcessed,
   };
 

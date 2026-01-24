@@ -834,6 +834,16 @@ describe("rowToEntry conversion", () => {
     closeDatabase(db);
   });
 
+  test("rowToEntry treats closed draft PRs as closed", () => {
+    upsertPR(db, createTestPR({ state: "closed", isDraft: true }));
+    insertEntry(db, createTestEntry({ id: "e1" }));
+
+    const entry = getEntry(db, "e1", "owner/repo");
+    expect(entry?.pr_state).toBe("closed");
+
+    closeDatabase(db);
+  });
+
   test("rowToEntry derives pr_state correctly for merged PR", () => {
     upsertPR(db, createTestPR({ state: "merged", isDraft: false }));
     insertEntry(db, createTestEntry({ id: "e1" }));
