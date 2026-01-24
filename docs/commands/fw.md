@@ -61,7 +61,7 @@ fw [options]
 
 | Option             | Description                                     |
 | ------------------ | ----------------------------------------------- |
-| `--offline`        | Use cache only, no network                      |
+| `--no-sync`        | Use cache only, no network                      |
 | `--refresh [full]` | Force sync before query (`full` ignores cursor) |
 
 ### Pagination
@@ -118,7 +118,7 @@ fw --refresh full
 ## Notes
 
 - `--mine` and `--reviews` are mutually exclusive
-- `--refresh` cannot be used with `--offline`
+- `--refresh` cannot be used with `--no-sync`
 - `--mine`/`--reviews` require `user.github_username` in config
 - If no state flags are provided, Firewatch defaults to open + draft PRs
 - Use `fw schema` for output structure reference

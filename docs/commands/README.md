@@ -24,7 +24,7 @@ Firewatch provides a CLI tool (`fw`) for querying GitHub PR activity. The root c
 
 The root `fw` command auto-syncs when cache data is missing or stale. Control this with:
 
-- `--offline` to skip network calls
+- `--no-sync` to skip auto-sync
 - `--refresh` / `--refresh full` to force a sync
 
 ### Output Format

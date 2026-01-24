@@ -246,7 +246,7 @@ interface FwEntry {
 async function fetchFirewatchData(repo: string): Promise<ParityData> {
   // Query fw for all comments on open PRs using cached data only.
   const result =
-    await $`FIREWATCH_SYNC_AUTO_SYNC=false bun apps/cli/bin/fw.ts --type comment --open --repo ${repo}`.text();
+    await $`bun apps/cli/bin/fw.ts --no-sync --type comment --open --repo ${repo}`.text();
 
   const data: ParityData = {
     reviewComments: new Map(),

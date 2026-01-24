@@ -50,7 +50,7 @@ The base `fw` command queries cached PR activity.
 
 | Flag | Description |
 |------|-------------|
-| `--offline` | Use cache only, no network |
+| `--no-sync` | Use cache only, no network |
 | `--refresh [full]` | Force sync before query |
 
 ### Examples
@@ -113,7 +113,6 @@ fw fb [options] [id] [body]
 | `--all` | Show all feedback including resolved |
 | `--ack` | Acknowledge feedback (thumbs-up + local record) |
 | `--resolve` | Resolve the thread after replying |
-| `--offline` | Use cached data only |
 
 ### Short IDs
 
