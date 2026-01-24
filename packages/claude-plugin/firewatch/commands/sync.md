@@ -1,15 +1,15 @@
 ---
-description: Force a refresh of PR activity
+description: Force a full sync of PR activity
 allowed-tools: Bash(fw *)
 ---
 
-# Firewatch Refresh
+# Firewatch Sync
 
-## Refresh PR Data
+## Sync PR Data
 
-!`fw --refresh --summary 2>&1`
+!`fw --sync-full --summary 2>&1`
 
-## Post-Refresh Status
+## Post-Sync Status
 
 !`fw --summary 2>&1`
 

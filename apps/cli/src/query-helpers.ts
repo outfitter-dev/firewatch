@@ -46,9 +46,9 @@ export interface QueryCommandOptions {
   mine?: boolean;
   reviews?: boolean;
   open?: boolean;
+  ready?: boolean;
   closed?: boolean;
   draft?: boolean;
-  active?: boolean;
   orphaned?: boolean;
   state?: string;
   type?: string;
@@ -58,6 +58,7 @@ export interface QueryCommandOptions {
   noBots?: boolean;
   since?: string;
   before?: string;
+  syncFull?: boolean;
   sync?: boolean;
   limit?: number;
   offset?: number;
@@ -475,7 +476,8 @@ export async function ensureFreshRepos(
   if (options.sync === false) {
     return;
   }
-  if (!autoSync) {
+  const forceFull = Boolean(options.syncFull);
+  if (!autoSync && !forceFull) {
     return;
   }
 
@@ -489,12 +491,14 @@ export async function ensureFreshRepos(
 
     const hasCache = hasRepoCache(repo);
     const lastSync = meta.get(repo)?.last_sync;
-    const needsSync = !hasCache || isStale(lastSync, threshold);
+    const needsSync = forceFull || !hasCache || isStale(lastSync, threshold);
 
     if (!needsSync) {
       continue;
     }
 
-    await ensureRepoCache(repo, config, detectedRepo);
+    await ensureRepoCache(repo, config, detectedRepo, {
+      ...(forceFull && { full: true }),
+    });
   }
 }

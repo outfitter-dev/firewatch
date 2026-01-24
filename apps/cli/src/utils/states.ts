@@ -5,9 +5,9 @@ const VALID_STATES = new Set(["open", "closed", "merged", "draft"]);
 export interface StateOptions {
   state?: string;
   open?: boolean;
+  ready?: boolean;
   closed?: boolean;
   draft?: boolean;
-  active?: boolean;
   orphaned?: boolean;
 }
 
@@ -30,13 +30,16 @@ export function resolveStates(options: StateOptions): PrState[] {
 
   const states = new Set<PrState>();
 
-  if (options.active) {
+  if (options.open) {
     states.add("open");
     states.add("draft");
   }
 
-  if (options.open) {
+  if (options.ready) {
     states.add("open");
+    if (!options.draft) {
+      states.delete("draft");
+    }
   }
 
   if (options.draft) {

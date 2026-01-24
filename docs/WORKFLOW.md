@@ -57,11 +57,8 @@ fw --since 7d | jq -s 'sort_by(.created_at) | group_by(.pr) | map(.[-1]) | .[] |
 # Use cached data only
 fw --no-sync
 
-# Force refresh before query
-fw --refresh
-
-# Full refresh (ignore last sync)
-fw --refresh full
+# Full sync before query
+fw --sync-full
 ```
 
 ## Graphite Workflow

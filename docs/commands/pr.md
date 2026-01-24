@@ -32,10 +32,10 @@ Query cached PR activity with filtering and aggregation.
 | `-a, --all`         | Include all cached repos                           |
 | `--mine`            | Items on PRs assigned to me                        |
 | `--reviews`         | PRs I need to review                               |
-| `--open`            | Filter to open PRs                                 |
+| `--open`            | Filter to open PRs (including drafts)              |
+| `--ready`           | Filter to ready PRs (open, non-draft)              |
 | `--closed`          | Include merged and closed PRs                      |
 | `--draft`           | Filter to draft PRs                                |
-| `--active`          | Alias for `--open --draft`                         |
 | `--orphaned`        | Unresolved comments on merged/closed PRs           |
 | `--state <states>`  | Comma-separated PR states                          |
 | `--type <types>`    | Filter by entry type (comment, review, commit, ci) |
@@ -44,7 +44,7 @@ Query cached PR activity with filtering and aggregation.
 | `--no-bots`         | Exclude bot activity                               |
 | `-s, --since <dur>` | Time window (24h, 7d, etc.)                        |
 | `--no-sync`         | Use cache only, no network                         |
-| `--refresh [full]`  | Force sync before query                            |
+| `--sync-full`       | Force a full sync before query                     |
 | `-n, --limit <n>`   | Limit results                                      |
 | `--offset <n>`      | Skip first N results                               |
 | `--summary`         | Aggregate into per-PR summary                      |

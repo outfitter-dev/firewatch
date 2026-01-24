@@ -59,7 +59,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **MCP server** for AI agent integration via stdio
 - **Configuration system** with user (`~/.config/firewatch/config.toml`) and project (`.firewatch.toml`) files
 - **Query filtering** by repo, PR, author, type, state, label, and time range
-- **State shortcuts**: `--open`, `--draft`, `--active` for common PR state filters
+- **State shortcuts**: `--open` (open + draft), `--draft`, `--ready` (open, non-draft)
 
 ### Technical Details
 

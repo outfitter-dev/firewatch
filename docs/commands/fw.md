@@ -35,10 +35,10 @@ fw [options]
 
 | Option             | Description                                     |
 | ------------------ | ----------------------------------------------- |
-| `--open`           | Include open PRs                                |
+| `--open`           | Include open PRs (including drafts)             |
+| `--ready`          | Include ready PRs (open, non-draft)             |
 | `--closed`         | Include merged and closed PRs                   |
 | `--draft`          | Include draft PRs                               |
-| `--active`         | Alias for `--open --draft`                      |
 | `--orphaned`       | Unresolved review comments on merged/closed PRs |
 | `--state <states>` | Explicit comma-separated state list             |
 
@@ -62,7 +62,7 @@ fw [options]
 | Option             | Description                                     |
 | ------------------ | ----------------------------------------------- |
 | `--no-sync`        | Use cache only, no network                      |
-| `--refresh [full]` | Force sync before query (`full` ignores last sync) |
+| `--sync-full`      | Force a full sync before query                  |
 
 ### Pagination
 
@@ -108,17 +108,14 @@ fw -a -s 7d -j
 # Per-PR summary
 fw --summary
 
-# Force sync before query
-fw --refresh
-
-# Full refresh
-fw --refresh full
+# Full sync before query
+fw --sync-full
 ```
 
 ## Notes
 
 - `--mine` and `--reviews` are mutually exclusive
-- `--refresh` cannot be used with `--no-sync`
+- `--sync-full` cannot be used with `--no-sync`
 - `--mine`/`--reviews` require `user.github_username` in config
 - If no state flags are provided, Firewatch defaults to open + draft PRs
 - Use `fw schema` for output structure reference

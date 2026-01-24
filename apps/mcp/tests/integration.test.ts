@@ -124,7 +124,7 @@ test("mcp tool fw_query returns jsonl entries", async () => {
   const result = await callTool("fw_query", {
     repo,
     type: "comment",
-    offline: true,
+    no_sync: true,
   });
 
   expect(result.content).toHaveLength(1);
@@ -143,7 +143,7 @@ test("mcp tool fw_query summary short returns per-PR summary", async () => {
   const result = await callTool("fw_query", {
     repo,
     summary_short: true,
-    offline: true,
+    no_sync: true,
   });
 
   expect(result.content).toHaveLength(1);
