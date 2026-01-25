@@ -58,7 +58,6 @@ export interface QueryCommandOptions {
   noBots?: boolean;
   since?: string;
   before?: string;
-  refresh?: boolean | "full";
   limit?: number;
   offset?: number;
   summary?: boolean;
@@ -455,10 +454,14 @@ export async function ensureRepoCache(
 
 /**
  * Ensure all repos in list have fresh caches, syncing as needed.
+ *
+ * Auto-sync is controlled by config.sync.auto_sync (default: true).
+ * When enabled, repos are synced if cache is missing or stale.
+ * Use `fw sync` for manual control over sync timing and options.
  */
 export async function ensureFreshRepos(
   repos: string[],
-  options: QueryCommandOptions,
+  _options: QueryCommandOptions,
   config: FirewatchConfig,
   detectedRepo: string | null
 ): Promise<void> {
@@ -466,12 +469,8 @@ export async function ensureFreshRepos(
     return;
   }
 
-  const refresh = options.refresh;
-  const forceRefresh = Boolean(refresh);
-  const fullRefresh = refresh === "full";
   const autoSync = config.sync?.auto_sync ?? true;
-
-  if (!autoSync && !forceRefresh) {
+  if (!autoSync) {
     return;
   }
 
@@ -485,14 +484,12 @@ export async function ensureFreshRepos(
 
     const hasCache = hasRepoCache(repo);
     const lastSync = meta.get(repo)?.last_sync;
-    const needsSync = forceRefresh || !hasCache || isStale(lastSync, threshold);
+    const needsSync = !hasCache || isStale(lastSync, threshold);
 
     if (!needsSync) {
       continue;
     }
 
-    await ensureRepoCache(repo, config, detectedRepo, {
-      ...(fullRefresh && { full: true }),
-    });
+    await ensureRepoCache(repo, config, detectedRepo);
   }
 }
