@@ -196,6 +196,9 @@ function entryToRow(entry: FirewatchEntry): EntryRow {
  * Draft PRs show as "draft" even though the underlying state is "open".
  */
 function derivePrState(prState: string, isDraft: boolean): PrState {
+  if (prState === "closed" || prState === "merged") {
+    return prState as PrState;
+  }
   if (isDraft) {
     return "draft";
   }
