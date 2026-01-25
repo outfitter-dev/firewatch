@@ -36,8 +36,8 @@ We fetch PR activity using the `pullRequests` connection with nested:
 ### Pagination Strategy
 
 - Use cursor-based pagination (`after: $cursor`)
-- Store last sync metadata in the `sync_meta` table (SQLite)
-- Incremental sync: start from most recent and stop at last sync time
+- Store per-scope sync metadata (open/closed) in the `sync_meta` table (SQLite)
+- Incremental sync is per-scope: start from most recent and stop at last sync time for that scope
 
 ### Rate Limiting
 

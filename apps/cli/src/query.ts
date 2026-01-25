@@ -374,7 +374,8 @@ export async function executeCliQuery(
     context.reposToSync,
     options,
     context.config,
-    context.detectedRepo
+    context.detectedRepo,
+    context.states
   );
 
   // Phase 3: Execute query

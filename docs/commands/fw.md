@@ -13,6 +13,7 @@ fw [options]
 - Shows actionable items when running interactively
 - Outputs JSONL when piped or when `--jsonl` is set
 - Auto-syncs when cache is missing or stale (configurable)
+- Auto-sync prioritizes open PRs; closed/merged data syncs when requested
 
 ## Options
 
@@ -118,4 +119,5 @@ fw --sync-full
 - `--sync-full` cannot be used with `--no-sync`
 - `--mine`/`--reviews` require `user.github_username` in config
 - If no state flags are provided, Firewatch defaults to open + draft PRs
+- Auto-sync fetches open/draft PRs by default; include `--closed` or `--state closed,merged` to sync closed/merged data
 - Use `fw schema` for output structure reference

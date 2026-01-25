@@ -151,11 +151,15 @@ export function isCommentEntry(entry: FirewatchEntry): entry is CommentEntry {
   return isReviewComment(entry) || isIssueComment(entry);
 }
 
+export const SyncScopeSchema = z.enum(["open", "closed"]);
+export type SyncScope = z.infer<typeof SyncScopeSchema>;
+
 /**
- * Sync metadata for tracking incremental sync state per repository.
+ * Sync metadata for tracking incremental sync state per repository + scope.
  */
 export const SyncMetadataSchema = z.object({
   repo: z.string(),
+  scope: SyncScopeSchema,
   last_sync: z.string().datetime(),
   cursor: z.string().optional(),
   pr_count: z.number().int().nonnegative(),

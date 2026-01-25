@@ -6,11 +6,13 @@ import {
   insertEntries,
   setSyncMeta,
   upsertPR,
+  upsertPRs,
   type PRMetadata,
 } from "./repository";
 import type {
   CommentReactions,
   FirewatchEntry,
+  SyncScope,
   SyncMetadata,
 } from "./schema/entry";
 
@@ -217,6 +219,9 @@ export interface SyncOptions {
   /** Force full sync (ignore incremental window) */
   full?: boolean;
 
+  /** Which PR scope to sync (default: open) */
+  scope?: SyncScope;
+
   /** Only sync PRs updated since this date */
   since?: Date;
 
@@ -229,6 +234,7 @@ export interface SyncOptions {
  */
 export interface SyncResult {
   repo: string;
+  scope: SyncScope;
   entriesAdded: number;
   prsProcessed: number;
   cursor: string | null;
@@ -257,9 +263,10 @@ function buildPRMetadata(repo: string, pr: PRNode): PRMetadata {
  */
 function loadSyncMeta(
   db: ReturnType<typeof getDatabase>,
-  repo: string
+  repo: string,
+  scope: SyncScope
 ): SyncMetadata | null {
-  return getSyncMeta(db, repo);
+  return getSyncMeta(db, repo, scope);
 }
 
 /**
@@ -276,6 +283,31 @@ function processPR(
   return { metadata, entries };
 }
 
+function resolveSyncStates(scope: SyncScope): GitHubPRState[] {
+  return scope === "open"
+    ? (["OPEN"] satisfies GitHubPRState[])
+    : (["CLOSED", "MERGED"] satisfies GitHubPRState[]);
+}
+
+function resolveSyncWindow(
+  options: SyncOptions,
+  syncMeta: SyncMetadata | null
+): {
+  syncSince: Date | undefined;
+  useTimeWindow: boolean;
+  cursor: string | null;
+} {
+  const syncSince =
+    options.since ??
+    (!options.full && syncMeta?.last_sync
+      ? new Date(syncMeta.last_sync)
+      : undefined);
+  const useTimeWindow = Boolean(syncSince);
+  const cursor = options.full || useTimeWindow ? null : (syncMeta?.cursor ?? null);
+
+  return { syncSince, useTimeWindow, cursor };
+}
+
 /**
  * Write batch to SQLite (PR metadata + entries) in a transaction.
  */
@@ -290,6 +322,180 @@ function writeBatchToSQLite(
     }
     insertEntries(db, entries);
   })();
+}
+
+interface SyncContext {
+  client: GitHubClient;
+  owner: string;
+  repoName: string;
+  repo: string;
+  capturedAt: string;
+  db: ReturnType<typeof getDatabase>;
+  syncSince: Date | undefined;
+  states: GitHubPRState[];
+  plugins?: FirewatchPlugin[];
+}
+
+interface SyncPageResult {
+  prMetadataList: PRMetadata[];
+  entries: FirewatchEntry[];
+  prsProcessed: number;
+  stopEarly: boolean;
+  endCursor: string | null;
+  hasNextPage: boolean;
+}
+
+async function fetchSyncPage(
+  context: SyncContext,
+  cursor: string | null
+): Promise<SyncPageResult> {
+  const data = await context.client.fetchPRActivity(
+    context.owner,
+    context.repoName,
+    {
+      first: 50,
+      after: cursor,
+      states: context.states,
+    }
+  );
+
+  const { nodes, pageInfo } = data.repository.pullRequests;
+  const prMetadataList: PRMetadata[] = [];
+  const allEntries: FirewatchEntry[] = [];
+  let prsProcessed = 0;
+  let stopEarly = false;
+
+  for (const pr of nodes) {
+    if (context.syncSince && new Date(pr.updatedAt) < context.syncSince) {
+      stopEarly = true;
+      break;
+    }
+
+    const { metadata, entries } = await processPR(
+      context.repo,
+      pr,
+      context.capturedAt
+    );
+    prMetadataList.push(metadata);
+    allEntries.push(...entries);
+    prsProcessed++;
+  }
+
+  return {
+    prMetadataList,
+    entries: allEntries,
+    prsProcessed,
+    stopEarly,
+    endCursor: pageInfo.endCursor,
+    hasNextPage: pageInfo.hasNextPage,
+  };
+}
+
+async function enrichEntries(
+  client: GitHubClient,
+  entries: FirewatchEntry[],
+  plugins?: FirewatchPlugin[]
+): Promise<FirewatchEntry[]> {
+  if (entries.length === 0) {
+    return entries;
+  }
+
+  const commentIds = entries
+    .filter((entry) => entry.type === "comment")
+    .map((entry) => entry.id);
+  const reactionsById = await client.fetchCommentReactions(commentIds);
+  let entriesToWrite = applyCommentReactions(entries, reactionsById);
+
+  if (plugins) {
+    for (const plugin of plugins) {
+      if (plugin.enrich) {
+        entriesToWrite = await Promise.all(
+          entriesToWrite.map((entry) => plugin.enrich!(entry))
+        );
+      }
+    }
+  }
+
+  return entriesToWrite;
+}
+
+async function syncAllPages(
+  context: SyncContext,
+  initialCursor: string | null
+): Promise<{ entriesAdded: number; prsProcessed: number; cursor: string | null }> {
+  let entriesAdded = 0;
+  let prsProcessed = 0;
+  let currentCursor = initialCursor;
+  let hasNextPage = true;
+
+  while (hasNextPage) {
+    const page = await fetchSyncPage(context, currentCursor);
+    const entriesToWrite = await enrichEntries(
+      context.client,
+      page.entries,
+      context.plugins
+    );
+
+    if (page.prMetadataList.length > 0 || entriesToWrite.length > 0) {
+      writeBatchToSQLite(context.db, page.prMetadataList, entriesToWrite);
+      entriesAdded += entriesToWrite.length;
+    }
+
+    prsProcessed += page.prsProcessed;
+    hasNextPage = page.hasNextPage && !page.stopEarly;
+    currentCursor = page.endCursor;
+  }
+
+  return { entriesAdded, prsProcessed, cursor: currentCursor };
+}
+
+/**
+ * Update PR metadata for recently closed/merged PRs.
+ *
+ * When syncing open PRs incrementally, closed PRs won't appear in the open
+ * query, so we do a lightweight closed/merged pass to keep state accurate.
+ */
+async function updateClosedPRsSince(
+  client: GitHubClient,
+  owner: string,
+  repoName: string,
+  repo: string,
+  syncSince: Date,
+  db: ReturnType<typeof getDatabase>
+): Promise<number> {
+  let updated = 0;
+  let closedCursor: string | null = null;
+  let hasNextPage = true;
+
+  while (hasNextPage) {
+    const data = await client.fetchPRActivity(owner, repoName, {
+      first: 50,
+      after: closedCursor,
+      states: ["CLOSED", "MERGED"],
+    });
+
+    const { nodes, pageInfo } = data.repository.pullRequests;
+    const prMetadataList: PRMetadata[] = [];
+
+    for (const pr of nodes) {
+      if (new Date(pr.updatedAt) < syncSince) {
+        hasNextPage = false;
+        break;
+      }
+
+      prMetadataList.push(buildPRMetadata(repo, pr));
+    }
+
+    if (prMetadataList.length > 0) {
+      upsertPRs(db, prMetadataList);
+      updated += prMetadataList.length;
+    }
+
+    hasNextPage = pageInfo.hasNextPage && hasNextPage;
+    closedCursor = pageInfo.endCursor;
+  }
+
+  return updated;
 }
 
 /**
@@ -318,75 +524,47 @@ export async function syncRepo(
     throw new Error(`Invalid repo format: ${repo}. Expected owner/repo`);
   }
 
+  const scope = options.scope ?? "open";
   await ensureDirectories();
 
   const capturedAt = new Date().toISOString();
   const db = getDatabase();
-  const syncMeta = loadSyncMeta(db, repo);
-  const syncSince =
-    options.since ??
-    (!options.full && syncMeta?.last_sync
-      ? new Date(syncMeta.last_sync)
-      : undefined);
-  const useTimeWindow = Boolean(syncSince);
-  const cursor = options.full || useTimeWindow ? null : (syncMeta?.cursor ?? null);
+  const syncMeta = loadSyncMeta(db, repo, scope);
+  const { syncSince, useTimeWindow, cursor } = resolveSyncWindow(
+    options,
+    syncMeta
+  );
+  const states = resolveSyncStates(scope);
+  const context: SyncContext = {
+    client,
+    owner,
+    repoName,
+    repo,
+    capturedAt,
+    db,
+    syncSince,
+    states,
+    ...(options.plugins && { plugins: options.plugins }),
+  };
+  const { entriesAdded, prsProcessed, cursor: currentCursor } =
+    await syncAllPages(context, cursor);
 
-  let entriesAdded = 0;
-  let prsProcessed = 0;
-  let currentCursor = cursor;
-  let hasNextPage = true;
-
-  while (hasNextPage) {
-    const data = await client.fetchPRActivity(owner, repoName, {
-      first: 50,
-      after: currentCursor,
-      // Uses GITHUB_PR_STATES default (OPEN, CLOSED, MERGED)
-    });
-
-    const { nodes, pageInfo } = data.repository.pullRequests;
-    const prMetadataList: PRMetadata[] = [];
-    const allEntries: FirewatchEntry[] = [];
-
-    for (const pr of nodes) {
-      if (syncSince && new Date(pr.updatedAt) < syncSince) {
-        hasNextPage = false;
-        break;
-      }
-
-      const { metadata, entries } = await processPR(repo, pr, capturedAt);
-      prMetadataList.push(metadata);
-      allEntries.push(...entries);
-      prsProcessed++;
-    }
-
-    const commentIds = allEntries
-      .filter((entry) => entry.type === "comment")
-      .map((entry) => entry.id);
-    const reactionsById = await client.fetchCommentReactions(commentIds);
-    let entriesToWrite = applyCommentReactions(allEntries, reactionsById);
-
-    if (options.plugins) {
-      for (const plugin of options.plugins) {
-        if (plugin.enrich) {
-          entriesToWrite = await Promise.all(
-            entriesToWrite.map((entry) => plugin.enrich!(entry))
-          );
-        }
-      }
-    }
-
-    // Write to SQLite (updates PR state on every sync)
-    writeBatchToSQLite(db, prMetadataList, entriesToWrite);
-    entriesAdded += entriesToWrite.length;
-
-    hasNextPage = pageInfo.hasNextPage && hasNextPage;
-    currentCursor = pageInfo.endCursor;
+  if (scope === "open" && syncSince && !options.full) {
+    await updateClosedPRsSince(
+      client,
+      owner,
+      repoName,
+      repo,
+      syncSince,
+      db
+    );
   }
 
   // Cursor is only meaningful for cursor-based syncs (no time window).
   const storedCursor = useTimeWindow ? undefined : currentCursor ?? undefined;
   const newMeta: SyncMetadata = {
     repo,
+    scope,
     last_sync: capturedAt,
     cursor: storedCursor,
     pr_count: (syncMeta?.pr_count ?? 0) + prsProcessed,
@@ -396,6 +574,7 @@ export async function syncRepo(
 
   return {
     repo,
+    scope,
     entriesAdded,
     prsProcessed,
     cursor: currentCursor,

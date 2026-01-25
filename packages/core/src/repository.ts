@@ -16,6 +16,7 @@ import type {
   FirewatchEntry,
   GraphiteMetadata,
   PrState,
+  SyncScope,
   SyncMetadata,
 } from "./schema/entry";
 
@@ -90,7 +91,33 @@ interface SyncMetaRow {
   cursor: string | null;
   last_sync: string;
   pr_count: number;
+  cursor_open: string | null;
+  cursor_closed: string | null;
+  last_sync_open: string | null;
+  last_sync_closed: string | null;
+  pr_count_open: number;
+  pr_count_closed: number;
 }
+
+const SYNC_SCOPE_COLUMNS: Record<
+  SyncScope,
+  {
+    cursor: "cursor_open" | "cursor_closed";
+    lastSync: "last_sync_open" | "last_sync_closed";
+    prCount: "pr_count_open" | "pr_count_closed";
+  }
+> = {
+  open: {
+    cursor: "cursor_open",
+    lastSync: "last_sync_open",
+    prCount: "pr_count_open",
+  },
+  closed: {
+    cursor: "cursor_closed",
+    lastSync: "last_sync_closed",
+    prCount: "pr_count_closed",
+  },
+};
 
 /**
  * Joined row type for entry queries with PR data.
@@ -867,6 +894,22 @@ export function deletePR(db: Database, repo: string, number: number): void {
   });
 }
 
+function getScopeMeta(row: SyncMetaRow, scope: SyncScope): SyncMetadata | null {
+  const columns = SYNC_SCOPE_COLUMNS[scope];
+  const lastSync = row[columns.lastSync];
+  if (!lastSync) {
+    return null;
+  }
+
+  return {
+    repo: row.repo,
+    scope,
+    cursor: row[columns.cursor] ?? undefined,
+    last_sync: lastSync,
+    pr_count: row[columns.prCount],
+  };
+}
+
 // =============================================================================
 // Sync Metadata Operations
 // =============================================================================
@@ -874,7 +917,11 @@ export function deletePR(db: Database, repo: string, number: number): void {
 /**
  * Get sync metadata for a repository.
  */
-export function getSyncMeta(db: Database, repo: string): SyncMetadata | null {
+export function getSyncMeta(
+  db: Database,
+  repo: string,
+  scope: SyncScope
+): SyncMetadata | null {
   const stmt = getStatement(
     db,
     "getSyncMeta",
@@ -886,28 +933,53 @@ export function getSyncMeta(db: Database, repo: string): SyncMetadata | null {
     return null;
   }
 
-  return {
-    repo: row.repo,
-    cursor: row.cursor ?? undefined,
-    last_sync: row.last_sync,
-    pr_count: row.pr_count,
-  };
+  return getScopeMeta(row, scope);
 }
 
 /**
  * Set sync metadata for a repository (upsert).
  */
 export function setSyncMeta(db: Database, meta: SyncMetadata): void {
+  // Legacy columns track the most recent sync across scopes for compatibility.
+  const columns = SYNC_SCOPE_COLUMNS[meta.scope];
   const stmt = getStatement(
     db,
-    "setSyncMeta",
+    `setSyncMeta_${meta.scope}`,
     `
-    INSERT INTO sync_meta (repo, cursor, last_sync, pr_count)
-    VALUES ($repo, $cursor, $last_sync, $pr_count)
+    INSERT INTO sync_meta (
+      repo,
+      cursor,
+      last_sync,
+      pr_count,
+      ${columns.cursor},
+      ${columns.lastSync},
+      ${columns.prCount}
+    )
+    VALUES (
+      $repo,
+      $cursor,
+      $last_sync,
+      $pr_count,
+      $scope_cursor,
+      $scope_last_sync,
+      $scope_pr_count
+    )
     ON CONFLICT(repo) DO UPDATE SET
-      cursor = excluded.cursor,
-      last_sync = excluded.last_sync,
-      pr_count = excluded.pr_count
+      cursor = CASE
+        WHEN excluded.last_sync >= last_sync THEN excluded.cursor
+        ELSE cursor
+      END,
+      last_sync = CASE
+        WHEN excluded.last_sync >= last_sync THEN excluded.last_sync
+        ELSE last_sync
+      END,
+      pr_count = CASE
+        WHEN excluded.last_sync >= last_sync THEN excluded.pr_count
+        ELSE pr_count
+      END,
+      ${columns.cursor} = excluded.${columns.cursor},
+      ${columns.lastSync} = excluded.${columns.lastSync},
+      ${columns.prCount} = excluded.${columns.prCount}
   `
   );
 
@@ -916,6 +988,9 @@ export function setSyncMeta(db: Database, meta: SyncMetadata): void {
     $cursor: meta.cursor ?? null,
     $last_sync: meta.last_sync,
     $pr_count: meta.pr_count,
+    $scope_cursor: meta.cursor ?? null,
+    $scope_last_sync: meta.last_sync,
+    $scope_pr_count: meta.pr_count,
   });
 }
 
@@ -938,12 +1013,18 @@ export function getAllSyncMeta(db: Database): SyncMetadata[] {
   const stmt = db.prepare("SELECT * FROM sync_meta");
   const rows = stmt.all() as SyncMetaRow[];
 
-  return rows.map((row) => ({
-    repo: row.repo,
-    cursor: row.cursor ?? undefined,
-    last_sync: row.last_sync,
-    pr_count: row.pr_count,
-  }));
+  const meta: SyncMetadata[] = [];
+  for (const row of rows) {
+    const openMeta = getScopeMeta(row, "open");
+    if (openMeta) {
+      meta.push(openMeta);
+    }
+    const closedMeta = getScopeMeta(row, "closed");
+    if (closedMeta) {
+      meta.push(closedMeta);
+    }
+  }
+  return meta;
 }
 
 // =============================================================================

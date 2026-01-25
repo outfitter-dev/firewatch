@@ -133,11 +133,13 @@ upsertPRs(db, [
 insertEntries(db, [...entriesA, ...entriesB]);
 setSyncMeta(db, {
   repo: repoA,
+  scope: "open",
   last_sync: "2025-01-15T00:00:00Z",
   pr_count: 2,
 });
 setSyncMeta(db, {
   repo: repoB,
+  scope: "open",
   last_sync: "2025-01-15T00:00:00Z",
   pr_count: 1,
 });
@@ -241,6 +243,7 @@ describe("SQLite query path", () => {
     insertEntries(db, [createTestEntry({ id: "e1", pr: 1 })]);
     setSyncMeta(db, {
       repo: sqliteRepo,
+      scope: "open",
       last_sync: "2025-01-15T00:00:00Z",
       pr_count: 1,
     });
@@ -266,6 +269,7 @@ describe("SQLite query path", () => {
 
     setSyncMeta(db, {
       repo: sqliteRepo,
+      scope: "open",
       last_sync: "2025-01-15T00:00:00Z",
       pr_count: 2,
     });
@@ -310,6 +314,7 @@ describe("SQLite query path", () => {
     ]);
     setSyncMeta(db, {
       repo: sqliteRepo,
+      scope: "open",
       last_sync: "2025-01-15T00:00:00Z",
       pr_count: 1,
     });
@@ -343,6 +348,7 @@ describe("SQLite query path", () => {
 
     setSyncMeta(db, {
       repo: sqliteRepo,
+      scope: "open",
       last_sync: "2025-01-15T00:00:00Z",
       pr_count: 3,
     });
@@ -382,6 +388,7 @@ describe("SQLite query path", () => {
 
     setSyncMeta(db, {
       repo: sqliteRepo,
+      scope: "open",
       last_sync: "2025-01-15T00:00:00Z",
       pr_count: 4,
     });
@@ -459,6 +466,7 @@ describe("orphaned comments filter", () => {
     ]);
     setSyncMeta(db, {
       repo: orphanedRepo,
+      scope: "open",
       last_sync: "2025-01-15T00:00:00Z",
       pr_count: 1,
     });
@@ -487,6 +495,7 @@ describe("orphaned comments filter", () => {
     ]);
     setSyncMeta(db, {
       repo: orphanedRepo,
+      scope: "open",
       last_sync: "2025-01-15T00:00:00Z",
       pr_count: 1,
     });
@@ -520,6 +529,7 @@ describe("orphaned comments filter", () => {
     ]);
     setSyncMeta(db, {
       repo: orphanedRepo,
+      scope: "open",
       last_sync: "2025-01-15T00:00:00Z",
       pr_count: 1,
     });
@@ -552,6 +562,7 @@ describe("orphaned comments filter", () => {
     ]);
     setSyncMeta(db, {
       repo: orphanedRepo,
+      scope: "open",
       last_sync: "2025-01-15T00:00:00Z",
       pr_count: 1,
     });
@@ -588,6 +599,7 @@ describe("orphaned comments filter", () => {
     ]);
     setSyncMeta(db, {
       repo: orphanedRepo,
+      scope: "open",
       last_sync: "2025-01-15T00:00:00Z",
       pr_count: 2,
     });
@@ -623,6 +635,7 @@ describe("orphaned comments filter", () => {
     ]);
     setSyncMeta(db, {
       repo: orphanedRepo,
+      scope: "open",
       last_sync: "2025-01-15T00:00:00Z",
       pr_count: 2,
     });
@@ -655,6 +668,7 @@ describe("orphaned comments filter", () => {
     ]);
     setSyncMeta(db, {
       repo: orphanedRepo,
+      scope: "open",
       last_sync: "2025-01-15T00:00:00Z",
       pr_count: 1,
     });
@@ -692,6 +706,7 @@ describe("orphaned comments filter", () => {
     ]);
     setSyncMeta(db, {
       repo: orphanedRepo,
+      scope: "open",
       last_sync: "2025-01-15T00:00:00Z",
       pr_count: 2,
     });

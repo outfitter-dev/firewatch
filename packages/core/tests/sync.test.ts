@@ -258,12 +258,13 @@ describe("Sync Metadata", () => {
 
     setSyncMeta(db, {
       repo: "owner/repo",
+      scope: "open",
       cursor: "Y3Vyc29yOjEyMw==",
       last_sync: "2025-01-15T00:00:00Z",
       pr_count: 42,
     });
 
-    const meta = getSyncMeta(db, "owner/repo");
+    const meta = getSyncMeta(db, "owner/repo", "open");
     expect(meta?.repo).toBe("owner/repo");
     expect(meta?.cursor).toBe("Y3Vyc29yOjEyMw==");
     expect(meta?.pr_count).toBe(42);
@@ -277,6 +278,7 @@ describe("Sync Metadata", () => {
     // First sync
     setSyncMeta(db, {
       repo: "owner/repo",
+      scope: "open",
       cursor: "cursor1",
       last_sync: "2025-01-15T00:00:00Z",
       pr_count: 10,
@@ -285,12 +287,13 @@ describe("Sync Metadata", () => {
     // Second sync
     setSyncMeta(db, {
       repo: "owner/repo",
+      scope: "open",
       cursor: "cursor2",
       last_sync: "2025-01-16T00:00:00Z",
       pr_count: 20,
     });
 
-    const meta = getSyncMeta(db, "owner/repo");
+    const meta = getSyncMeta(db, "owner/repo", "open");
     expect(meta?.cursor).toBe("cursor2");
     expect(meta?.pr_count).toBe(20);
 

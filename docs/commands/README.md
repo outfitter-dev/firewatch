@@ -7,6 +7,7 @@ Firewatch provides a CLI tool (`fw`) for querying GitHub PR activity. The root c
 | Command                    | Description                                 |
 | -------------------------- | ------------------------------------------- |
 | [`fw`](./fw.md)            | Query cached activity (auto-syncs)          |
+| [`fw sync`](./sync.md)     | Sync cache with GitHub                       |
 | [`fw ack`](./ack.md)       | Acknowledge feedback comments               |
 | [`fw add`](./add.md)       | Add comments, reviews, or metadata          |
 | [`fw close`](./close.md)   | Resolve review comment threads              |
@@ -22,7 +23,7 @@ Firewatch provides a CLI tool (`fw`) for querying GitHub PR activity. The root c
 
 ### Auto-Sync
 
-The root `fw` command auto-syncs when cache data is missing or stale. Control this with:
+The root `fw` command auto-syncs when cache data is missing or stale (open PRs first). Control this with:
 
 - `--no-sync` to skip auto-sync
 - `--sync-full` to force a full sync
