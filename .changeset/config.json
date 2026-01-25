@@ -1,8 +1,15 @@
 {
   "$schema": "https://unpkg.com/@changesets/config@2.3.1/schema.json",
-  "changelog": "@changesets/cli/changelog",
+  "changelog": ["@changesets/changelog-github", { "repo": "outfitter-dev/firewatch" }],
   "commit": false,
-  "fixed": [],
+  "fixed": [
+    [
+      "@outfitter/firewatch-core",
+      "@outfitter/firewatch-shared",
+      "@outfitter/firewatch-cli",
+      "@outfitter/firewatch-mcp"
+    ]
+  ],
   "linked": [],
   "access": "public",
   "baseBranch": "main",
