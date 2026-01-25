@@ -27,6 +27,7 @@ import { shouldOutputJson } from "../utils/tty";
 export interface CloseCommandOptions {
   repo?: string;
   all?: boolean;
+  feedback?: boolean;
   yes?: boolean;
   jsonl?: boolean;
   json?: boolean;
@@ -238,21 +239,35 @@ async function outputCommentResults(
 async function handleCloseComments(
   ctx: CloseContext,
   ids: string[],
-  autoConfirm = false
+  options: { autoConfirm?: boolean; feedback?: boolean }
 ): Promise<void> {
+  const { autoConfirm = false, feedback = false } = options;
   const resolutions = await resolveBatchIds(ids, ctx.repo);
   const { comments, prs, errors } = partitionResolutions(resolutions);
 
-  // Handle PR numbers (close PRs) - require confirmation
-  if (prs.length > 0 && !autoConfirm && !ctx.outputJson) {
-    const prNums = prs.map((p) => `#${p.pr}`).join(", ");
-    console.error(`This will close PR${prs.length > 1 ? "s" : ""}: ${prNums}`);
-    console.error("Use --yes to confirm.");
-    return;
-  }
+  // Handle PR numbers
+  if (prs.length > 0) {
+    for (const prRes of prs) {
+      const prNum = prRes.pr!;
 
-  for (const prRes of prs) {
-    await closePR(ctx, prRes.pr!);
+      if (feedback) {
+        // --feedback flag: resolve all threads in the PR
+        await handleClosePrFeedback(ctx, prNum, autoConfirm);
+      } else {
+        // Default: close the PR itself (requires confirmation)
+        if (!autoConfirm && !ctx.outputJson) {
+          console.error(`This will close PR #${prNum}.`);
+          console.error("Use --yes to confirm, or --feedback to resolve threads instead.");
+          continue;
+        }
+        await closePR(ctx, prNum);
+      }
+    }
+
+    // If only PR numbers were provided, we're done
+    if (comments.length === 0 && errors.length === 0) {
+      return;
+    }
   }
 
   // Handle comment IDs
@@ -392,6 +407,98 @@ async function handleCloseAll(
   }
 }
 
+/**
+ * Resolve all unaddressed feedback threads in a specific PR.
+ */
+async function handleClosePrFeedback(
+  ctx: CloseContext,
+  prNum: number,
+  autoConfirm: boolean
+): Promise<void> {
+  const entries = await queryEntries({
+    filters: { repo: ctx.repo, pr: prNum, type: "comment" },
+  });
+
+  buildShortIdCache(entries);
+
+  const ackedIds = await getAckedIds(ctx.repo);
+  const feedbacks = identifyUnaddressedFeedback(entries, {
+    ackedIds,
+    username: ctx.config.user?.github_username,
+    commitImpliesRead: ctx.config.feedback?.commit_implies_read,
+  });
+
+  if (feedbacks.length === 0) {
+    if (ctx.outputJson) {
+      await outputStructured(
+        { ok: true, repo: ctx.repo, pr: prNum, closed_count: 0 },
+        "jsonl"
+      );
+    } else {
+      console.error(`No unaddressed feedback on PR #${prNum}.`);
+    }
+    return;
+  }
+
+  if (!autoConfirm && !ctx.outputJson) {
+    console.error(`Found ${feedbacks.length} unaddressed feedback items on PR #${prNum}.`);
+    console.error("Use --yes to confirm closing all.");
+    return;
+  }
+
+  const entryMap = new Map(entries.map((e) => [e.id, e]));
+  const results: CloseResult[] = [];
+
+  for (const fb of feedbacks) {
+    const entry = entryMap.get(fb.comment_id);
+    if (!entry) {
+      continue;
+    }
+
+    const shortId = formatDisplayId(generateShortId(entry.id, ctx.repo));
+    const result = await closeComment(
+      ctx,
+      entry.id,
+      shortId,
+      entry.pr,
+      entry.subtype
+    );
+    results.push(result);
+  }
+
+  // Create ack records
+  const successfulItems = buildSuccessItems(results, entryMap);
+
+  if (successfulItems.length > 0) {
+    const ackRecords = buildAckRecords(successfulItems, {
+      repo: ctx.repo,
+      username: ctx.config.user?.github_username,
+    });
+    await addAcks(ackRecords);
+  }
+
+  const resolved = results.filter((r) => r.resolved).length;
+  const acked = results.filter((r) => r.acked && !r.resolved).length;
+
+  if (ctx.outputJson) {
+    await outputStructured(
+      {
+        ok: true,
+        repo: ctx.repo,
+        pr: prNum,
+        closed_count: results.length,
+        resolved_count: resolved,
+        acked_count: acked,
+      },
+      "jsonl"
+    );
+  } else {
+    console.log(
+      `Closed ${results.length} feedback items on PR #${prNum} (${resolved} resolved, ${acked} acknowledged).`
+    );
+  }
+}
+
 export async function closeAction(
   ids: string[],
   options: CloseCommandOptions
@@ -409,7 +516,10 @@ export async function closeAction(
       process.exit(1);
     }
 
-    await handleCloseComments(ctx, ids, options.yes ?? false);
+    await handleCloseComments(ctx, ids, {
+      autoConfirm: options.yes ?? false,
+      feedback: options.feedback ?? false,
+    });
   } catch (error) {
     console.error(
       "Close operation failed:",
@@ -421,9 +531,10 @@ export async function closeAction(
 
 export const closeCommand = new Command("close")
   .description("Close feedback: resolve review threads or close PRs")
-  .argument("[ids...]", "Comment IDs (short or full) or PR numbers")
+  .argument("[ids...]", "Comment IDs (short @xxxxx or full) or PR numbers")
   .option("--repo <name>", "Repository (owner/repo format)")
   .option("-a, --all", "Close all unaddressed feedback")
+  .option("-f, --feedback", "Resolve all feedback threads in specified PR(s)")
   .option("-y, --yes", "Auto-confirm bulk operations")
   .option("--jsonl", "Force structured output")
   .option("--no-jsonl", "Force human-readable output")
