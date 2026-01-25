@@ -26,10 +26,10 @@ The base `fw` command queries cached PR activity.
 | `-a, --all` | Include all cached repos |
 | `--mine` | Items on PRs assigned to me |
 | `--reviews` | PRs I need to review |
-| `--open` | Filter to open PRs |
+| `--open` | Filter to open PRs (including drafts) |
+| `--ready` | Filter to ready PRs (open, non-draft) |
 | `--closed` | Include merged and closed PRs |
 | `--draft` | Filter to draft PRs |
-| `--active` | Alias for `--open --draft` |
 | `--orphaned` | Unresolved comments on merged/closed PRs |
 | `--state <states>` | Explicit comma-separated PR states |
 | `--type <types>` | Filter by entry type (comment, review, commit, ci, event) |
@@ -51,7 +51,7 @@ The base `fw` command queries cached PR activity.
 | Flag | Description |
 |------|-------------|
 | `--no-sync` | Use cache only, no network |
-| `--refresh [full]` | Force sync before query |
+| `--sync-full` | Force a full sync before query |
 
 ### Examples
 

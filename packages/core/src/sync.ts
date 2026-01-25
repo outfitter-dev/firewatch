@@ -214,7 +214,7 @@ function prToEntries(
  * Sync options.
  */
 export interface SyncOptions {
-  /** Force full refresh (ignore incremental window) */
+  /** Force full sync (ignore incremental window) */
   full?: boolean;
 
   /** Only sync PRs updated since this date */

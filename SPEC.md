@@ -149,8 +149,7 @@ fw --summary             # Per-PR summary
 fw --since 24h           # Recent activity
 fw --type review         # Filter by entry type
 fw --pr 42,43           # Specific PRs
-fw --refresh             # Force sync before query
-fw --refresh full        # Full refresh (ignore cursor)
+fw --sync-full           # Full sync before query
 ```
 
 ### fw add

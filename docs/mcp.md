@@ -88,10 +88,10 @@ Filter cached PR activity entries.
 | `author`        | string \| string[]           | Filter by author (prefix with `!` to exclude)               |
 | `states`        | string[]                     | Filter by PR state: `open`, `closed`, `merged`, `draft`     |
 | `state`         | string \| string[]           | Explicit state list (comma-separated allowed)               |
-| `open`          | boolean                      | Include open PRs                                            |
+| `open`          | boolean                      | Include open PRs (including drafts)                         |
+| `ready`         | boolean                      | Include ready PRs (open, non-draft)                         |
 | `closed`        | boolean                      | Include closed + merged PRs                                 |
 | `draft`         | boolean                      | Include draft PRs                                           |
-| `active`        | boolean                      | Include open + draft PRs                                    |
 | `label`         | string                       | Filter by label                                             |
 | `since`         | string                       | Time filter: `24h`, `7d`, etc.                              |
 | `limit`         | number                       | Maximum results                                             |
@@ -102,8 +102,8 @@ Filter cached PR activity entries.
 | `reviews`       | boolean                      | PRs authored by others (review queue)                       |
 | `no_bots`       | boolean                      | Exclude bot activity                                        |
 | `all`           | boolean                      | Include all cached repositories                             |
-| `refresh`       | boolean \| "full"            | Force sync before query                                     |
-| `offline`       | boolean                      | Use cache only (no network)                                 |
+| `sync_full`     | boolean                      | Force a full sync before query                              |
+| `no_sync`       | boolean                      | Use cache only (no network)                                 |
 
 Note: `mine` and `reviews` require `user.github_username` to be set in config.
 
@@ -232,7 +232,7 @@ All actions return JSONL (newline-delimited JSON). Each line is a complete JSON 
 
 ## Auto-Sync Behavior
 
-The MCP server auto-syncs when cache data is missing or stale (configurable via `sync.stale_threshold`). Use `refresh` to force sync or `offline` to skip network calls.
+The MCP server auto-syncs when cache data is missing or stale (configurable via `sync.stale_threshold`). Use `sync_full` to force a full sync or `no_sync` to skip network calls.
 
 ## Authentication
 

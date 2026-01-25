@@ -29,8 +29,8 @@ SUMMARY=$("$FW_BIN" --summary 2>/dev/null | jq -rs '
   end
 ' 2>/dev/null)
 
-# Run refresh in background
-nohup "$FW_BIN" --refresh --summary >/dev/null 2>&1 &
+# Run full sync in background
+nohup "$FW_BIN" --sync-full --summary >/dev/null 2>&1 &
 
 echo "${SUMMARY:-Sync started in background...}"
 echo "Run \`fw --summary\` for full summary"

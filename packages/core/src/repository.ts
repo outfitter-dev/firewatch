@@ -672,7 +672,7 @@ export function updateEntry(
 
 /**
  * Delete all entries for a repository.
- * Useful for full refresh scenarios.
+ * Useful for full sync scenarios.
  */
 export function deleteEntriesByRepo(db: Database, repo: string): void {
   const stmt = getStatement(
@@ -981,7 +981,7 @@ export function getRepos(db: Database): string[] {
 
 /**
  * Clear all data for a repository (entries, PR, sync meta).
- * Useful for full refresh.
+ * Useful for full sync.
  */
 export function clearRepo(db: Database, repo: string): void {
   const clearAll = db.transaction(() => {

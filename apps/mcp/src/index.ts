@@ -103,9 +103,9 @@ interface FirewatchParams {
   states?: ("open" | "closed" | "merged" | "draft")[] | undefined;
   state?: string | string[] | undefined;
   open?: boolean | undefined;
+  ready?: boolean | undefined;
   closed?: boolean | undefined;
   draft?: boolean | undefined;
-  active?: boolean | undefined;
   label?: string | undefined;
   since?: string | undefined;
   limit?: number | undefined;
@@ -119,8 +119,8 @@ interface FirewatchParams {
   mine?: boolean | undefined;
   reviews?: boolean | undefined;
   no_bots?: boolean | undefined;
-  offline?: boolean | undefined;
-  refresh?: boolean | "full" | undefined;
+  no_sync?: boolean | undefined;
+  sync_full?: boolean | undefined;
   body?: string | undefined;
   reply_to?: string | undefined;
   resolve?: boolean | undefined;
@@ -133,7 +133,6 @@ interface FirewatchParams {
   title?: string | undefined;
   base?: string | undefined;
   milestone?: string | boolean | undefined;
-  ready?: boolean | undefined;
   local?: boolean | undefined;
   path?: boolean | undefined;
   key?: string | undefined;
@@ -251,13 +250,18 @@ function resolveStates(params: FirewatchParams): PrState[] {
     return resolved;
   }
 
-  if (params.active) {
-    return ["open", "draft"];
-  }
-
   const combined: PrState[] = [];
   if (params.open) {
+    combined.push("open", "draft");
+  }
+  if (params.ready) {
     combined.push("open");
+    if (!params.draft) {
+      const draftIndex = combined.indexOf("draft");
+      if (draftIndex >= 0) {
+        combined.splice(draftIndex, 1);
+      }
+    }
   }
   if (params.closed) {
     combined.push("closed", "merged");
@@ -440,7 +444,7 @@ async function ensureRepoCacheIfNeeded(
   repoFilter: string | undefined,
   config: FirewatchConfig,
   detectedRepo: string | null,
-  options: { offline?: boolean } = {}
+  options: { noSync?: boolean } = {}
 ): Promise<void> {
   if (!repoFilter || !isFullRepo(repoFilter)) {
     return;
@@ -448,9 +452,9 @@ async function ensureRepoCacheIfNeeded(
 
   const hasCached = hasRepoCache(repoFilter);
 
-  if (options.offline) {
+  if (options.noSync) {
     if (!hasCached) {
-      throw new Error(`Offline mode: no cache for ${repoFilter}.`);
+      throw new Error(`No-sync mode: no cache for ${repoFilter}.`);
     }
     return;
   }
@@ -634,12 +638,12 @@ function getCacheStats(): {
   return { repos, entries, size_bytes, ...(last_sync && { last_sync }) };
 }
 
-async function handleQueryRefresh(
+async function handleQuerySyncFull(
   params: McpQueryParams,
   config: FirewatchConfig,
   detectedRepo: string | null
 ): Promise<void> {
-  if (!params.refresh) {
+  if (!params.sync_full) {
     return;
   }
 
@@ -648,11 +652,7 @@ async function handleQueryRefresh(
     throw new Error("No repository detected. Provide repo or configure repos.");
   }
 
-  const syncOptions = {
-    ...(params.refresh === "full" && { full: true }),
-    ...(params.since && { since: params.since }),
-  };
-  await performSync(repos, config, detectedRepo, syncOptions);
+  await performSync(repos, config, detectedRepo, { full: true });
 }
 
 function formatQueryOutput(
@@ -694,8 +694,8 @@ async function handleQuery(params: FirewatchParams): Promise<McpToolResult> {
     resolveAuthorLists(params.author);
   const { wantsSummary, wantsSummaryShort } = resolveSummaryFlags(mcpParams);
 
-  // Phase 4: Handle refresh if requested
-  await handleQueryRefresh(mcpParams, config, detected.repo);
+  // Phase 4: Handle sync if requested
+  await handleQuerySyncFull(mcpParams, config, detected.repo);
 
   // Phase 5: Build query parameters
   const prFilter = buildPrFilter(prList);
@@ -714,7 +714,7 @@ async function handleQuery(params: FirewatchParams): Promise<McpToolResult> {
   const context = buildQueryContext(queryParams, detectedRepo);
 
   // Phase 6: Ensure cache is populated
-  const cacheOptions = params.offline ? { offline: true } : {};
+  const cacheOptions = params.no_sync ? { noSync: true } : {};
   await ensureRepoCacheIfNeeded(
     context.repoFilter,
     config,

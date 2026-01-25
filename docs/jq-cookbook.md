@@ -318,7 +318,7 @@ fw --since 24h | jq -s '
 ### Review Queue
 
 ```bash
-fw --summary --active | jq -s '
+fw --summary --open | jq -s '
   map(select(.review_states.approved == 0)) |
   sort_by(.last_activity_at) |
   reverse |
@@ -344,7 +344,7 @@ fw --limit 1 | jq -r '.url' | xargs open
 
 ```bash
 # Extract PR numbers for gh CLI
-fw --summary --active | jq -r '.pr' | xargs -I {} gh pr view {}
+fw --summary --open | jq -r '.pr' | xargs -I {} gh pr view {}
 ```
 
 ## Tips

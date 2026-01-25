@@ -34,7 +34,7 @@ fw fb
 
 **JSONL Output**: Default output is newline-delimited JSON. Pipe to `jq` for filtering. Use `--no-jsonl` for human-readable format.
 
-**Auto-sync**: Cache refreshes automatically if stale. Use `--no-sync` to skip or `--refresh` to force.
+**Auto-sync**: Cache refreshes automatically if stale. Use `--no-sync` to skip or `--sync-full` to force a full sync.
 
 ---
 
@@ -264,7 +264,7 @@ fw --type comment
 # By PR state
 fw --open           # Open PRs only
 fw --draft          # Drafts only
-fw --active         # Open + draft
+fw --open           # Open + draft
 fw --closed         # Merged + closed
 
 # By ownership

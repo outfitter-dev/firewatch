@@ -32,10 +32,10 @@ Query cached PR activity with filters.
 | `author` | string \| string[] | Filter by author(s), prefix `!` to exclude |
 | `states` | string[] | PR states: open, closed, merged, draft |
 | `state` | string | Comma-separated states (alternative) |
-| `open` | boolean | Filter to open PRs |
+| `open` | boolean | Filter to open PRs (including drafts) |
+| `ready` | boolean | Filter to ready PRs (open, non-draft) |
 | `closed` | boolean | Include merged/closed PRs |
 | `draft` | boolean | Filter to draft PRs |
-| `active` | boolean | Open + draft PRs |
 | `label` | string | Filter by PR label |
 | `since` | string | Time window (24h, 7d, etc.) |
 | `limit` | number | Max results |
@@ -47,8 +47,8 @@ Query cached PR activity with filters.
 | `mine` | boolean | My PRs only |
 | `reviews` | boolean | PRs I need to review |
 | `no_bots` | boolean | Exclude bot activity |
-| `offline` | boolean | Cache only, no sync |
-| `refresh` | boolean \| "full" | Force sync before query |
+| `no_sync` | boolean | Cache only, no sync |
+| `sync_full` | boolean | Force a full sync before query |
 
 ### Examples
 
@@ -68,11 +68,8 @@ Query cached PR activity with filters.
 // Specific PR
 {"pr": 123}
 
-// Force refresh
-{"refresh": true, "summary": true}
-
-// Full resync
-{"refresh": "full"}
+// Force full sync
+{"sync_full": true, "summary": true}
 ```
 
 ### Response

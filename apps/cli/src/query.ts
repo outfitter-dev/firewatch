@@ -64,13 +64,16 @@ export interface CliQueryContext {
  * Throws with user-friendly error message if validation fails.
  */
 export function validateQueryOptions(options: QueryCommandOptions): void {
+  if (options.sync === false && options.syncFull) {
+    throw new Error("--no-sync cannot be used with --sync-full.");
+  }
   if (options.mine && options.reviews) {
     throw new Error("Cannot use both --mine and --reviews together.");
   }
 
-  if (options.orphaned && options.open) {
+  if (options.orphaned && (options.open || options.ready || options.draft)) {
     throw new Error(
-      "--orphaned cannot be used with --open (orphaned implies merged/closed PRs)."
+      "--orphaned cannot be used with --open, --ready, or --draft (orphaned implies merged/closed PRs)."
     );
   }
 }
@@ -115,9 +118,9 @@ export async function buildCliQueryContext(
   const states = resolveStates({
     ...(options.state && { state: options.state }),
     ...(options.open && { open: true }),
+    ...(options.ready && { ready: true }),
     ...(options.closed && { closed: true }),
     ...(options.draft && { draft: true }),
-    ...(options.active && { active: true }),
     ...(options.orphaned && { orphaned: true }),
   });
 

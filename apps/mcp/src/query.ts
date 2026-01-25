@@ -31,10 +31,11 @@ export interface McpQueryParams extends QueryParams {
   mine?: boolean | undefined;
   reviews?: boolean | undefined;
   no_bots?: boolean | undefined;
-  offline?: boolean | undefined;
-  refresh?: boolean | "full" | undefined;
+  no_sync?: boolean | undefined;
+  sync_full?: boolean | undefined;
   orphaned?: boolean | undefined;
   open?: boolean | undefined;
+  ready?: boolean | undefined;
   summary_short?: boolean | undefined;
 }
 
@@ -51,14 +52,14 @@ export function validateMcpQueryOptions(params: McpQueryParams): void {
     throw new Error("Cannot use mine and reviews together.");
   }
 
-  if (params.orphaned && params.open) {
+  if (params.orphaned && (params.open || params.ready || params.draft)) {
     throw new Error(
-      "Cannot use orphaned with open (orphaned implies merged/closed PRs)."
+      "Cannot use orphaned with open/ready/draft (orphaned implies merged/closed PRs)."
     );
   }
 
-  if (params.refresh && params.offline) {
-    throw new Error("Cannot refresh while offline.");
+  if (params.sync_full && params.no_sync) {
+    throw new Error("Cannot sync while no_sync is true.");
   }
 }
 

@@ -36,9 +36,9 @@ export const QueryParamsShape = {
   states: z.array(z.enum(["open", "closed", "merged", "draft"])).optional(),
   state: stringList.optional(),
   open: z.boolean().optional(),
+  ready: z.boolean().optional(),
   closed: z.boolean().optional(),
   draft: z.boolean().optional(),
-  active: z.boolean().optional(),
   label: z.string().optional(),
   since: duration.optional(),
   limit: z.number().int().positive().optional(),
@@ -50,8 +50,8 @@ export const QueryParamsShape = {
   mine: z.boolean().optional(),
   reviews: z.boolean().optional(),
   no_bots: z.boolean().optional(),
-  offline: z.boolean().optional(),
-  refresh: z.union([z.boolean(), z.literal("full")]).optional(),
+  no_sync: z.boolean().optional(),
+  sync_full: z.boolean().optional(),
 };
 
 export const QueryParamsSchema = z.object(QueryParamsShape);

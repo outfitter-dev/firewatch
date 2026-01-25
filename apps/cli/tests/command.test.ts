@@ -128,7 +128,7 @@ for (const pr of prs) {
   upsertPR(db, pr);
 }
 insertEntries(db, entries);
-// Add sync metadata so hasRepoCache() returns true for offline mode
+// Add sync metadata so hasRepoCache() returns true for no-sync mode
 setSyncMeta(db, {
   repo,
   last_sync: new Date().toISOString(),

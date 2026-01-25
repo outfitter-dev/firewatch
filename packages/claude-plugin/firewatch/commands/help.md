@@ -12,7 +12,7 @@ allowed-tools: Bash(fw *)
 ## Available Plugin Commands
 
 - `/firewatch:status` - Show PR activity summary
-- `/firewatch:sync` - Force a refresh before querying
+- `/firewatch:sync` - Force a full sync before querying
 - `/firewatch:reviews` - Show pending reviews needing attention
 - `/firewatch:help` - This help message
 
