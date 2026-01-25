@@ -2,6 +2,7 @@ import { Command, Option } from "commander";
 
 import { version } from "../package.json";
 import { ackCommand } from "./commands/ack";
+import { approveCommand } from "./commands/approve";
 import { cacheCommand } from "./commands/cache";
 import { claudePluginCommand } from "./commands/claude-plugin";
 import {
@@ -9,6 +10,7 @@ import {
   closeCommand,
   type CloseCommandOptions,
 } from "./commands/close";
+import { commentCommand } from "./commands/comment";
 import { configCommand } from "./commands/config";
 import { doctorCommand } from "./commands/doctor";
 import { examplesCommand } from "./commands/examples";
@@ -16,8 +18,9 @@ import { feedbackCommand } from "./commands/feedback";
 import { replyCommand } from "./commands/reply";
 import { listCommand } from "./commands/list";
 import { mcpCommand } from "./commands/mcp";
+import { rejectCommand } from "./commands/reject";
 import { viewCommand } from "./commands/view";
-import { prCommand, prCommentAction } from "./commands/pr";
+import { prCommand } from "./commands/pr";
 import { queryCommand } from "./commands/query";
 import { schemaCommand } from "./commands/schema";
 import { statusCommand } from "./commands/status";
@@ -104,6 +107,9 @@ program.addCommand(queryCommand);
 program.addCommand(prCommand);
 program.addCommand(ackCommand);
 program.addCommand(closeCommand);
+program.addCommand(commentCommand);
+program.addCommand(approveCommand);
+program.addCommand(rejectCommand);
 
 // Hidden alias: `fw resolve` -> `fw close`
 const resolveCommand = new Command("resolve")
@@ -133,32 +139,6 @@ program.addCommand(doctorCommand);
 program.addCommand(schemaCommand);
 program.addCommand(examplesCommand);
 program.addCommand(mcpCommand);
-
-// Hidden top-level aliases for common operations
-const commentAlias = new Command("comment")
-  .description("Add PR comment (alias for pr comment)")
-  .argument("<pr>", "PR number")
-  .argument("<body>", "Comment text")
-  .option("--repo <name>", "Repository (owner/repo format)")
-  .option("--jsonl", "Force structured output")
-  .option("--no-jsonl", "Force human-readable output")
-  .addOption(new Option("--json").hideHelp())
-  .action(
-    (
-      pr: string,
-      body: string,
-      opts: { repo?: string; jsonl?: boolean; json?: boolean }
-    ) => {
-      emitAliasHint("fw comment", "fw pr comment");
-      const prNum = Number.parseInt(pr, 10);
-      if (Number.isNaN(prNum)) {
-        console.error(`Invalid PR number: ${pr}`);
-        process.exit(1);
-      }
-      return prCommentAction(prNum, body, opts);
-    }
-  );
-program.addCommand(commentAlias, { hidden: true });
 
 // Explicit help command since root action intercepts unknown args
 program
