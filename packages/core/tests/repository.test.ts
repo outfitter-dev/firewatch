@@ -654,6 +654,7 @@ describe("Sync Metadata Operations", () => {
   test("setSyncMeta inserts new metadata", () => {
     const meta: SyncMetadata = {
       repo: "owner/repo",
+      scope: "open",
       cursor: "Y3Vyc29yOjEyMw==",
       last_sync: "2025-01-15T00:00:00Z",
       pr_count: 42,
@@ -661,7 +662,7 @@ describe("Sync Metadata Operations", () => {
 
     setSyncMeta(db, meta);
 
-    const retrieved = getSyncMeta(db, meta.repo);
+    const retrieved = getSyncMeta(db, meta.repo, "open");
     expect(retrieved).toEqual(meta);
 
     closeDatabase(db);
@@ -670,6 +671,7 @@ describe("Sync Metadata Operations", () => {
   test("setSyncMeta updates existing metadata", () => {
     const meta: SyncMetadata = {
       repo: "owner/repo",
+      scope: "open",
       cursor: "cursor-1",
       last_sync: "2025-01-15T00:00:00Z",
       pr_count: 10,
@@ -686,7 +688,7 @@ describe("Sync Metadata Operations", () => {
 
     setSyncMeta(db, updated);
 
-    const retrieved = getSyncMeta(db, meta.repo);
+    const retrieved = getSyncMeta(db, meta.repo, "open");
     expect(retrieved?.cursor).toBe("cursor-2");
     expect(retrieved?.pr_count).toBe(20);
 
@@ -694,7 +696,7 @@ describe("Sync Metadata Operations", () => {
   });
 
   test("getSyncMeta returns null for non-existent repo", () => {
-    const result = getSyncMeta(db, "nonexistent/repo");
+    const result = getSyncMeta(db, "nonexistent/repo", "open");
     expect(result).toBeNull();
 
     closeDatabase(db);
@@ -703,6 +705,7 @@ describe("Sync Metadata Operations", () => {
   test("setSyncMeta handles null cursor", () => {
     const meta: SyncMetadata = {
       repo: "owner/repo",
+      scope: "open",
       cursor: undefined,
       last_sync: "2025-01-15T00:00:00Z",
       pr_count: 0,
@@ -710,7 +713,7 @@ describe("Sync Metadata Operations", () => {
 
     setSyncMeta(db, meta);
 
-    const retrieved = getSyncMeta(db, meta.repo);
+    const retrieved = getSyncMeta(db, meta.repo, "open");
     expect(retrieved?.cursor).toBeUndefined();
 
     closeDatabase(db);
@@ -719,16 +722,17 @@ describe("Sync Metadata Operations", () => {
   test("deleteSyncMeta removes metadata", () => {
     const meta: SyncMetadata = {
       repo: "owner/repo",
+      scope: "open",
       cursor: "cursor",
       last_sync: "2025-01-15T00:00:00Z",
       pr_count: 10,
     };
 
     setSyncMeta(db, meta);
-    expect(getSyncMeta(db, meta.repo)).not.toBeNull();
+    expect(getSyncMeta(db, meta.repo, "open")).not.toBeNull();
 
     deleteSyncMeta(db, meta.repo);
-    expect(getSyncMeta(db, meta.repo)).toBeNull();
+    expect(getSyncMeta(db, meta.repo, "open")).toBeNull();
 
     closeDatabase(db);
   });
@@ -736,22 +740,32 @@ describe("Sync Metadata Operations", () => {
   test("getAllSyncMeta returns all metadata", () => {
     setSyncMeta(db, {
       repo: "owner/repo1",
+      scope: "open",
       cursor: "c1",
       last_sync: "2025-01-15T00:00:00Z",
       pr_count: 10,
     });
     setSyncMeta(db, {
+      repo: "owner/repo1",
+      scope: "closed",
+      cursor: "c1-closed",
+      last_sync: "2025-01-15T00:00:00Z",
+      pr_count: 8,
+    });
+    setSyncMeta(db, {
       repo: "owner/repo2",
+      scope: "open",
       cursor: "c2",
       last_sync: "2025-01-16T00:00:00Z",
       pr_count: 20,
     });
 
     const all = getAllSyncMeta(db);
-    expect(all).toHaveLength(2);
-    expect(all.map((m) => m.repo).toSorted()).toEqual([
-      "owner/repo1",
-      "owner/repo2",
+    expect(all).toHaveLength(3);
+    expect(all.map((m) => `${m.repo}:${m.scope}`).toSorted()).toEqual([
+      "owner/repo1:closed",
+      "owner/repo1:open",
+      "owner/repo2:open",
     ]);
 
     closeDatabase(db);
@@ -778,11 +792,19 @@ describe("Utility Operations", () => {
 
     setSyncMeta(db, {
       repo: "owner/repo",
+      scope: "open",
+      last_sync: "2025-01-15T00:00:00Z",
+      pr_count: 1,
+    });
+    setSyncMeta(db, {
+      repo: "owner/repo",
+      scope: "closed",
       last_sync: "2025-01-15T00:00:00Z",
       pr_count: 1,
     });
     setSyncMeta(db, {
       repo: "other/repo",
+      scope: "open",
       last_sync: "2025-01-15T00:00:00Z",
       pr_count: 1,
     });
@@ -792,12 +814,13 @@ describe("Utility Operations", () => {
     // owner/repo should be cleared
     expect(getEntry(db, "e1", "owner/repo")).toBeNull();
     expect(getPR(db, "owner/repo", 1)).toBeNull();
-    expect(getSyncMeta(db, "owner/repo")).toBeNull();
+    expect(getSyncMeta(db, "owner/repo", "open")).toBeNull();
+    expect(getSyncMeta(db, "owner/repo", "closed")).toBeNull();
 
     // other/repo should remain
     expect(getEntry(db, "e2", "other/repo")).not.toBeNull();
     expect(getPR(db, "other/repo", 2)).not.toBeNull();
-    expect(getSyncMeta(db, "other/repo")).not.toBeNull();
+    expect(getSyncMeta(db, "other/repo", "open")).not.toBeNull();
 
     closeDatabase(db);
   });

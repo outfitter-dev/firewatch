@@ -89,6 +89,7 @@ beforeAll(async () => {
   insertEntries(db, entries);
   setSyncMeta(db, {
     repo,
+    scope: "open",
     last_sync: new Date().toISOString(),
     pr_count: 1,
   });

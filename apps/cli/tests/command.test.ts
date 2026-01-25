@@ -131,6 +131,7 @@ insertEntries(db, entries);
 // Add sync metadata so hasRepoCache() returns true for no-sync mode
 setSyncMeta(db, {
   repo,
+  scope: "open",
   last_sync: new Date().toISOString(),
   pr_count: 2,
 });

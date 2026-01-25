@@ -193,39 +193,59 @@ async function fetchGitHubData(
   };
 
   for (const pr of prs) {
-    // Process issue comments (PR-level discussion)
-    for (const comment of pr.comments?.nodes ?? []) {
-      if (before && new Date(comment.createdAt) > before) {
+    addIssueComments(data, pr, before);
+    addReviewComments(data, pr, before);
+  }
+
+  return data;
+}
+
+function shouldIncludeComment(createdAt: string, before?: Date): boolean {
+  if (!before) {
+    return true;
+  }
+  return new Date(createdAt) <= before;
+}
+
+function addIssueComments(
+  data: ParityData,
+  pr: GqlPullRequest,
+  before?: Date
+): void {
+  for (const comment of pr.comments?.nodes ?? []) {
+    if (!shouldIncludeComment(comment.createdAt, before)) {
+      continue;
+    }
+    const parityComment: ParityComment = {
+      id: comment.id,
+      pr: pr.number,
+      type: "issue_comment",
+      author: comment.author?.login ?? "unknown",
+    };
+    data.issueComments.set(comment.id, parityComment);
+  }
+}
+
+function addReviewComments(
+  data: ParityData,
+  pr: GqlPullRequest,
+  before?: Date
+): void {
+  for (const thread of pr.reviewThreads?.nodes ?? []) {
+    for (const comment of thread.comments?.nodes ?? []) {
+      if (!shouldIncludeComment(comment.createdAt, before)) {
         continue;
       }
       const parityComment: ParityComment = {
         id: comment.id,
         pr: pr.number,
-        type: "issue_comment",
+        type: "review_comment",
         author: comment.author?.login ?? "unknown",
+        isResolved: thread.isResolved,
       };
-      data.issueComments.set(comment.id, parityComment);
-    }
-
-    // Process review threads and their comments
-    for (const thread of pr.reviewThreads?.nodes ?? []) {
-      for (const comment of thread.comments?.nodes ?? []) {
-        if (before && new Date(comment.createdAt) > before) {
-          continue;
-        }
-        const parityComment: ParityComment = {
-          id: comment.id,
-          pr: pr.number,
-          type: "review_comment",
-          author: comment.author?.login ?? "unknown",
-          isResolved: thread.isResolved,
-        };
-        data.reviewComments.set(comment.id, parityComment);
-      }
+      data.reviewComments.set(comment.id, parityComment);
     }
   }
-
-  return data;
 }
 
 /**
@@ -298,7 +318,7 @@ function resultToJson(result: ReturnType<typeof compareParityData>) {
 
 function getLastSync(repo: string): Date | undefined {
   const db = getDatabase();
-  const meta = getSyncMeta(db, repo);
+  const meta = getSyncMeta(db, repo, "open");
   if (!meta?.last_sync) {
     return undefined;
   }
@@ -327,9 +347,9 @@ async function main() {
         );
       }
       if (options.syncFull) {
-        await $`bun apps/cli/bin/fw.ts sync ${options.repo} --full --quiet`.text();
+        await $`bun apps/cli/bin/fw.ts sync ${options.repo} --full --open --quiet`.text();
       } else {
-        await $`bun apps/cli/bin/fw.ts sync ${options.repo} --quiet`.text();
+        await $`bun apps/cli/bin/fw.ts sync ${options.repo} --open --quiet`.text();
       }
     }
 

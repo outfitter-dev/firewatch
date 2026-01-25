@@ -36,6 +36,7 @@ export interface McpQueryParams extends QueryParams {
   orphaned?: boolean | undefined;
   open?: boolean | undefined;
   ready?: boolean | undefined;
+  draft?: boolean | undefined;
   summary_short?: boolean | undefined;
 }
 

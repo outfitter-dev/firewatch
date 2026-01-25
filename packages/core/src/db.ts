@@ -11,7 +11,7 @@ import { Database } from "bun:sqlite";
  * Current schema version.
  * Increment this when making schema changes and add migration logic.
  */
-export const CURRENT_SCHEMA_VERSION = 4;
+export const CURRENT_SCHEMA_VERSION = 5;
 
 /**
  * Opens a SQLite database with optimal settings for Firewatch.
@@ -121,7 +121,13 @@ CREATE TABLE IF NOT EXISTS sync_meta (
   repo TEXT PRIMARY KEY,
   cursor TEXT,
   last_sync TEXT NOT NULL,
-  pr_count INTEGER NOT NULL DEFAULT 0
+  pr_count INTEGER NOT NULL DEFAULT 0,
+  cursor_open TEXT,
+  cursor_closed TEXT,
+  last_sync_open TEXT,
+  last_sync_closed TEXT,
+  pr_count_open INTEGER NOT NULL DEFAULT 0,
+  pr_count_closed INTEGER NOT NULL DEFAULT 0
 );
 
 -- Performance indexes
@@ -197,6 +203,32 @@ export function migrateSchema(db: Database, targetVersion: number): void {
     if (version === 3 && targetVersion >= 4) {
       db.exec("ALTER TABLE prs ADD COLUMN frozen_at TEXT");
       version = 4;
+    }
+
+    // Migration 4 -> 5: Add per-scope sync metadata for open/closed PRs
+    if (version === 4 && targetVersion >= 5) {
+      db.exec("ALTER TABLE sync_meta ADD COLUMN cursor_open TEXT");
+      db.exec("ALTER TABLE sync_meta ADD COLUMN cursor_closed TEXT");
+      db.exec("ALTER TABLE sync_meta ADD COLUMN last_sync_open TEXT");
+      db.exec("ALTER TABLE sync_meta ADD COLUMN last_sync_closed TEXT");
+      db.exec(
+        "ALTER TABLE sync_meta ADD COLUMN pr_count_open INTEGER NOT NULL DEFAULT 0"
+      );
+      db.exec(
+        "ALTER TABLE sync_meta ADD COLUMN pr_count_closed INTEGER NOT NULL DEFAULT 0"
+      );
+      db.exec(`
+        UPDATE sync_meta
+        SET
+          last_sync_open = last_sync,
+          last_sync_closed = last_sync,
+          cursor_open = cursor,
+          cursor_closed = cursor,
+          pr_count_open = pr_count,
+          pr_count_closed = pr_count
+        WHERE last_sync_open IS NULL AND last_sync_closed IS NULL
+      `);
+      version = 5;
     }
 
     setSchemaVersion(db, version);

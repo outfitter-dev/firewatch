@@ -61,6 +61,8 @@ fw --no-sync
 fw --sync-full
 ```
 
+Auto-sync refreshes open/draft PRs by default. Use `--closed`, `--state closed,merged`, or `fw sync --closed` to sync closed/merged data on demand.
+
 ## Graphite Workflow
 
 Graphite stack metadata is auto-detected when running inside a Graphite-managed repo. Entries and summaries include:

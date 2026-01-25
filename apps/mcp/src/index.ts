@@ -39,6 +39,7 @@ import {
   type FirewatchConfig,
   type FirewatchEntry,
   type PrState,
+  type SyncScope,
   type WorklistEntry,
 } from "@outfitter/firewatch-core";
 import {
@@ -258,7 +259,7 @@ function resolveStates(params: FirewatchParams): PrState[] {
     combined.push("open");
     if (!params.draft) {
       const draftIndex = combined.indexOf("draft");
-      if (draftIndex >= 0) {
+      if (draftIndex !== -1) {
         combined.splice(draftIndex, 1);
       }
     }
@@ -280,6 +281,35 @@ function resolveStates(params: FirewatchParams): PrState[] {
   }
 
   return ["open", "draft"];
+}
+
+function resolveSyncScopes(states: PrState[]): SyncScope[] {
+  if (states.length === 0) {
+    return ["open"];
+  }
+
+  const scopes = new Set<SyncScope>();
+  for (const state of states) {
+    if (state === "open" || state === "draft") {
+      scopes.add("open");
+    }
+    if (state === "closed" || state === "merged") {
+      scopes.add("closed");
+    }
+  }
+
+  if (scopes.size === 0) {
+    return ["open"];
+  }
+
+  const ordered: SyncScope[] = [];
+  if (scopes.has("open")) {
+    ordered.push("open");
+  }
+  if (scopes.has("closed")) {
+    ordered.push("closed");
+  }
+  return ordered;
 }
 
 function resolveTypeList(
@@ -362,10 +392,10 @@ function isFullRepo(value: string): boolean {
   return /^[^/]+\/[^/]+$/.test(value);
 }
 
-function hasRepoCache(repo: string): boolean {
+function hasRepoCache(repo: string, scope: SyncScope): boolean {
   const db = getDatabase();
-  const meta = getSyncMeta(db, repo);
-  return meta !== null && countEntries(db, { exactRepo: repo }) > 0;
+  const meta = getSyncMeta(db, repo, scope);
+  return meta !== null;
 }
 
 async function resolveRepo(repo?: string): Promise<string | null> {
@@ -420,9 +450,10 @@ async function resolveCommentIdFromShortId(
 async function ensureRepoCache(
   repo: string,
   config: FirewatchConfig,
-  detectedRepo: string | null
+  detectedRepo: string | null,
+  scope: SyncScope
 ): Promise<void> {
-  if (hasRepoCache(repo)) {
+  if (hasRepoCache(repo, scope)) {
     return;
   }
 
@@ -437,38 +468,34 @@ async function ensureRepoCache(
     detectedRepo === repo && (await getGraphiteStacks()) !== null;
   const plugins = graphiteEnabled ? [graphitePlugin] : [];
   const client = new GitHubClient(auth.token);
-  await syncRepo(client, repo, { plugins });
+  await syncRepo(client, repo, { plugins, scope });
 }
 
 async function ensureRepoCacheIfNeeded(
   repoFilter: string | undefined,
   config: FirewatchConfig,
   detectedRepo: string | null,
+  states: PrState[],
   options: { noSync?: boolean } = {}
 ): Promise<void> {
   if (!repoFilter || !isFullRepo(repoFilter)) {
     return;
   }
 
-  const hasCached = hasRepoCache(repoFilter);
+  const scopes = resolveSyncScopes(states);
 
   if (options.noSync) {
-    if (!hasCached) {
-      throw new Error(`No-sync mode: no cache for ${repoFilter}.`);
+    for (const scope of scopes) {
+      if (!hasRepoCache(repoFilter, scope)) {
+        throw new Error(
+          `No-sync mode: no cache for ${repoFilter} (${scope}).`
+        );
+      }
     }
     return;
   }
 
-  if (!hasCached) {
-    await ensureRepoCache(repoFilter, config, detectedRepo);
-    return;
-  }
-
   const autoSync = config.sync?.auto_sync ?? true;
-  if (!autoSync) {
-    return;
-  }
-
   const threshold = config.sync?.stale_threshold ?? DEFAULT_STALE_THRESHOLD;
   let thresholdMs = 0;
   try {
@@ -478,16 +505,29 @@ async function ensureRepoCacheIfNeeded(
   }
 
   const db = getDatabase();
-  const repoMeta = getSyncMeta(db, repoFilter);
-  const lastSync = repoMeta?.last_sync;
-  if (!lastSync) {
-    await ensureRepoCache(repoFilter, config, detectedRepo);
-    return;
-  }
 
-  const ageMs = Date.now() - new Date(lastSync).getTime();
-  if (ageMs > thresholdMs) {
-    await ensureRepoCache(repoFilter, config, detectedRepo);
+  for (const scope of scopes) {
+    const hasCached = hasRepoCache(repoFilter, scope);
+    if (!hasCached) {
+      await ensureRepoCache(repoFilter, config, detectedRepo, scope);
+      continue;
+    }
+
+    if (!autoSync) {
+      continue;
+    }
+
+    const repoMeta = getSyncMeta(db, repoFilter, scope);
+    const lastSync = repoMeta?.last_sync;
+    if (!lastSync) {
+      await ensureRepoCache(repoFilter, config, detectedRepo, scope);
+      continue;
+    }
+
+    const ageMs = Date.now() - new Date(lastSync).getTime();
+    if (ageMs > thresholdMs) {
+      await ensureRepoCache(repoFilter, config, detectedRepo, scope);
+    }
   }
 }
 
@@ -537,10 +577,11 @@ async function performSync(
   repos: string[],
   config: FirewatchConfig,
   detectedRepo: string | null,
-  options: { full?: boolean; since?: string } = {}
+  options: { full?: boolean; since?: string; scopes?: SyncScope[] } = {}
 ): Promise<
   {
     repo: string;
+    scope: SyncScope;
     prs_processed: number;
     entries_added: number;
   }[]
@@ -552,26 +593,35 @@ async function performSync(
 
   const client = new GitHubClient(auth.token);
   const graphiteEnabled = await resolveGraphiteEnabled(detectedRepo);
+  const scopes =
+    options.scopes && options.scopes.length > 0
+      ? options.scopes
+      : (["open"] satisfies SyncScope[]);
 
   const results: {
     repo: string;
+    scope: SyncScope;
     prs_processed: number;
     entries_added: number;
   }[] = [];
 
   for (const repo of repos) {
     const useGraphite = graphiteEnabled && repo === detectedRepo;
-    const result = await syncRepo(client, repo, {
-      ...(options.full && { full: true }),
-      ...(options.since && { since: parseSince(options.since) }),
-      plugins: useGraphite ? [graphitePlugin] : [],
-    });
+    for (const scope of scopes) {
+      const result = await syncRepo(client, repo, {
+        ...(options.full && { full: true }),
+        ...(options.since && { since: parseSince(options.since) }),
+        scope,
+        plugins: useGraphite ? [graphitePlugin] : [],
+      });
 
-    results.push({
-      repo,
-      prs_processed: result.prsProcessed,
-      entries_added: result.entriesAdded,
-    });
+      results.push({
+        repo,
+        scope,
+        prs_processed: result.prsProcessed,
+        entries_added: result.entriesAdded,
+      });
+    }
   }
 
   return results;
@@ -641,7 +691,8 @@ function getCacheStats(): {
 async function handleQuerySyncFull(
   params: McpQueryParams,
   config: FirewatchConfig,
-  detectedRepo: string | null
+  detectedRepo: string | null,
+  states: PrState[]
 ): Promise<void> {
   if (!params.sync_full) {
     return;
@@ -652,7 +703,10 @@ async function handleQuerySyncFull(
     throw new Error("No repository detected. Provide repo or configure repos.");
   }
 
-  await performSync(repos, config, detectedRepo, { full: true });
+  await performSync(repos, config, detectedRepo, {
+    full: true,
+    scopes: resolveSyncScopes(states),
+  });
 }
 
 function formatQueryOutput(
@@ -695,7 +749,7 @@ async function handleQuery(params: FirewatchParams): Promise<McpToolResult> {
   const { wantsSummary, wantsSummaryShort } = resolveSummaryFlags(mcpParams);
 
   // Phase 4: Handle sync if requested
-  await handleQuerySyncFull(mcpParams, config, detected.repo);
+  await handleQuerySyncFull(mcpParams, config, detected.repo, states);
 
   // Phase 5: Build query parameters
   const prFilter = buildPrFilter(prList);
@@ -719,6 +773,7 @@ async function handleQuery(params: FirewatchParams): Promise<McpToolResult> {
     context.repoFilter,
     config,
     detected.repo,
+    states,
     cacheOptions
   );
 
@@ -1444,7 +1499,7 @@ async function createFeedbackContext(
   }
 
   const client = new GitHubClient(auth.token);
-  await ensureRepoCacheIfNeeded(repo, config, detected.repo);
+  await ensureRepoCacheIfNeeded(repo, config, detected.repo, ["open", "draft"]);
 
   return { repo, owner, name, config, client, detectedRepo: detected.repo };
 }

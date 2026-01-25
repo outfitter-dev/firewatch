@@ -8,7 +8,6 @@ import {
   ENTRY_TYPES,
   GitHubClient,
   PATHS,
-  countEntries,
   detectAuth,
   getAllSyncMeta,
   getDatabase,
@@ -21,6 +20,8 @@ import {
   syncRepo,
   type FirewatchConfig,
   type FirewatchEntry,
+  type PrState,
+  type SyncScope,
 } from "@outfitter/firewatch-core";
 import {
   getGraphiteStacks,
@@ -337,6 +338,35 @@ export function resolveReposToSync(
   return [];
 }
 
+function resolveSyncScopes(states?: PrState[]): SyncScope[] {
+  if (!states || states.length === 0) {
+    return ["open"];
+  }
+
+  const scopes = new Set<SyncScope>();
+  for (const state of states) {
+    if (state === "open" || state === "draft") {
+      scopes.add("open");
+    }
+    if (state === "closed" || state === "merged") {
+      scopes.add("closed");
+    }
+  }
+
+  if (scopes.size === 0) {
+    return ["open"];
+  }
+
+  const ordered: SyncScope[] = [];
+  if (scopes.has("open")) {
+    ordered.push("open");
+  }
+  if (scopes.has("closed")) {
+    ordered.push("closed");
+  }
+  return ordered;
+}
+
 // ============================================================================
 // Cache Utilities
 // ============================================================================
@@ -373,9 +403,11 @@ export function listCachedRepos(): string[] {
 /**
  * Get sync metadata map for all repos.
  */
-export function getSyncMetaMap(): Map<string, { last_sync: string }> {
+export function getSyncMetaMap(
+  scope: SyncScope
+): Map<string, { last_sync: string }> {
   const db = getDatabase();
-  const allMeta = getAllSyncMeta(db);
+  const allMeta = getAllSyncMeta(db).filter((meta) => meta.scope === scope);
   const map = new Map<string, { last_sync: string }>();
   for (const entry of allMeta) {
     map.set(entry.repo, { last_sync: entry.last_sync });
@@ -386,10 +418,10 @@ export function getSyncMetaMap(): Map<string, { last_sync: string }> {
 /**
  * Check if a repo has cached data.
  */
-export function hasRepoCache(repo: string): boolean {
+export function hasRepoCache(repo: string, scope: SyncScope): boolean {
   const db = getDatabase();
-  const meta = getSyncMeta(db, repo);
-  return meta !== null && countEntries(db, { exactRepo: repo }) > 0;
+  const meta = getSyncMeta(db, repo, scope);
+  return meta !== null;
 }
 
 /**
@@ -421,6 +453,7 @@ export async function ensureRepoCache(
   repo: string,
   config: FirewatchConfig,
   detectedRepo: string | null,
+  scope: SyncScope,
   options: { full?: boolean } = {}
 ): Promise<{ synced: boolean }> {
   const auth = await detectAuth(config.github_token);
@@ -434,7 +467,7 @@ export async function ensureRepoCache(
   const plugins = useGraphite ? [graphitePlugin] : [];
 
   const spinner = ora({
-    text: `Syncing ${repo}...`,
+    text: `Syncing ${repo} (${scope})...`,
     stream: process.stderr,
     isEnabled: process.stderr.isTTY,
   }).start();
@@ -442,6 +475,7 @@ export async function ensureRepoCache(
   try {
     const result = await syncRepo(client, repo, {
       ...(options.full && { full: true }),
+      scope,
       plugins,
     });
     spinner.succeed(`Synced ${repo} (${result.entriesAdded} entries)`);
@@ -466,7 +500,8 @@ export async function ensureFreshRepos(
   repos: string[],
   options: QueryCommandOptions,
   config: FirewatchConfig,
-  detectedRepo: string | null
+  detectedRepo: string | null,
+  states?: PrState[]
 ): Promise<void> {
   if (repos.length === 0) {
     return;
@@ -481,7 +516,11 @@ export async function ensureFreshRepos(
     return;
   }
 
-  const meta = getSyncMetaMap();
+  const scopes = resolveSyncScopes(states);
+  const metaByScope = new Map<SyncScope, Map<string, { last_sync: string }>>();
+  for (const scope of scopes) {
+    metaByScope.set(scope, getSyncMetaMap(scope));
+  }
   const threshold = config.sync?.stale_threshold ?? DEFAULT_STALE_THRESHOLD;
 
   for (const repo of repos) {
@@ -489,16 +528,18 @@ export async function ensureFreshRepos(
       continue;
     }
 
-    const hasCache = hasRepoCache(repo);
-    const lastSync = meta.get(repo)?.last_sync;
-    const needsSync = forceFull || !hasCache || isStale(lastSync, threshold);
+    for (const scope of scopes) {
+      const hasCache = hasRepoCache(repo, scope);
+      const lastSync = metaByScope.get(scope)?.get(repo)?.last_sync;
+      const needsSync = forceFull || !hasCache || isStale(lastSync, threshold);
 
-    if (!needsSync) {
-      continue;
+      if (!needsSync) {
+        continue;
+      }
+
+      await ensureRepoCache(repo, config, detectedRepo, scope, {
+        ...(forceFull && { full: true }),
+      });
     }
-
-    await ensureRepoCache(repo, config, detectedRepo, {
-      ...(forceFull && { full: true }),
-    });
   }
 }

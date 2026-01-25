@@ -62,7 +62,7 @@ fw query | jq -s 'group_by(.type) | map({type: .[0].type, count: length})'
 
 # ─── Sync and Cache ──────────────────────────────────────────────────────────
 
-# Incremental sync
+# Incremental sync (open only)
 fw sync
 
 # Full resync (ignore cursors)

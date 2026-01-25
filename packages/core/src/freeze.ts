@@ -117,7 +117,7 @@ export function isFrozen(db: Database, repo: string, pr: number): boolean {
     frozen_at: string | null;
   } | null;
 
-  return row?.frozen_at != null;
+  return row?.frozen_at !== null && row?.frozen_at !== undefined;
 }
 
 /**

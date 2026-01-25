@@ -19,6 +19,7 @@ export {
   FirewatchEntrySchema,
   GraphiteMetadataSchema,
   PrStateSchema,
+  SyncScopeSchema,
   SyncMetadataSchema,
   isCommentEntry,
   isIssueComment,
@@ -31,6 +32,7 @@ export {
   type CommentReactions,
   type IssueCommentEntry,
   type ReviewCommentEntry,
+  type SyncScope,
   type SyncMetadata,
 } from "./entry";
 

@@ -232,7 +232,7 @@ All actions return JSONL (newline-delimited JSON). Each line is a complete JSON 
 
 ## Auto-Sync Behavior
 
-The MCP server auto-syncs when cache data is missing or stale (configurable via `sync.stale_threshold`). Use `sync_full` to force a full sync or `no_sync` to skip network calls.
+The MCP server auto-syncs when cache data is missing or stale (configurable via `sync.stale_threshold`). Open/draft PRs are synced by default; include closed/merged states to fetch closed data. Use `sync_full` to force a full sync or `no_sync` to skip network calls.
 
 ## Authentication
 
