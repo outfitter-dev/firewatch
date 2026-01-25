@@ -114,6 +114,7 @@ interface FirewatchParams {
   summary?: boolean | undefined;
   summary_short?: boolean | undefined;
   orphaned?: boolean | undefined;
+  stale?: boolean | undefined;
   status_short?: boolean | undefined;
   short?: boolean | undefined;
   all?: boolean | undefined;
@@ -793,6 +794,7 @@ async function handleQuery(params: FirewatchParams): Promise<McpToolResult> {
       ...(botFilters.botPatterns.length > 0 && {
         botPatterns: botFilters.botPatterns,
       }),
+      excludeStale: !(params.stale || params.orphaned),
       ...(params.orphaned && { orphaned: true }),
     },
   });

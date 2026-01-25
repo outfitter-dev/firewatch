@@ -58,6 +58,12 @@ export interface QueryFilters {
   orphaned?: boolean;
 
   /**
+   * Exclude unresolved review comments on merged/closed PRs.
+   * Used to keep stale feedback out of default views.
+   */
+  excludeStale?: boolean;
+
+  /**
    * Include entries after the freeze timestamp for frozen PRs.
    * By default, entries created after a PR's frozen_at timestamp are hidden.
    * Set to true to include all entries regardless of freeze state.
@@ -145,6 +151,9 @@ function buildDbFilters(filters: QueryFilters): QueryFilters {
     ...(filters.label !== undefined && { label: filters.label }),
     ...(filters.since !== undefined && { since: filters.since }),
     ...(filters.orphaned !== undefined && { orphaned: filters.orphaned }),
+    ...(filters.excludeStale !== undefined && {
+      excludeStale: filters.excludeStale,
+    }),
     ...(filters.includeFrozen !== undefined && {
       includeFrozen: filters.includeFrozen,
     }),

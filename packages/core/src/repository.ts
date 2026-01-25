@@ -508,6 +508,161 @@ function buildStateConditions(
     : null;
 }
 
+function applyIdFilter(
+  filters: QueryFilters,
+  conditions: string[],
+  params: Record<string, unknown>
+): void {
+  if (!filters.id) {
+    return;
+  }
+  conditions.push("e.id = $id");
+  params.$id = filters.id;
+}
+
+function applyRepoFilter(
+  filters: QueryFilters,
+  conditions: string[],
+  params: Record<string, unknown>
+): void {
+  if (filters.exactRepo) {
+    conditions.push("e.repo = $exactRepo");
+    params.$exactRepo = filters.exactRepo;
+    return;
+  }
+  if (filters.repo) {
+    conditions.push("e.repo LIKE $repo");
+    params.$repo = `%${filters.repo}%`;
+  }
+}
+
+function applyPrFilter(
+  filters: QueryFilters,
+  conditions: string[],
+  params: Record<string, unknown>
+): void {
+  if (Array.isArray(filters.pr) && filters.pr.length > 0) {
+    const placeholders = filters.pr.map((_, i) => `$pr_${i}`).join(", ");
+    conditions.push(`e.pr IN (${placeholders})`);
+    for (const [i, pr] of filters.pr.entries()) {
+      params[`$pr_${i}`] = pr;
+    }
+    return;
+  }
+  if (filters.pr !== undefined) {
+    conditions.push("e.pr = $pr");
+    params.$pr = filters.pr;
+  }
+}
+
+function applyAuthorFilter(
+  filters: QueryFilters,
+  conditions: string[],
+  params: Record<string, unknown>
+): void {
+  if (!filters.author) {
+    return;
+  }
+  conditions.push("e.author = $author");
+  params.$author = filters.author;
+}
+
+function applyTypeFilter(
+  filters: QueryFilters,
+  conditions: string[],
+  params: Record<string, unknown>
+): void {
+  if (!filters.type) {
+    return;
+  }
+  const types = Array.isArray(filters.type) ? filters.type : [filters.type];
+  const placeholders = types.map((_, i) => `$type_${i}`).join(", ");
+  conditions.push(`e.type IN (${placeholders})`);
+  for (const [i, type] of types.entries()) {
+    params[`$type_${i}`] = type;
+  }
+}
+
+function applyStateFilter(
+  filters: QueryFilters,
+  conditions: string[],
+  params: Record<string, unknown>
+): void {
+  if (!filters.states?.length) {
+    return;
+  }
+  const stateCondition = buildStateConditions(filters.states, params);
+  if (stateCondition) {
+    conditions.push(stateCondition);
+  }
+}
+
+function applyLabelFilter(
+  filters: QueryFilters,
+  conditions: string[],
+  params: Record<string, unknown>
+): void {
+  if (!filters.label) {
+    return;
+  }
+  conditions.push(`
+      EXISTS (
+        SELECT 1 FROM json_each(p.labels) AS label
+        WHERE LOWER(label.value) LIKE $label
+      )
+    `);
+  params.$label = `%${filters.label.toLowerCase()}%`;
+}
+
+function applySinceFilter(
+  filters: QueryFilters,
+  conditions: string[],
+  params: Record<string, unknown>
+): void {
+  if (!filters.since) {
+    return;
+  }
+  conditions.push("e.created_at >= $since");
+  params.$since = filters.since.toISOString();
+}
+
+function applyOrphanedFilter(
+  filters: QueryFilters,
+  conditions: string[]
+): void {
+  if (!filters.orphaned) {
+    return;
+  }
+  conditions.push("e.thread_resolved = 0");
+  conditions.push("e.subtype = 'review_comment'");
+  conditions.push("p.state IN ('merged', 'closed')");
+}
+
+function applyExcludeStaleFilter(
+  filters: QueryFilters,
+  conditions: string[]
+): void {
+  if (!filters.excludeStale || filters.orphaned) {
+    return;
+  }
+  // Use COALESCE to treat NULL thread_resolved as resolved (1), so only
+  // explicitly unresolved (0) comments on closed PRs are filtered out.
+  // This preserves older data that may not have resolution state synced.
+  conditions.push(
+    "NOT (e.subtype = 'review_comment' AND COALESCE(e.thread_resolved, 1) = 0 AND p.state IN ('merged', 'closed'))"
+  );
+}
+
+function applyFreezeFilter(
+  filters: QueryFilters,
+  conditions: string[]
+): void {
+  if (filters.includeFrozen) {
+    return;
+  }
+  conditions.push("(p.frozen_at IS NULL OR e.created_at <= p.frozen_at)");
+}
+
 /**
  * Build a dynamic WHERE clause from QueryFilters.
  * Returns the SQL fragment and parameter object.
@@ -519,81 +674,17 @@ function buildWhereClause(filters: QueryFilters): {
   const conditions: string[] = [];
   const params: Record<string, unknown> = {};
 
-  if (filters.id) {
-    conditions.push("e.id = $id");
-    params.$id = filters.id;
-  }
-
-  if (filters.exactRepo) {
-    conditions.push("e.repo = $exactRepo");
-    params.$exactRepo = filters.exactRepo;
-  } else if (filters.repo) {
-    conditions.push("e.repo LIKE $repo");
-    params.$repo = `%${filters.repo}%`;
-  }
-
-  if (Array.isArray(filters.pr) && filters.pr.length > 0) {
-    const placeholders = filters.pr.map((_, i) => `$pr_${i}`).join(", ");
-    conditions.push(`e.pr IN (${placeholders})`);
-    for (const [i, pr] of filters.pr.entries()) {
-      params[`$pr_${i}`] = pr;
-    }
-  } else if (filters.pr !== undefined) {
-    conditions.push("e.pr = $pr");
-    params.$pr = filters.pr;
-  }
-
-  if (filters.author) {
-    conditions.push("e.author = $author");
-    params.$author = filters.author;
-  }
-
-  if (filters.type) {
-    const types = Array.isArray(filters.type) ? filters.type : [filters.type];
-    const placeholders = types.map((_, i) => `$type_${i}`).join(", ");
-    conditions.push(`e.type IN (${placeholders})`);
-    for (const [i, type] of types.entries()) {
-      params[`$type_${i}`] = type;
-    }
-  }
-
-  if (filters.states?.length) {
-    const stateCondition = buildStateConditions(filters.states, params);
-    if (stateCondition) {
-      conditions.push(stateCondition);
-    }
-  }
-
-  if (filters.label) {
-    // Use json_each to search within the labels JSON array
-    conditions.push(`
-      EXISTS (
-        SELECT 1 FROM json_each(p.labels) AS label
-        WHERE LOWER(label.value) LIKE $label
-      )
-    `);
-    params.$label = `%${filters.label.toLowerCase()}%`;
-  }
-
-  if (filters.since) {
-    conditions.push("e.created_at >= $since");
-    params.$since = filters.since.toISOString();
-  }
-
-  // Orphaned filter: unresolved review comments on merged/closed PRs
-  // Only include entries where thread_resolved is explicitly 0 (false)
-  // Entries with NULL thread_resolved are excluded (unknown state, needs re-sync)
-  if (filters.orphaned) {
-    conditions.push("e.thread_resolved = 0");
-    conditions.push("e.subtype = 'review_comment'");
-    conditions.push("p.state IN ('merged', 'closed')");
-  }
-
-  // Freeze filter: hide entries after the PR's freeze timestamp
-  // Unless includeFrozen is explicitly set to true
-  if (!filters.includeFrozen) {
-    conditions.push("(p.frozen_at IS NULL OR e.created_at <= p.frozen_at)");
-  }
+  applyIdFilter(filters, conditions, params);
+  applyRepoFilter(filters, conditions, params);
+  applyPrFilter(filters, conditions, params);
+  applyAuthorFilter(filters, conditions, params);
+  applyTypeFilter(filters, conditions, params);
+  applyStateFilter(filters, conditions, params);
+  applyLabelFilter(filters, conditions, params);
+  applySinceFilter(filters, conditions, params);
+  applyOrphanedFilter(filters, conditions);
+  applyExcludeStaleFilter(filters, conditions);
+  applyFreezeFilter(filters, conditions);
 
   return {
     sql: conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "",

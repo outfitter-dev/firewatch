@@ -64,6 +64,7 @@ interface ListFeedbackOptions {
   open?: boolean;
   closed?: boolean;
   state?: string;
+  stale?: boolean;
   long?: boolean;
   jsonl?: boolean;
   json?: boolean;
@@ -78,6 +79,7 @@ interface ListPrsOptions {
   draft?: boolean;
   label?: string;
   since?: string;
+  stale?: boolean;
   jsonl?: boolean;
   json?: boolean;
 }
@@ -211,7 +213,7 @@ function parseStackDirection(value: string | boolean): StackDirection {
 async function getStackFeedback(
   ctx: ListContext,
   direction: StackDirection,
-  _options: ListFeedbackOptions
+  options: ListFeedbackOptions
 ): Promise<void> {
   const provider = await getStackProvider();
   if (!provider) {
@@ -248,6 +250,7 @@ async function getStackFeedback(
       repo: ctx.repo,
       type: "comment",
       pr: stackPRs.prs,
+      excludeStale: !options.stale,
     },
   });
 
@@ -330,6 +333,7 @@ async function handleListFeedback(options: ListFeedbackOptions): Promise<void> {
     filters: {
       repo: ctx.repo,
       type: "comment",
+      excludeStale: !options.stale,
     },
   });
 
@@ -385,6 +389,7 @@ async function handlePrFeedbackList(
     filters: {
       repo: ctx.repo,
       pr,
+      excludeStale: !options.stale,
     },
   });
 
@@ -464,9 +469,11 @@ async function handleListPrs(options: ListPrsOptions): Promise<void> {
     states?: PrState[];
     since?: Date;
     author?: string;
+    excludeStale?: boolean;
   } = {
     repo: ctx.repo,
     states,
+    excludeStale: !options.stale,
   };
 
   if (options.since) {
@@ -599,6 +606,10 @@ const feedbackSubcommand = new Command("feedback")
   .option("--open", "Only open PRs")
   .option("--closed", "Only closed PRs")
   .option("--state <states>", "Explicit state filter (comma-separated)")
+  .option(
+    "--stale",
+    "Include unresolved review comments on merged/closed PRs"
+  )
   .option("--long", "Detailed output")
   .option("--jsonl", "Force JSONL output")
   .option("--no-jsonl", "Force human-readable output")
@@ -613,6 +624,10 @@ const prsSubcommand = new Command("prs")
   .option("--open", "Open PRs (default)")
   .option("--closed", "Closed/merged PRs")
   .option("--draft", "Draft PRs")
+  .option(
+    "--stale",
+    "Include unresolved review comments on merged/closed PRs"
+  )
   .option("--label <name>", "Filter by label (partial match)")
   .option("--since <duration>", "PRs updated within duration")
   .option("--jsonl", "Force JSONL output")
@@ -631,6 +646,10 @@ export const listCommand = new Command("list")
   .option("--open", "Only open PRs")
   .option("--closed", "Only closed PRs")
   .option("--state <states>", "Explicit state filter (comma-separated)")
+  .option(
+    "--stale",
+    "Include unresolved review comments on merged/closed PRs"
+  )
   .option("--long", "Detailed output")
   .option("--jsonl", "Force JSONL output")
   .option("--no-jsonl", "Force human-readable output")

@@ -63,6 +63,10 @@ fw --sync-full
 
 Auto-sync refreshes open/draft PRs by default. Use `--closed`, `--state closed,merged`, or `fw sync --closed` to sync closed/merged data on demand.
 
+## Stale Feedback
+
+Unresolved review comments on merged/closed PRs are hidden by default. Use `--stale` to include them, or `--orphaned` to show only those items.
+
 ## Graphite Workflow
 
 Graphite stack metadata is auto-detected when running inside a Graphite-managed repo. Entries and summaries include:
