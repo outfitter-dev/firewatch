@@ -12,6 +12,8 @@
  *   --type <type>    Filter by type: review_comment, issue_comment, or all (default: all)
  *   --resolved       Only compare resolved review comments
  *   --unresolved     Only compare unresolved review comments
+ *   --no-sync        Skip pre-sync (compare against cached data as-is)
+ *   --sync-full      Run a full sync before comparing
  *   --json           Output raw JSON instead of formatted text
  *
  * Examples:
@@ -30,11 +32,15 @@ import {
   type ParityData,
   type ParityFilterOptions,
 } from "../packages/core/src/parity";
+import { getDatabase } from "../packages/core/src/cache";
+import { getSyncMeta } from "../packages/core/src/repository";
 
 interface CliOptions {
   repo: string;
   filters: ParityFilterOptions;
   json: boolean;
+  sync: boolean;
+  syncFull: boolean;
 }
 
 /**
@@ -45,6 +51,8 @@ function parseArgs(args: string[]): CliOptions {
     repo: "outfitter-dev/firewatch",
     filters: {},
     json: false,
+    sync: true,
+    syncFull: false,
   };
 
   let i = 0;
@@ -73,6 +81,13 @@ function parseArgs(args: string[]): CliOptions {
     } else if (arg === "--json") {
       options.json = true;
       i++;
+    } else if (arg === "--no-sync") {
+      options.sync = false;
+      i++;
+    } else if (arg === "--sync-full") {
+      options.sync = true;
+      options.syncFull = true;
+      i++;
     } else if (arg?.startsWith("-")) {
       console.error(`Unknown option: ${arg}`);
       process.exit(2);
@@ -97,6 +112,7 @@ function parseArgs(args: string[]): CliOptions {
 interface GqlComment {
   id: string;
   author?: { login: string };
+  createdAt: string;
 }
 
 interface GqlReviewThread {
@@ -130,7 +146,10 @@ interface GqlResponse {
 /**
  * Fetch all comment data from GitHub GraphQL API.
  */
-async function fetchGitHubData(repo: string): Promise<ParityData> {
+async function fetchGitHubData(
+  repo: string,
+  before?: Date
+): Promise<ParityData> {
   const [owner, name] = repo.split("/");
 
   const query = `
@@ -142,6 +161,7 @@ async function fetchGitHubData(repo: string): Promise<ParityData> {
             comments(first: 100) {
               nodes {
                 id
+                createdAt
                 author { login }
               }
             }
@@ -152,6 +172,7 @@ async function fetchGitHubData(repo: string): Promise<ParityData> {
                 comments(first: 50) {
                   nodes {
                     id
+                    createdAt
                     author { login }
                   }
                 }
@@ -174,6 +195,9 @@ async function fetchGitHubData(repo: string): Promise<ParityData> {
   for (const pr of prs) {
     // Process issue comments (PR-level discussion)
     for (const comment of pr.comments?.nodes ?? []) {
+      if (before && new Date(comment.createdAt) > before) {
+        continue;
+      }
       const parityComment: ParityComment = {
         id: comment.id,
         pr: pr.number,
@@ -186,6 +210,9 @@ async function fetchGitHubData(repo: string): Promise<ParityData> {
     // Process review threads and their comments
     for (const thread of pr.reviewThreads?.nodes ?? []) {
       for (const comment of thread.comments?.nodes ?? []) {
+        if (before && new Date(comment.createdAt) > before) {
+          continue;
+        }
         const parityComment: ParityComment = {
           id: comment.id,
           pr: pr.number,
@@ -217,9 +244,9 @@ interface FwEntry {
  * Fetch all comment data from Firewatch cache.
  */
 async function fetchFirewatchData(repo: string): Promise<ParityData> {
-  // Query fw for all comments on open PRs (offline to use cached data)
+  // Query fw for all comments on open PRs using cached data only.
   const result =
-    await $`bun apps/cli/bin/fw.ts --type comment --open --offline --repo ${repo}`.text();
+    await $`FIREWATCH_SYNC_AUTO_SYNC=false bun apps/cli/bin/fw.ts --type comment --open --repo ${repo}`.text();
 
   const data: ParityData = {
     reviewComments: new Map(),
@@ -269,6 +296,19 @@ function resultToJson(result: ReturnType<typeof compareParityData>) {
   };
 }
 
+function getLastSync(repo: string): Date | undefined {
+  const db = getDatabase();
+  const meta = getSyncMeta(db, repo);
+  if (!meta?.last_sync) {
+    return undefined;
+  }
+  const parsed = new Date(meta.last_sync);
+  if (Number.isNaN(parsed.getTime())) {
+    return undefined;
+  }
+  return parsed;
+}
+
 // Main execution
 async function main() {
   const options = parseArgs(process.argv.slice(2));
@@ -278,8 +318,28 @@ async function main() {
   }
 
   try {
+    if (options.sync) {
+      if (!options.json) {
+        console.log(
+          options.syncFull
+            ? "Syncing Firewatch cache (full)..."
+            : "Syncing Firewatch cache..."
+        );
+      }
+      if (options.syncFull) {
+        await $`bun apps/cli/bin/fw.ts sync ${options.repo} --full --quiet`.text();
+      } else {
+        await $`bun apps/cli/bin/fw.ts sync ${options.repo} --quiet`.text();
+      }
+    }
+
+    const snapshot = getLastSync(options.repo);
+    if (!options.json && snapshot) {
+      console.log(`Snapshot: ${snapshot.toISOString()}`);
+    }
+
     const [ghData, fwData] = await Promise.all([
-      fetchGitHubData(options.repo),
+      fetchGitHubData(options.repo, snapshot),
       fetchFirewatchData(options.repo),
     ]);
 
@@ -291,7 +351,16 @@ async function main() {
     );
 
     if (options.json) {
-      console.log(JSON.stringify(resultToJson(result), null, 2));
+      console.log(
+        JSON.stringify(
+          {
+            ...resultToJson(result),
+            snapshot: snapshot ? snapshot.toISOString() : null,
+          },
+          null,
+          2
+        )
+      );
     } else {
       console.log(formatParityResult(result));
     }
