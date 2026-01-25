@@ -1,5 +1,9 @@
 # MCP Server
 
+<!-- TODO(FIRE-1): This documentation is outdated. The MCP server now exposes 6 separate tools
+     (fw_query, fw_status, fw_doctor, fw_help, fw_pr, fw_fb) instead of a single
+     "firewatch" tool with action parameter. See https://linear.app/outfitter/issue/FIRE-1 -->
+
 Firewatch provides an MCP (Model Context Protocol) server for AI agent integration. The server exposes PR activity data and write operations through a single tool interface.
 
 ## Quick Start

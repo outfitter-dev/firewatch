@@ -40,17 +40,16 @@ Add to your MCP configuration:
 
 ## Server Capabilities
 
-The MCP server exposes a single `firewatch` tool with actions:
+The MCP server exposes 6 tools with auth-gated write operations.
 
-- `query` - Filter cached entries (supports summary output)
-- `add` - Add comments/reviews or metadata
-- `close` - Resolve review threads
-- `edit` - Update PR fields or draft/ready
-- `rm` - Remove labels/reviewers/assignees/milestone
-- `status` - Firewatch state info
-- `config` - Read config (read-only)
-- `doctor` - Diagnose setup
-- `schema` - Schema documentation
-- `help` - Usage help
+**Base tools (always available):**
+- `fw_query` - Query cached PR activity (filters, summary output)
+- `fw_status` - Cache and auth status
+- `fw_doctor` - Diagnose auth/cache/repo issues
+- `fw_help` - Usage docs, JSON schemas, config inspection
+
+**Write tools (require authentication):**
+- `fw_pr` - PR mutations (edit fields, manage metadata, submit reviews)
+- `fw_fb` - Unified feedback (list, view, reply, ack, resolve)
 
 See [MCP Server Documentation](../mcp.md) for full details.

@@ -78,11 +78,14 @@ program
     "after",
     `
 Examples:
-  fw query --summary                    Per-PR rollup
-  fw query --type comment --since 24h   Recent comments
-  fw query --mine                       Activity on my PRs
-  fw list                               Unaddressed PR feedback
-  fw examples                           Common jq patterns
+  fw list                       What needs my attention
+  fw list prs --mine            My open PRs
+  fw query --type comment       Raw comment data (JSONL)
+  fw view @abc12                View comment with context
+  fw reply @abc12 "Fixed"       Reply to feedback
+  fw close @abc12               Resolve thread
+  fw approve 42                 Approve PR
+  fw sync                       Refresh cache
 
 Global options like --no-color and --debug apply to all subcommands.
 Query options on root 'fw' are supported but 'fw query' is preferred.`

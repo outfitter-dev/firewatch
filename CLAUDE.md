@@ -10,6 +10,10 @@
 - Confer with agent-Plan before making complex changes
 - Prefer delegating to subagents when: performing complex changes, gathering context for 4+ files, researching docs and websites
 
+## Linear
+
+- Team: **FIRE** (Firewatch)
+
 ## AGENTS.md
 
 <!-- IMPORTANT: DO NOT MODIFY BELOW -->
