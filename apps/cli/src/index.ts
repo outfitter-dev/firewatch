@@ -13,6 +13,7 @@ import {
 import { commentCommand } from "./commands/comment";
 import { configCommand } from "./commands/config";
 import { doctorCommand } from "./commands/doctor";
+import { editCommand } from "./commands/edit";
 import { examplesCommand } from "./commands/examples";
 import { feedbackCommand } from "./commands/feedback";
 import { replyCommand } from "./commands/reply";
@@ -105,6 +106,7 @@ Query options on root 'fw' are supported but 'fw query' is preferred.`
 
 program.addCommand(queryCommand);
 program.addCommand(prCommand);
+program.addCommand(editCommand);
 program.addCommand(ackCommand);
 program.addCommand(closeCommand);
 program.addCommand(commentCommand);
