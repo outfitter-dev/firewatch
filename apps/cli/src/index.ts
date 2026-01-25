@@ -12,15 +12,21 @@ import {
 import { configCommand } from "./commands/config";
 import { doctorCommand } from "./commands/doctor";
 import { examplesCommand } from "./commands/examples";
-import { fbCommand } from "./commands/fb";
+import {
+  feedbackCommand,
+  feedbackReplyAction,
+} from "./commands/feedback";
 import { mcpCommand } from "./commands/mcp";
-import { prCommand } from "./commands/pr";
+import { prCommand, prCommentAction } from "./commands/pr";
+import { queryCommand } from "./commands/query";
 import { schemaCommand } from "./commands/schema";
 import { statusCommand } from "./commands/status";
 import { executeCliQuery } from "./query";
 import {
   applyGlobalOptions,
   type QueryCommandOptions,
+  validateLimit,
+  validateRepoSlug,
 } from "./query-helpers";
 import { emitAliasHint } from "./utils/alias-hint";
 
@@ -35,7 +41,7 @@ program
   )
   .version(version)
   .option("--pr [numbers]", "Filter to PR domain, optionally specific PRs")
-  .option("--repo <name>", "Filter to specific repository")
+  .option("--repo <name>", "Filter to specific repository", validateRepoSlug)
   .option("--all", "Include all cached repos")
   .option("--mine", "Items on PRs assigned to me")
   .option("--reviews", "PRs I need to review")
@@ -51,6 +57,7 @@ program
   )
   .option("--label <name>", "Filter by PR label (partial match)")
   .option("--author <list>", "Filter by author(s), prefix with ! to exclude")
+  .option("--exclude-author <list>", "Exclude author(s) (comma-separated)")
   .option("--no-bots", "Exclude bot activity")
   .option(
     "-s, --since <duration>",
@@ -58,7 +65,7 @@ program
   )
   .option("--before <date>", "Entries created before ISO date (e.g., 2024-01-15)")
   .option("--refresh [full]", "Force sync before query")
-  .option("-n, --limit <count>", "Limit number of results", Number.parseInt)
+  .option("-n, --limit <count>", "Limit number of results", validateLimit)
   .option("--offset <count>", "Skip first N results", Number.parseInt)
   .option("--summary", "Aggregate entries into per-PR summary")
   .option("-j, --jsonl", "Force structured output")
@@ -70,12 +77,14 @@ program
     "after",
     `
 Examples:
-  fw --summary                    Per-PR rollup
-  fw --type comment --since 24h   Recent comments
-  fw --mine                       Activity on my PRs
-  fw examples                     Common jq patterns (escaping tips)
+  fw query --summary                    Per-PR rollup
+  fw query --type comment --since 24h   Recent comments
+  fw query --mine                       Activity on my PRs
+  fw feedback list                      Unaddressed PR feedback
+  fw examples                           Common jq patterns
 
-Global options like --no-color and --debug apply to all subcommands.`
+Global options like --no-color and --debug apply to all subcommands.
+Query options on root 'fw' are supported but 'fw query' is preferred.`
   )
   .action(async (options: QueryCommandOptions) => {
     applyGlobalOptions(options);
@@ -91,6 +100,7 @@ Global options like --no-color and --debug apply to all subcommands.`
     }
   });
 
+program.addCommand(queryCommand);
 program.addCommand(prCommand);
 program.addCommand(ackCommand);
 program.addCommand(closeCommand);
@@ -111,7 +121,7 @@ const resolveCommand = new Command("resolve")
   });
 program.addCommand(resolveCommand, { hidden: true });
 
-program.addCommand(fbCommand);
+program.addCommand(feedbackCommand);
 program.addCommand(cacheCommand);
 program.addCommand(claudePluginCommand);
 program.addCommand(statusCommand);
@@ -120,6 +130,60 @@ program.addCommand(doctorCommand);
 program.addCommand(schemaCommand);
 program.addCommand(examplesCommand);
 program.addCommand(mcpCommand);
+
+// Hidden top-level aliases for common operations
+const replyAlias = new Command("reply")
+  .description("Reply to a comment (alias for feedback reply)")
+  .argument("<id>", "Comment ID")
+  .argument("[body]", "Reply text")
+  .option("--repo <name>", "Repository (owner/repo format)")
+  .option("-b, --body <text>", "Reply text (alternative to positional)")
+  .option("--resolve", "Resolve the thread after replying")
+  .option("--jsonl", "Force structured output")
+  .option("--no-jsonl", "Force human-readable output")
+  .addOption(new Option("--json").hideHelp())
+  .action(
+    (
+      id: string,
+      body: string | undefined,
+      opts: {
+        repo?: string;
+        body?: string;
+        resolve?: boolean;
+        jsonl?: boolean;
+        json?: boolean;
+      }
+    ) => {
+      emitAliasHint("fw reply", "fw feedback reply");
+      return feedbackReplyAction([id], body, opts);
+    }
+  );
+program.addCommand(replyAlias, { hidden: true });
+
+const commentAlias = new Command("comment")
+  .description("Add PR comment (alias for pr comment)")
+  .argument("<pr>", "PR number")
+  .argument("<body>", "Comment text")
+  .option("--repo <name>", "Repository (owner/repo format)")
+  .option("--jsonl", "Force structured output")
+  .option("--no-jsonl", "Force human-readable output")
+  .addOption(new Option("--json").hideHelp())
+  .action(
+    (
+      pr: string,
+      body: string,
+      opts: { repo?: string; jsonl?: boolean; json?: boolean }
+    ) => {
+      emitAliasHint("fw comment", "fw pr comment");
+      const prNum = Number.parseInt(pr, 10);
+      if (Number.isNaN(prNum)) {
+        console.error(`Invalid PR number: ${pr}`);
+        process.exit(1);
+      }
+      return prCommentAction(prNum, body, opts);
+    }
+  );
+program.addCommand(commentAlias, { hidden: true });
 
 // Explicit help command since root action intercepts unknown args
 program

@@ -130,6 +130,7 @@ function issueCommentEntries(
   return pr.comments.nodes.map((comment) => ({
     ...prContext,
     id: comment.id,
+    database_id: comment.databaseId,
     type: "comment",
     subtype: "issue_comment",
     author: comment.author?.login ?? "unknown",
@@ -152,6 +153,7 @@ function reviewThreadEntries(
       entries.push({
         ...prContext,
         id: comment.id,
+        database_id: comment.databaseId,
         type: "comment",
         subtype: "review_comment",
         author: comment.author?.login ?? "unknown",

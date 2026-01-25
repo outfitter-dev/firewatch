@@ -69,14 +69,13 @@ export function shouldOutputJson(
   return false;
 }
 
-// Re-export color utilities from centralized color module
+// Re-export color utilities from render module
 export {
-  c as colors,
-  getAnsis,
-  getStateColor,
-  getStatusColor,
-  resetColorInstance,
-} from "./color";
+  s as colors,
+  resetColorCache,
+  stateColor,
+  statusColor,
+} from "../render";
 
 /**
  * Format a relative time string from ISO date

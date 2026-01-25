@@ -19,6 +19,7 @@ import { Command, Option } from "commander";
 import { existsSync, statSync } from "node:fs";
 
 import { version } from "../../package.json";
+import { s } from "../render";
 import { outputStructured } from "../utils/json";
 import { formatRelativeTime, shouldOutputJson } from "../utils/tty";
 
@@ -66,14 +67,16 @@ function printShortOutput(
   repoName: string | null,
   cache: CacheSummary
 ): void {
-  const authLabel = formatAuthLabel(authLogin, Boolean(auth.token), auth.source);
-  const repoLabel = repoName ?? "none";
+  const authOk = Boolean(auth.token);
+  const authColor = authOk ? s.green : s.yellow;
+  const authLabel = formatAuthLabel(authLogin, authOk, auth.source);
+  const repoLabel = repoName ?? s.dim("none");
   const cacheLabel = `${cache.repos} repos, ${cache.entries} entries`;
   const lastSync = cache.last_sync
     ? `, last sync ${formatRelativeTime(cache.last_sync)}`
     : "";
   console.log(
-    `Firewatch v${version} | auth=${authLabel} | repo=${repoLabel} | cache=${cacheLabel}${lastSync}`
+    `${s.bold("Firewatch")} v${version} | auth=${authColor(authLabel)} | repo=${repoLabel} | cache=${cacheLabel}${lastSync}`
   );
 }
 
@@ -87,9 +90,11 @@ function printFullOutput(
   graphiteAvailable: boolean,
   cache: CacheSummary
 ): void {
-  console.log(`Firewatch v${version}\n`);
-  const authLine = formatAuthLabel(authLogin, Boolean(auth.token), `via ${auth.source}`);
-  console.log(`Auth:      ${authLine}`);
+  console.log(`${s.bold("Firewatch")} v${version}\n`);
+  const authOk = Boolean(auth.token);
+  const authColor = authOk ? s.green : s.yellow;
+  const authLine = formatAuthLabel(authLogin, authOk, `via ${auth.source}`);
+  console.log(`${s.dim("Auth:")}      ${authColor(authLine)}`);
 
   const configLine = [
     projectPath ? `${projectPath} (project)` : null,
@@ -97,19 +102,20 @@ function printFullOutput(
   ]
     .filter(Boolean)
     .join(" + ");
-  console.log(`Config:    ${configLine}`);
-  console.log(
-    `Repo:      ${detected.repo ?? "none"}${detected.source ? ` (${detected.source})` : ""}`
-  );
-  console.log(`Graphite:  ${graphiteAvailable ? "enabled" : "disabled"}`);
+  console.log(`${s.dim("Config:")}    ${configLine}`);
+  const repoLabel = detected.repo ?? s.dim("none");
+  const repoSource = detected.source ? s.dim(` (${detected.source})`) : "";
+  console.log(`${s.dim("Repo:")}      ${repoLabel}${repoSource}`);
+  const graphiteLabel = graphiteAvailable ? s.green("enabled") : s.dim("disabled");
+  console.log(`${s.dim("Graphite:")}  ${graphiteLabel}`);
 
-  console.log("\nCache:");
-  console.log(`  Repos:     ${cache.repos}`);
-  console.log(`  Entries:   ${cache.entries}`);
+  console.log(`\n${s.dim("Cache:")}`);
+  console.log(`  ${s.dim("Repos:")}     ${cache.repos}`);
+  console.log(`  ${s.dim("Entries:")}   ${cache.entries}`);
   if (cache.last_sync) {
-    console.log(`  Last sync: ${formatRelativeTime(cache.last_sync)}`);
+    console.log(`  ${s.dim("Last sync:")} ${formatRelativeTime(cache.last_sync)}`);
   }
-  console.log(`  Size:      ${formatBytes(cache.size_bytes)}`);
+  console.log(`  ${s.dim("Size:")}      ${formatBytes(cache.size_bytes)}`);
 }
 
 function getCacheSummary(): CacheSummary {

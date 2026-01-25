@@ -58,6 +58,7 @@ query PRActivity($owner: String!, $repo: String!, $first: Int!, $after: String, 
         comments(first: 100) {
           nodes {
             id
+            databaseId
             author {
               login
             }
@@ -75,6 +76,7 @@ query PRActivity($owner: String!, $repo: String!, $first: Int!, $after: String, 
             comments(first: 50) {
               nodes {
                 id
+                databaseId
                 author {
                   login
                 }
@@ -478,6 +480,7 @@ export interface PRNode {
   comments: {
     nodes: {
       id: string;
+      databaseId: number;
       author: { login: string } | null;
       body: string;
       createdAt: string;
@@ -493,6 +496,7 @@ export interface PRNode {
       comments: {
         nodes: {
           id: string;
+          databaseId: number;
           author: { login: string } | null;
           body: string;
           createdAt: string;

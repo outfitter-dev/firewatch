@@ -15,35 +15,35 @@ const EXAMPLES = `
 # ─── Basic Filtering ──────────────────────────────────────────────────────────
 
 # Filter by type
-fw | jq 'select(.type == "comment")'
-fw | jq 'select(.type == "review")'
-fw | jq 'select(.type == "commit")'
+fw query | jq 'select(.type == "comment")'
+fw query | jq 'select(.type == "review")'
+fw query | jq 'select(.type == "commit")'
 
 # Filter by author (use "| not" to exclude - avoids != escaping issues)
-fw | jq 'select(.author == "alice")'
-fw | jq 'select(.author == "alice" | not)'
+fw query | jq 'select(.author == "alice")'
+fw query | jq 'select(.author == "alice" | not)'
 
 # Exclude bots (regex match with "| not")
-fw | jq 'select(.author | test("bot|\\\\[bot\\\\]") | not)'
+fw query | jq 'select(.author | test("bot|\\\\[bot\\\\]") | not)'
 
 # ─── Null Checks ──────────────────────────────────────────────────────────────
 
 # Has file (inline comments) - truthy check, no != needed
-fw | jq 'select(.file)'
+fw query | jq 'select(.file)'
 
 # No file (PR-level comments)
-fw | jq 'select(.file | not)'
+fw query | jq 'select(.file | not)'
 
 # Has body content
-fw | jq 'select(.body and (.body | length > 0))'
+fw query | jq 'select(.body and (.body | length > 0))'
 
 # ─── Grouping & Aggregation ───────────────────────────────────────────────────
 
 # Group by PR (use -s to slurp into array first)
-fw | jq -s 'group_by(.pr)'
+fw query | jq -s 'group_by(.pr)'
 
 # Count by type
-fw | jq -s 'group_by(.type) | map({type: .[0].type, count: length})'
+fw query | jq -s 'group_by(.type) | map({type: .[0].type, count: length})'
 
 # Group comments by PR with metadata
 fw --type comment | jq -s '

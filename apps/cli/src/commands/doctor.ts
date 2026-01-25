@@ -13,8 +13,8 @@ import { Command, Option } from "commander";
 import { constants as fsConstants } from "node:fs";
 import { access } from "node:fs/promises";
 
+import { formatCheckResult, renderHeader } from "../render";
 import { outputStructured } from "../utils/json";
-import { MARKERS, renderHeader } from "../utils/tree";
 import { shouldOutputJson } from "../utils/tty";
 
 interface DoctorCommandOptions {
@@ -229,13 +229,16 @@ export const doctorCommand = new Command("doctor")
       }
       console.log("");
 
-      // Render checks as simple left-aligned list
+      // Render checks with colored markers
       for (const check of checks) {
-        const marker = check.ok ? MARKERS.pass : MARKERS.fail;
-        const detail = check.message ? `: ${check.message}` : "";
-        console.log(`${marker} ${check.name}${detail}`);
-        if (!check.ok && check.hint) {
-          console.log(`  ${check.hint}`);
+        const lines = formatCheckResult(
+          check.name,
+          check.ok,
+          check.message,
+          check.hint
+        );
+        for (const line of lines) {
+          console.log(line);
         }
       }
 

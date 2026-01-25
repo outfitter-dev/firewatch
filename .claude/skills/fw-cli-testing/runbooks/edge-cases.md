@@ -18,33 +18,33 @@ No special setup required. Tests validate error handling.
 
 #### Query Without Repo (Outside Git Dir)
 
-**Command**: `cd /tmp && bun /path/to/fw.ts query`
-**Expected**: Error about repo detection, suggests specifying repo
+**Command**: `cd /tmp && bun /path/to/fw.ts`
+**Expected**: Error about repo detection, suggests specifying --repo
 **Validates**: Graceful handling when no repo context
 
-#### Sync Without Repo (Outside Git Dir)
+#### Refresh Without Repo
 
-**Command**: `cd /tmp && bun /path/to/fw.ts sync`
+**Command**: `cd /tmp && bun /path/to/fw.ts --refresh`
 **Expected**: Error about repo detection
-**Validates**: Sync requires repo context
+**Validates**: Refresh requires repo context
 
 ### Invalid Repo Formats
 
 #### Single Word (No Slash)
 
-**Command**: `bun apps/cli/bin/fw.ts sync firewatch`
+**Command**: `bun apps/cli/bin/fw.ts --repo firewatch`
 **Expected**: Error about invalid repo format (needs owner/repo)
 **Validates**: Repo slug validation
 
 #### Too Many Slashes
 
-**Command**: `bun apps/cli/bin/fw.ts sync a/b/c`
+**Command**: `bun apps/cli/bin/fw.ts --repo a/b/c`
 **Expected**: Error about invalid repo format
 **Validates**: Repo slug validation
 
 #### Empty String
 
-**Command**: `bun apps/cli/bin/fw.ts sync ""`
+**Command**: `bun apps/cli/bin/fw.ts --repo ""`
 **Expected**: Error or help text
 **Validates**: Empty arg handling
 
@@ -52,19 +52,19 @@ No special setup required. Tests validate error handling.
 
 #### Plain Number
 
-**Command**: `bun apps/cli/bin/fw.ts query --since 24`
+**Command**: `bun apps/cli/bin/fw.ts --since 24`
 **Expected**: Error about invalid duration (needs unit)
 **Validates**: Duration requires unit
 
 #### Invalid Unit
 
-**Command**: `bun apps/cli/bin/fw.ts query --since 24x`
+**Command**: `bun apps/cli/bin/fw.ts --since 24x`
 **Expected**: Error about invalid duration unit
 **Validates**: Unit validation
 
 #### Negative Duration
 
-**Command**: `bun apps/cli/bin/fw.ts query --since -7d`
+**Command**: `bun apps/cli/bin/fw.ts --since -7d`
 **Expected**: Error or treated as invalid
 **Validates**: Negative handling
 
@@ -72,43 +72,43 @@ No special setup required. Tests validate error handling.
 
 #### Draft and Ready Together
 
-**Command**: `bun apps/cli/bin/fw.ts edit 1 --draft --ready`
+**Command**: `bun apps/cli/bin/fw.ts pr edit 1 --draft --ready`
 **Expected**: Error about conflicting options
 **Validates**: Mutual exclusion enforcement
 
-#### Multiple Exclusive States
+#### Open and Closed Together
 
-**Command**: `bun apps/cli/bin/fw.ts query --state open --state closed`
-**Expected**: Either error or last-wins behavior (document which)
-**Validates**: State conflict handling
+**Command**: `bun apps/cli/bin/fw.ts --open --closed`
+**Expected**: Both filters apply (returns open OR closed)
+**Validates**: State filter combination
 
 ### Empty Results
 
 #### Impossible Filter
 
-**Command**: `bun apps/cli/bin/fw.ts query --author nonexistent-user-xyz --limit 5`
+**Command**: `bun apps/cli/bin/fw.ts --author nonexistent-user-xyz --limit 5`
 **Expected**: Empty output (no error), exit code 0
 **Validates**: No results is not an error
 
 #### Future Date
 
-**Command**: `bun apps/cli/bin/fw.ts query --since 2099-01-01`
-**Expected**: Error or empty results
-**Validates**: Future date handling
+**Command**: `bun apps/cli/bin/fw.ts --before 2099-01-01 --since 2099-01-01`
+**Expected**: Empty results
+**Validates**: Impossible date range handling
 
 ### Special Characters
 
 #### Author with Hyphen
 
-**Command**: `bun apps/cli/bin/fw.ts query --author some-user --limit 3`
+**Command**: `bun apps/cli/bin/fw.ts --author some-user --limit 3`
 **Expected**: Works correctly
 **Validates**: Hyphen in names
 
-#### Body with Quotes
+#### Author with Underscore
 
-**Command**: `bun apps/cli/bin/fw.ts comment 1 --help`
-**Expected**: Help text shows (we're not testing actual posting)
-**Validates**: Quote handling in help
+**Command**: `bun apps/cli/bin/fw.ts --author some_user --limit 3`
+**Expected**: Works correctly
+**Validates**: Underscore in names
 
 #### Path with Spaces
 
@@ -120,13 +120,13 @@ No special setup required. Tests validate error handling.
 
 #### Success Exit Code
 
-**Command**: `bun apps/cli/bin/fw.ts query --limit 1; echo "Exit: $?"`
+**Command**: `bun apps/cli/bin/fw.ts --limit 1; echo "Exit: $?"`
 **Expected**: Exit code 0
 **Validates**: Success returns 0
 
 #### Error Exit Code
 
-**Command**: `bun apps/cli/bin/fw.ts query --type invalid; echo "Exit: $?"`
+**Command**: `bun apps/cli/bin/fw.ts --type invalid; echo "Exit: $?"`
 **Expected**: Exit code non-zero (1)
 **Validates**: Errors return non-zero
 
@@ -140,26 +140,60 @@ No special setup required. Tests validate error handling.
 
 #### Large Limit
 
-**Command**: `bun apps/cli/bin/fw.ts query --limit 999999`
+**Command**: `bun apps/cli/bin/fw.ts --limit 999999`
 **Expected**: Works without overflow (returns available entries)
 **Validates**: Large number handling
 
 #### Large PR Number
 
-**Command**: `bun apps/cli/bin/fw.ts query --pr 999999`
+**Command**: `bun apps/cli/bin/fw.ts --pr 999999`
 **Expected**: Empty results (no such PR), not crash
 **Validates**: Large PR number handling
+
+#### Negative Limit
+
+**Command**: `bun apps/cli/bin/fw.ts --limit -5`
+**Expected**: Error or treated as invalid
+**Validates**: Negative limit handling
 
 ### Unknown Flags
 
 #### Typo in Flag
 
-**Command**: `bun apps/cli/bin/fw.ts query --limt 5`
-**Expected**: Error about unknown option
+**Command**: `bun apps/cli/bin/fw.ts --limt 5`
+**Expected**: Error about unknown option, possibly with suggestion
 **Validates**: Unknown flag detection
 
 #### Wrong Prefix
 
-**Command**: `bun apps/cli/bin/fw.ts query -limit 5`
+**Command**: `bun apps/cli/bin/fw.ts -limit 5`
 **Expected**: Error or interpreted as short flags
 **Validates**: Flag prefix handling
+
+### Output Mode Edge Cases
+
+#### Both JSONL Flags
+
+**Command**: `bun apps/cli/bin/fw.ts --jsonl --no-jsonl`
+**Expected**: Last flag wins or error
+**Validates**: Conflicting output mode
+
+#### Force Human in Pipe
+
+**Command**: `bun apps/cli/bin/fw.ts --no-jsonl | head -5`
+**Expected**: Human-readable output even when piped
+**Validates**: Output mode override
+
+### Refresh Edge Cases
+
+#### Full Refresh
+
+**Command**: `bun apps/cli/bin/fw.ts --refresh full --limit 1`
+**Expected**: Forces full sync, returns data
+**Validates**: Full refresh mode
+
+#### Refresh Value Typo
+
+**Command**: `bun apps/cli/bin/fw.ts --refresh invalid`
+**Expected**: Error or treated as regular refresh
+**Validates**: Refresh value validation

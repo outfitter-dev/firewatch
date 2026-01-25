@@ -5,7 +5,7 @@ user-invocable: true
 compatibility: Requires Bun runtime and firewatch project structure (apps/cli/)
 metadata:
   author: outfitter-dev
-  version: "1.0"
+  version: "1.1"
 ---
 
 # Firewatch CLI Stress Testing
@@ -33,6 +33,32 @@ Instead of sequential testing, spawn multiple specialized agents in parallel. Ea
 
 **CLI under test**: `bun apps/cli/bin/fw.ts`
 **Test repo**: `outfitter-dev/firewatch` (has cached data)
+
+## CLI Structure
+
+The Firewatch CLI has this command structure:
+
+```
+fw [options]              # Root command - query/filter cached activity
+├── pr                    # PR operations subgroup
+│   ├── list              # List PRs with filters
+│   ├── edit              # Edit PR metadata
+│   ├── comment           # Add PR comment
+│   └── review            # Submit review
+├── fb                    # Feedback abstraction
+├── ack                   # Acknowledge feedback
+├── close                 # Close/resolve threads (alias: resolve)
+├── cache                 # Cache management
+│   ├── status            # Cache statistics
+│   └── clear             # Clear cache
+├── status                # Firewatch state info
+├── config                # View/edit configuration
+├── doctor                # Diagnose setup
+├── schema                # Print JSON schemas
+├── examples              # Show jq patterns
+├── mcp                   # Start MCP server
+└── claude-plugin         # Install/uninstall plugin
+```
 
 ## Modes
 
@@ -86,14 +112,14 @@ Launch these agents in parallel using `run_in_background: true`:
 
 ### 1. Query Operations Agent
 
-Analyze apps/cli/src/commands/query.ts and related query commands.
-Test all flags, filters, and output formats.
+Analyze the root `fw` command and its filtering options.
+Test all flags: --type, --since, --author, --pr, --open, --active, --mine, --reviews, --limit, --summary.
 Focus: Read-only operations, filtering, output modes.
 
 ### 2. Status/Info Agent
 
 Analyze apps/cli/src/commands/ for informational commands.
-Test: status, config, doctor, schema, help.
+Test: status, config, doctor, schema, cache status, help.
 Focus: Diagnostic and configuration commands.
 
 ### 3. Edge Cases Agent
@@ -103,7 +129,7 @@ Focus: Invalid inputs, missing args, conflicting flags, exit codes.
 
 ### 4. Mutation Agent
 
-Analyze add, edit, rm, close, resolve commands.
+Analyze pr subcommands (edit, comment, review) and feedback commands (fb, ack, close).
 Test help text, validation, error messages (avoid actual mutations).
 Focus: Write operations in dry-run/help mode.
 ```
@@ -119,7 +145,7 @@ Report results in the standard format.
 
 ### Query Operations
 
-Tests read-only query commands:
+Tests read-only query commands on the root `fw` command:
 
 | Area             | Tests                                            |
 | ---------------- | ------------------------------------------------ |
@@ -130,19 +156,20 @@ Tests read-only query commands:
 | PR filtering     | `--pr 42`, multiple PRs                          |
 | State filtering  | `--open`, `--active`, `--state merged`           |
 | Combined filters | Multiple flags together                          |
-| Special flags    | `--no-bots`, `--limit`, `--mine`                 |
+| Special flags    | `--no-bots`, `--limit`, `--mine`, `--reviews`    |
 
 ### Status/Config/Doctor
 
 Tests informational commands:
 
-| Area   | Tests                         |
-| ------ | ----------------------------- |
-| status | Default, `--short`, `--jsonl` |
-| config | Read, `--path`, `--local`     |
-| doctor | Default, `--fix`              |
-| schema | `entry`, `worklist`, `config` |
-| Help   | All commands have help text   |
+| Area   | Tests                                |
+| ------ | ------------------------------------ |
+| status | Default, `--short`, `--jsonl`        |
+| config | Read, `--path`, `--local`, `--edit`  |
+| doctor | Default, `--fix`, `--jsonl`          |
+| schema | `query`, `fb`, `status`, `config`    |
+| cache  | `cache status`, `cache clear --help` |
+| Help   | All commands have help text          |
 
 ### Edge Cases/Errors
 
@@ -161,12 +188,14 @@ Tests boundary conditions:
 
 Tests write operations (validation only, no actual mutations):
 
-| Area          | Tests                                |
-| ------------- | ------------------------------------ |
-| add/comment   | Help text, required args, validation |
-| edit          | Help text, conflicting options       |
-| rm            | Help text, target validation         |
-| close/resolve | Help text, ID validation             |
+| Area       | Tests                                |
+| ---------- | ------------------------------------ |
+| pr comment | Help text, required args, validation |
+| pr edit    | Help text, conflicting options       |
+| pr review  | Help text, target validation         |
+| close      | Help text, ID validation, --all      |
+| ack        | Help text, --list, --clear           |
+| fb         | Help text, --stack, --resolve        |
 
 ## Report Format
 
@@ -177,11 +206,11 @@ Each agent must return results in this structure:
 
 ### Test Results
 
-| Test         | Command                   | Result | Notes               |
-| ------------ | ------------------------- | ------ | ------------------- |
-| Basic query  | `fw query --limit 5`      | PASS   | Returns valid JSONL |
-| Invalid type | `fw query --type invalid` | PASS   | Exits with error    |
-| ...          | ...                       | ...    | ...                 |
+| Test         | Command                | Result | Notes               |
+| ------------ | ---------------------- | ------ | ------------------- |
+| Basic query  | `fw --limit 5`         | PASS   | Returns valid JSONL |
+| Invalid type | `fw --type invalid`    | PASS   | Exits with error    |
+| ...          | ...                    | ...    | ...                 |
 
 ### Summary
 
@@ -310,3 +339,4 @@ After agents complete, aggregate into a summary:
 3. **Validate JSONL** — Pipe to `jq .` to check valid JSON
 4. **Document unexpected** — Even "works" can be WARN if surprising
 5. **Compare to docs** — Flag mismatches are common findings
+6. **Use env vars** — `FIREWATCH_JSONL=0` forces human output

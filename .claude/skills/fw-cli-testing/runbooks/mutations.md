@@ -14,108 +14,152 @@ These tests validate command structure and error handling without making real ch
 
 ## Test Cases
 
-### Comment Command
+### PR Comment Command
 
 #### Comment Help
 
-**Command**: `bun apps/cli/bin/fw.ts comment --help`
-**Expected**: Shows usage: comment <pr> <body> with options
+**Command**: `bun apps/cli/bin/fw.ts pr comment --help`
+**Expected**: Shows usage: pr comment <pr> <body> with options
 **Validates**: Comment documented
 
 #### Comment Missing PR
 
-**Command**: `bun apps/cli/bin/fw.ts comment`
+**Command**: `bun apps/cli/bin/fw.ts pr comment`
 **Expected**: Error about missing PR number
 **Validates**: Required arg validation
 
 #### Comment Missing Body
 
-**Command**: `bun apps/cli/bin/fw.ts comment 1`
+**Command**: `bun apps/cli/bin/fw.ts pr comment 1`
 **Expected**: Error about missing body
 **Validates**: Body required
 
-#### Comment Reply-To Option
-
-**Command**: `bun apps/cli/bin/fw.ts comment --help | grep -i reply`
-**Expected**: Shows --reply-to option
-**Validates**: Reply option documented
-
-#### Comment Resolve Option
-
-**Command**: `bun apps/cli/bin/fw.ts comment --help | grep -i resolve`
-**Expected**: Shows --resolve option
-**Validates**: Resolve option documented
-
-### Resolve Command
-
-#### Resolve Help
-
-**Command**: `bun apps/cli/bin/fw.ts resolve --help`
-**Expected**: Shows usage with comment ID argument
-**Validates**: Resolve documented
-
-#### Resolve Missing ID
-
-**Command**: `bun apps/cli/bin/fw.ts resolve`
-**Expected**: Error about missing comment ID
-**Validates**: ID required
-
-#### Resolve Invalid ID Format
-
-**Command**: `bun apps/cli/bin/fw.ts resolve not-a-valid-id`
-**Expected**: Error about invalid ID format (or API error)
-**Validates**: ID validation
-
-### Edit Command
+### PR Edit Command
 
 #### Edit Help
 
-**Command**: `bun apps/cli/bin/fw.ts edit --help`
+**Command**: `bun apps/cli/bin/fw.ts pr edit --help`
 **Expected**: Shows PR editing options
 **Validates**: Edit documented
 
 #### Edit Missing PR
 
-**Command**: `bun apps/cli/bin/fw.ts edit`
+**Command**: `bun apps/cli/bin/fw.ts pr edit`
 **Expected**: Error about missing PR number
 **Validates**: PR required
 
 #### Edit Options Present
 
-**Command**: `bun apps/cli/bin/fw.ts edit --help`
-**Expected**: Shows --title, --body, --draft, --ready options
+**Command**: `bun apps/cli/bin/fw.ts pr edit --help`
+**Expected**: Shows --title, --body, --draft, --ready, --add-label, --remove-label options
 **Validates**: Edit options documented
 
 #### Edit Draft Ready Conflict
 
-**Command**: `bun apps/cli/bin/fw.ts edit 1 --draft --ready`
+**Command**: `bun apps/cli/bin/fw.ts pr edit 1 --draft --ready`
 **Expected**: Error about conflicting options
 **Validates**: Mutual exclusion
 
-### Add Command (Metadata)
-
-#### Add Help
-
-**Command**: `bun apps/cli/bin/fw.ts add --help`
-**Expected**: Shows options for labels, reviewers, assignees
-**Validates**: Add documented
-
 #### Add Label Option
 
-**Command**: `bun apps/cli/bin/fw.ts add --help | grep -i label`
-**Expected**: Shows --label option
-**Validates**: Label adding documented
+**Command**: `bun apps/cli/bin/fw.ts pr edit --help | grep -i label`
+**Expected**: Shows --add-label and --remove-label options
+**Validates**: Label management documented
 
-### Remove Command
+#### Add Reviewer Option
 
-#### Rm Help
+**Command**: `bun apps/cli/bin/fw.ts pr edit --help | grep -i reviewer`
+**Expected**: Shows --add-reviewer and --remove-reviewer options
+**Validates**: Reviewer management documented
 
-**Command**: `bun apps/cli/bin/fw.ts rm --help`
-**Expected**: Shows removal options
-**Validates**: Rm documented
+### PR Review Command
 
-#### Rm Missing PR
+#### Review Help
 
-**Command**: `bun apps/cli/bin/fw.ts rm`
+**Command**: `bun apps/cli/bin/fw.ts pr review --help`
+**Expected**: Shows review options (approve, request-changes, comment)
+**Validates**: Review documented
+
+#### Review Missing PR
+
+**Command**: `bun apps/cli/bin/fw.ts pr review`
 **Expected**: Error about missing PR number
 **Validates**: PR required
+
+### Close/Resolve Command
+
+#### Close Help
+
+**Command**: `bun apps/cli/bin/fw.ts close --help`
+**Expected**: Shows usage with comment ID argument
+**Validates**: Close documented
+
+#### Close Missing ID
+
+**Command**: `bun apps/cli/bin/fw.ts close`
+**Expected**: Help or waits for input
+**Validates**: ID behavior
+
+#### Close Bulk Option
+
+**Command**: `bun apps/cli/bin/fw.ts close --help | grep -i all`
+**Expected**: Shows --all option for bulk closing
+**Validates**: Bulk close documented
+
+#### Resolve Alias
+
+**Command**: `bun apps/cli/bin/fw.ts resolve --help`
+**Expected**: Shows same options as close (resolve is alias)
+**Validates**: Resolve alias works
+
+### Ack Command
+
+#### Ack Help
+
+**Command**: `bun apps/cli/bin/fw.ts ack --help`
+**Expected**: Shows options for acknowledging feedback
+**Validates**: Ack documented
+
+#### Ack List Option
+
+**Command**: `bun apps/cli/bin/fw.ts ack --list`
+**Expected**: Shows list of acknowledged comments
+**Validates**: List acks works
+
+#### Ack Clear Option
+
+**Command**: `bun apps/cli/bin/fw.ts ack --help | grep -i clear`
+**Expected**: Shows --clear option
+**Validates**: Clear ack documented
+
+### Feedback Command (fb)
+
+#### Fb Help
+
+**Command**: `bun apps/cli/bin/fw.ts fb --help`
+**Expected**: Shows feedback abstraction options
+**Validates**: Fb documented
+
+#### Fb Stack Option
+
+**Command**: `bun apps/cli/bin/fw.ts fb --help | grep -i stack`
+**Expected**: Shows --stack option for stack-aware feedback
+**Validates**: Stack option documented
+
+#### Fb Current Option
+
+**Command**: `bun apps/cli/bin/fw.ts fb --help | grep -i current`
+**Expected**: Shows --current option for current branch
+**Validates**: Current branch option documented
+
+#### Fb Body Option
+
+**Command**: `bun apps/cli/bin/fw.ts fb --help | grep -i body`
+**Expected**: Shows --body option for replies
+**Validates**: Reply body documented
+
+#### Fb Resolve Option
+
+**Command**: `bun apps/cli/bin/fw.ts fb --help | grep -i resolve`
+**Expected**: Shows --resolve option
+**Validates**: Resolve option documented

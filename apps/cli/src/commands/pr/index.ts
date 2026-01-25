@@ -1,6 +1,6 @@
 import { Command } from "commander";
 
-import { commentCommand } from "./comment";
+import { commentCommand, prCommentAction } from "./comment";
 import { editCommand } from "./edit";
 import { listCommand } from "./list";
 import { reviewCommand } from "./review";
@@ -11,3 +11,5 @@ export const prCommand = new Command("pr")
   .addCommand(editCommand)
   .addCommand(commentCommand)
   .addCommand(reviewCommand);
+
+export { prCommentAction };
