@@ -61,6 +61,7 @@ export interface QueryCommandOptions {
   limit?: number;
   offset?: number;
   summary?: boolean;
+  includeFrozen?: boolean;
   jsonl?: boolean;
   json?: boolean;
   debug?: boolean;

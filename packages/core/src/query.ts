@@ -56,6 +56,13 @@ export interface QueryFilters {
    * and PR state is merged or closed.
    */
   orphaned?: boolean;
+
+  /**
+   * Include entries after the freeze timestamp for frozen PRs.
+   * By default, entries created after a PR's frozen_at timestamp are hidden.
+   * Set to true to include all entries regardless of freeze state.
+   */
+  includeFrozen?: boolean;
 }
 
 /**
@@ -138,6 +145,9 @@ function buildDbFilters(filters: QueryFilters): QueryFilters {
     ...(filters.label !== undefined && { label: filters.label }),
     ...(filters.since !== undefined && { since: filters.since }),
     ...(filters.orphaned !== undefined && { orphaned: filters.orphaned }),
+    ...(filters.includeFrozen !== undefined && {
+      includeFrozen: filters.includeFrozen,
+    }),
   };
 }
 
