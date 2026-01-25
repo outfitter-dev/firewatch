@@ -34,7 +34,7 @@ fw fb
 
 **JSONL Output**: Default output is newline-delimited JSON. Pipe to `jq` for filtering. Use `--no-jsonl` for human-readable format.
 
-**Auto-sync**: Cache refreshes automatically if stale. Use `--offline` to skip or `--refresh` to force.
+**Auto-sync**: Cache refreshes automatically if stale. Use `--no-sync` to skip or `--refresh` to force.
 
 ---
 

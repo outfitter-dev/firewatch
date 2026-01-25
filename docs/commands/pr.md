@@ -43,7 +43,7 @@ Query cached PR activity with filtering and aggregation.
 | `--author <list>`   | Filter by author(s), `!` prefix to exclude         |
 | `--no-bots`         | Exclude bot activity                               |
 | `-s, --since <dur>` | Time window (24h, 7d, etc.)                        |
-| `--offline`         | Use cache only, no network                         |
+| `--no-sync`         | Use cache only, no network                         |
 | `--refresh [full]`  | Force sync before query                            |
 | `-n, --limit <n>`   | Limit results                                      |
 | `--offset <n>`      | Skip first N results                               |

@@ -55,7 +55,7 @@ fw --since 7d | jq -s 'sort_by(.created_at) | group_by(.pr) | map(.[-1]) | .[] |
 
 ```bash
 # Use cached data only
-fw --offline
+fw --no-sync
 
 # Force refresh before query
 fw --refresh

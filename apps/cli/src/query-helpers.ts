@@ -58,6 +58,7 @@ export interface QueryCommandOptions {
   noBots?: boolean;
   since?: string;
   before?: string;
+  sync?: boolean;
   limit?: number;
   offset?: number;
   summary?: boolean;
@@ -462,7 +463,7 @@ export async function ensureRepoCache(
  */
 export async function ensureFreshRepos(
   repos: string[],
-  _options: QueryCommandOptions,
+  options: QueryCommandOptions,
   config: FirewatchConfig,
   detectedRepo: string | null
 ): Promise<void> {
@@ -471,6 +472,9 @@ export async function ensureFreshRepos(
   }
 
   const autoSync = config.sync?.auto_sync ?? true;
+  if (options.sync === false) {
+    return;
+  }
   if (!autoSync) {
     return;
   }
