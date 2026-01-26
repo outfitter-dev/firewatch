@@ -486,7 +486,7 @@ function buildStateConditions(
 
   for (const state of states) {
     if (state === "draft") {
-      stateConditions.push("p.is_draft = 1");
+      stateConditions.push("(p.state = 'open' AND p.is_draft = 1)");
     } else if (state === "open") {
       // "open" means state is open AND not draft
       stateConditions.push("(p.state = 'open' AND p.is_draft = 0)");
@@ -823,7 +823,7 @@ export function getPRsByState(
 
   for (const state of states) {
     if (state === "draft") {
-      stateConditions.push("is_draft = 1");
+      stateConditions.push("(state = 'open' AND is_draft = 1)");
     } else if (state === "open") {
       stateConditions.push("(state = 'open' AND is_draft = 0)");
     } else {
