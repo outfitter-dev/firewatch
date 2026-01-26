@@ -40,7 +40,8 @@ fw [options]
 | `--ready`          | Include ready PRs (open, non-draft)             |
 | `--closed`         | Include merged and closed PRs                   |
 | `--draft`          | Include draft PRs                               |
-| `--orphaned`       | Unresolved review comments on merged/closed PRs |
+| `--orphaned`       | Only unresolved review comments on merged/closed PRs |
+| `--stale`          | Include unresolved review comments on merged/closed PRs |
 | `--state <states>` | Explicit comma-separated state list             |
 
 ### Filters
@@ -118,6 +119,7 @@ fw --sync-full
 - `--mine` and `--reviews` are mutually exclusive
 - `--sync-full` cannot be used with `--no-sync`
 - `--mine`/`--reviews` require `user.github_username` in config
+- Unresolved review comments on merged/closed PRs are hidden by default; use `--stale` or `--orphaned`
 - If no state flags are provided, Firewatch defaults to open + draft PRs
 - Auto-sync fetches open/draft PRs by default; include `--closed` or `--state closed,merged` to sync closed/merged data
 - Use `fw schema` for output structure reference

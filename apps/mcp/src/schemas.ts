@@ -46,6 +46,7 @@ export const QueryParamsShape = {
   summary: z.boolean().optional(),
   summary_short: z.boolean().optional(),
   orphaned: z.boolean().optional(),
+  stale: z.boolean().optional(),
   all: z.boolean().optional(),
   mine: z.boolean().optional(),
   reviews: z.boolean().optional(),

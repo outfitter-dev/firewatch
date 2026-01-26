@@ -169,6 +169,7 @@ export function buildCliQueryFilters(
 ): QueryOptions {
   const { repoFilter, prList, types, states, effectiveSince, authorFilters } =
     context;
+  const includeStale = Boolean(options.stale || options.orphaned);
 
   return {
     filters: {
@@ -189,6 +190,7 @@ export function buildCliQueryFilters(
         botPatterns: authorFilters.botPatterns,
       }),
       ...(options.orphaned && { orphaned: true }),
+      excludeStale: !includeStale,
       ...(options.includeFrozen && { includeFrozen: true }),
     },
     ...(options.limit !== undefined && { limit: options.limit }),

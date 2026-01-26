@@ -36,7 +36,8 @@ Query cached PR activity with filtering and aggregation.
 | `--ready`           | Filter to ready PRs (open, non-draft)              |
 | `--closed`          | Include merged and closed PRs                      |
 | `--draft`           | Filter to draft PRs                                |
-| `--orphaned`        | Unresolved comments on merged/closed PRs           |
+| `--orphaned`        | Only unresolved comments on merged/closed PRs      |
+| `--stale`           | Include unresolved comments on merged/closed PRs   |
 | `--state <states>`  | Comma-separated PR states                          |
 | `--type <types>`    | Filter by entry type (comment, review, commit, ci) |
 | `--label <name>`    | Filter by PR label                                 |

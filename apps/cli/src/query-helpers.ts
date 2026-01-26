@@ -51,6 +51,7 @@ export interface QueryCommandOptions {
   closed?: boolean;
   draft?: boolean;
   orphaned?: boolean;
+  stale?: boolean;
   state?: string;
   type?: string;
   label?: string;
