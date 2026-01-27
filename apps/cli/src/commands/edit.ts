@@ -20,6 +20,7 @@ import {
 } from "@outfitter/firewatch-core";
 import { Command, Option } from "commander";
 
+import { applyCommonOptions } from "../query-helpers";
 import { parseRepoInput, resolveRepoOrThrow } from "../repo";
 import { outputStructured } from "../utils/json";
 import { shouldOutputJson } from "../utils/tty";
@@ -50,6 +51,9 @@ interface EditOptions {
   // Output
   jsonl?: boolean;
   json?: boolean;
+  // Common options
+  debug?: boolean;
+  noColor?: boolean;
 }
 
 interface EditContext {
@@ -647,6 +651,7 @@ async function handleCommentBodyUpdate(
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function handleEdit(idArg: string, options: EditOptions): Promise<void> {
+  applyCommonOptions(options);
   try {
     const ctx = await createContext(options);
 
@@ -712,6 +717,8 @@ export const editCommand = new Command("edit")
   .option("--jsonl", "Force structured output")
   .option("--no-jsonl", "Force human-readable output")
   .addOption(new Option("--json").hideHelp())
+  .option("--debug", "Enable debug logging")
+  .option("--no-color", "Disable color output")
   .addHelpText(
     "after",
     `

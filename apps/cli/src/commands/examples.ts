@@ -79,6 +79,8 @@ export function printExamples(): void {
 export const examplesCommand = new Command("examples")
   .description("Show common jq patterns for filtering Firewatch output")
   .alias("patterns")
+  .option("--debug", "Enable debug logging")
+  .option("--no-color", "Disable color output")
   .action(() => {
     printExamples();
   });

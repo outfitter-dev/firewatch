@@ -20,6 +20,7 @@ import {
 } from "@outfitter/firewatch-core";
 import { Command, Option } from "commander";
 
+import { applyCommonOptions } from "../query-helpers";
 import { parseRepoInput, resolveRepoOrThrow } from "../repo";
 import { outputStructured } from "../utils/json";
 import { shouldOutputJson } from "../utils/tty";
@@ -30,6 +31,8 @@ export interface ReplyCommandOptions {
   resolve?: boolean;
   jsonl?: boolean;
   json?: boolean;
+  debug?: boolean;
+  noColor?: boolean;
 }
 
 interface ReplyContext {
@@ -201,6 +204,7 @@ export async function replyAction(
   bodyArg: string | undefined,
   options: ReplyCommandOptions
 ): Promise<void> {
+  applyCommonOptions(options);
   const body = bodyArg ?? options.body;
   if (!body) {
     console.error("Reply body required. Use: fw reply <id> <body> or fw reply <id> --body <text>");
@@ -263,4 +267,6 @@ export const replyCommand = new Command("reply")
   .option("--jsonl", "Force structured output")
   .option("--no-jsonl", "Force human-readable output")
   .addOption(new Option("--json").hideHelp())
+  .option("--debug", "Enable debug logging")
+  .option("--no-color", "Disable color output")
   .action(replyAction);

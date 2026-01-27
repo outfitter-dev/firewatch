@@ -3,9 +3,13 @@ import { Command } from "commander";
 import { existsSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
+import { applyCommonOptions } from "../query-helpers";
+
 interface ClaudePluginOptions {
   uninstall?: boolean;
   status?: boolean;
+  debug?: boolean;
+  noColor?: boolean;
 }
 
 const MARKETPLACE_NAME = "firewatch";
@@ -211,7 +215,10 @@ export const claudePluginCommand = new Command("claude-plugin")
   .description("Install or uninstall the Firewatch Claude Code plugin")
   .option("-u, --uninstall", "Uninstall the plugin")
   .option("-s, --status", "Check plugin installation status")
+  .option("--debug", "Enable debug logging")
+  .option("--no-color", "Disable color output")
   .action(async (options: ClaudePluginOptions) => {
+    applyCommonOptions(options);
     try {
       // Check claude CLI is available
       const hasClaudeCli = await checkClaudeCli();

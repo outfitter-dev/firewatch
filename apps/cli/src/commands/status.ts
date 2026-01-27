@@ -19,6 +19,7 @@ import { Command, Option } from "commander";
 import { existsSync, statSync } from "node:fs";
 
 import { version } from "../../package.json";
+import { applyCommonOptions } from "../query-helpers";
 import { s } from "../render";
 import { outputStructured } from "../utils/json";
 import { formatRelativeTime, shouldOutputJson } from "../utils/tty";
@@ -27,6 +28,8 @@ interface StatusCommandOptions {
   short?: boolean;
   jsonl?: boolean;
   json?: boolean;
+  debug?: boolean;
+  noColor?: boolean;
 }
 
 interface CacheSummary {
@@ -165,7 +168,10 @@ export const statusCommand = new Command("status")
   .option("--jsonl", "Force structured output")
   .option("--no-jsonl", "Force human-readable output")
   .addOption(new Option("--json").hideHelp())
+  .option("--debug", "Enable debug logging")
+  .option("--no-color", "Disable color output")
   .action(async (options: StatusCommandOptions) => {
+    applyCommonOptions(options);
     try {
       await ensureDirectories();
       const config = await loadConfig();

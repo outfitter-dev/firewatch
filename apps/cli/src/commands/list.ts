@@ -36,6 +36,7 @@ import {
   s,
   truncate,
 } from "../render";
+import { applyCommonOptions } from "../query-helpers";
 import { parseRepoInput, resolveRepoOrThrow } from "../repo";
 import { outputStructured } from "../utils/json";
 import { resolveStates } from "../utils/states";
@@ -68,6 +69,8 @@ interface ListFeedbackOptions {
   long?: boolean;
   jsonl?: boolean;
   json?: boolean;
+  debug?: boolean;
+  noColor?: boolean;
 }
 
 interface ListPrsOptions {
@@ -82,6 +85,8 @@ interface ListPrsOptions {
   stale?: boolean;
   jsonl?: boolean;
   json?: boolean;
+  debug?: boolean;
+  noColor?: boolean;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -308,6 +313,7 @@ async function getStackFeedback(
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function handleListFeedback(options: ListFeedbackOptions): Promise<void> {
+  applyCommonOptions(options);
   const ctx = await createContext(options);
 
   // Handle stack mode
@@ -453,6 +459,7 @@ async function handlePrFeedbackList(
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function handleListPrs(options: ListPrsOptions): Promise<void> {
+  applyCommonOptions(options);
   const ctx = await createContext(options);
   const username = ctx.config.user?.github_username;
 
@@ -614,6 +621,8 @@ const feedbackSubcommand = new Command("feedback")
   .option("--jsonl", "Force JSONL output")
   .option("--no-jsonl", "Force human-readable output")
   .addOption(new Option("--json").hideHelp())
+  .option("--debug", "Enable debug logging")
+  .option("--no-color", "Disable color output")
   .action(handleListFeedback);
 
 const prsSubcommand = new Command("prs")
@@ -633,6 +642,8 @@ const prsSubcommand = new Command("prs")
   .option("--jsonl", "Force JSONL output")
   .option("--no-jsonl", "Force human-readable output")
   .addOption(new Option("--json").hideHelp())
+  .option("--debug", "Enable debug logging")
+  .option("--no-color", "Disable color output")
   .action(handleListPrs);
 
 export const listCommand = new Command("list")

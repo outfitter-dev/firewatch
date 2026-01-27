@@ -13,6 +13,7 @@ import {
 } from "@outfitter/firewatch-core";
 import { Command, Option } from "commander";
 
+import { applyCommonOptions } from "../query-helpers";
 import { parseRepoInput, parsePrNumber, resolveRepoOrThrow } from "../repo";
 import { outputStructured } from "../utils/json";
 import { shouldOutputJson } from "../utils/tty";
@@ -22,6 +23,8 @@ export interface RejectCommandOptions {
   body?: string;
   jsonl?: boolean;
   json?: boolean;
+  debug?: boolean;
+  noColor?: boolean;
 }
 
 interface RejectContext {
@@ -59,6 +62,7 @@ export async function rejectAction(
   pr: number,
   options: RejectCommandOptions
 ): Promise<void> {
+  applyCommonOptions(options);
   if (!options.body) {
     console.error("Body is required for rejecting a PR. Use -b to provide a reason.");
     process.exit(1);
@@ -109,4 +113,6 @@ export const rejectCommand = new Command("reject")
   .option("--jsonl", "Force JSONL output")
   .option("--no-jsonl", "Force human-readable output")
   .addOption(new Option("--json").hideHelp())
+  .option("--debug", "Enable debug logging")
+  .option("--no-color", "Disable color output")
   .action(rejectAction);

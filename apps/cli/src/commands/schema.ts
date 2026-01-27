@@ -77,6 +77,8 @@ export const schemaCommand = new Command("schema")
     "Command to show schema for: query, fb, status, config",
     "query"
   )
+  .option("--debug", "Enable debug logging")
+  .option("--no-color", "Disable color output")
   .action(async (name: string) => {
     if (!isSchemaCommand(name) && !isSchemaAlias(name)) {
       console.error(

@@ -10,6 +10,7 @@ import { Command, Option } from "commander";
 import { mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
 
+import { applyCommonOptions } from "../query-helpers";
 import { outputStructured } from "../utils/json";
 import { shouldOutputJson } from "../utils/tty";
 
@@ -19,6 +20,8 @@ interface ConfigCommandOptions {
   local?: boolean;
   jsonl?: boolean;
   json?: boolean;
+  debug?: boolean;
+  noColor?: boolean;
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -148,6 +151,8 @@ export const configCommand = new Command("config")
   .option("--jsonl", "Force structured output")
   .option("--no-jsonl", "Force human-readable output")
   .addOption(new Option("--json").hideHelp())
+  .option("--debug", "Enable debug logging")
+  .option("--no-color", "Disable color output")
   .addHelpText(
     "after",
     `
@@ -161,6 +166,7 @@ GitHub CLI's secure credential storage.`
       value: string | undefined,
       options: ConfigCommandOptions
     ) => {
+      applyCommonOptions(options);
       try {
         if (options.path) {
           const paths = await getConfigPaths();

@@ -29,6 +29,7 @@ import {
 import { Command, Option } from "commander";
 
 import { identifyUnaddressedFeedback } from "../actionable";
+import { applyCommonOptions } from "../query-helpers";
 import { validateRepoFormat } from "../repo";
 import { outputStructured } from "../utils/json";
 import { resolveStates, type StateOptions } from "../utils/states";
@@ -43,6 +44,8 @@ interface AckCommandOptions extends StateOptions {
   json?: boolean;
   since?: string;
   before?: string;
+  debug?: boolean;
+  noColor?: boolean;
 }
 
 async function resolveRepo(repo?: string): Promise<string> {
@@ -746,7 +749,10 @@ export const ackCommand = new Command("ack")
   .option("--jsonl", "Force structured output")
   .option("--no-jsonl", "Force human-readable output")
   .addOption(new Option("--json").hideHelp())
+  .option("--debug", "Enable debug logging")
+  .option("--no-color", "Disable color output")
   .action(async (ids: string[], options: AckCommandOptions) => {
+    applyCommonOptions(options);
     const config = await loadConfig();
     const outputJson = shouldOutputJson(options, config.output?.default_format);
 

@@ -24,6 +24,7 @@ import {
 } from "@outfitter/firewatch-core";
 import { Command, Option } from "commander";
 
+import { applyCommonOptions } from "../query-helpers";
 import { SEPARATOR, s } from "../render";
 import { parseRepoInput, resolveRepoOrThrow } from "../repo";
 import { outputStructured } from "../utils/json";
@@ -46,6 +47,8 @@ interface ViewOptions {
   repo?: string;
   jsonl?: boolean;
   json?: boolean;
+  debug?: boolean;
+  noColor?: boolean;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -144,6 +147,7 @@ async function resolveShortIdAsync(
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function handleView(ids: string[], options: ViewOptions): Promise<void> {
+  applyCommonOptions(options);
   if (ids.length === 0) {
     console.error("No ID provided. Usage: fw view <id>");
     console.error("  fw view 42       - View PR #42");
@@ -422,4 +426,6 @@ export const viewCommand = new Command("view")
   .option("--jsonl", "Force JSONL output")
   .option("--no-jsonl", "Force human-readable output")
   .addOption(new Option("--json").hideHelp())
+  .option("--debug", "Enable debug logging")
+  .option("--no-color", "Disable color output")
   .action(handleView);
