@@ -99,8 +99,24 @@ Examples:
 Global options like --no-color and --debug apply to all subcommands.
 Query options on root 'fw' are supported but 'fw query' is preferred.`
   )
-  .action(async (options: QueryCommandOptions) => {
+  .argument("[args...]")
+  .action(async (args: string[], options: QueryCommandOptions) => {
     applyGlobalOptions(options);
+
+    // Check if the first arg looks like a typo'd command rather than a query parameter
+    const maybeCmd = args[0];
+    if (maybeCmd) {
+      // Single lowercase word with only letters, digits, hyphens = likely a command typo
+      if (/^[a-z][a-z0-9-]*$/.test(maybeCmd)) {
+        console.error(`Unknown command: ${maybeCmd}`);
+        console.error(`Run 'fw --help' for available commands.`);
+        process.exit(1);
+      }
+      // Otherwise it's an unexpected argument (repo slug, etc) - reject it
+      console.error(`Unexpected argument: ${maybeCmd}`);
+      console.error(`Run 'fw --help' for usage information.`);
+      process.exit(1);
+    }
 
     try {
       await executeCliQuery(options);
