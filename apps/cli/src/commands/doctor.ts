@@ -13,6 +13,7 @@ import { Command, Option } from "commander";
 import { constants as fsConstants } from "node:fs";
 import { access } from "node:fs/promises";
 
+import { applyCommonOptions } from "../query-helpers";
 import { formatCheckResult, renderHeader } from "../render";
 import { outputStructured } from "../utils/json";
 import { shouldOutputJson } from "../utils/tty";
@@ -21,6 +22,8 @@ interface DoctorCommandOptions {
   jsonl?: boolean;
   json?: boolean;
   fix?: boolean;
+  debug?: boolean;
+  noColor?: boolean;
 }
 
 interface CheckResult {
@@ -188,7 +191,10 @@ export const doctorCommand = new Command("doctor")
   .option("--no-jsonl", "Force human-readable output")
   .addOption(new Option("--json").hideHelp())
   .option("--fix", "Attempt to fix issues automatically")
+  .option("--debug", "Enable debug logging")
+  .option("--no-color", "Disable color output")
   .action(async (options: DoctorCommandOptions) => {
+    applyCommonOptions(options);
     try {
       const config = await loadConfig();
       if (options.fix) {

@@ -13,6 +13,7 @@ import {
 } from "@outfitter/firewatch-core";
 import { Command, Option } from "commander";
 
+import { applyCommonOptions } from "../query-helpers";
 import { parseRepoInput, parsePrNumber, resolveRepoOrThrow } from "../repo";
 import { outputStructured } from "../utils/json";
 import { shouldOutputJson } from "../utils/tty";
@@ -22,6 +23,8 @@ export interface ApproveCommandOptions {
   body?: string;
   jsonl?: boolean;
   json?: boolean;
+  debug?: boolean;
+  noColor?: boolean;
 }
 
 interface ApproveContext {
@@ -59,6 +62,7 @@ export async function approveAction(
   pr: number,
   options: ApproveCommandOptions
 ): Promise<void> {
+  applyCommonOptions(options);
   try {
     const ctx = await createContext(options);
 
@@ -104,4 +108,6 @@ export const approveCommand = new Command("approve")
   .option("--jsonl", "Force JSONL output")
   .option("--no-jsonl", "Force human-readable output")
   .addOption(new Option("--json").hideHelp())
+  .option("--debug", "Enable debug logging")
+  .option("--no-color", "Disable color output")
   .action(approveAction);

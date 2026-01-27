@@ -23,6 +23,7 @@ import type { Database } from "bun:sqlite";
 import { Command, Option } from "commander";
 import ora, { type Ora } from "ora";
 
+import { applyCommonOptions } from "../query-helpers";
 import { resolveRepoOrThrow } from "../repo";
 import { outputStructured } from "../utils/json";
 import { shouldOutputJson } from "../utils/tty";
@@ -39,6 +40,8 @@ interface SyncCommandOptions {
   jsonl?: boolean;
   open?: boolean;
   closed?: boolean;
+  debug?: boolean;
+  noColor?: boolean;
 }
 
 interface SyncOutputResult {
@@ -215,6 +218,7 @@ async function handleSync(
   repoArg: string | undefined,
   options: SyncCommandOptions
 ): Promise<void> {
+  applyCommonOptions(options);
   // Build context
   const config: FirewatchConfig = await loadConfig();
   const repo = await resolveRepoOrThrow(repoArg);
@@ -292,6 +296,8 @@ export const syncCommand = new Command("sync")
   .option("--jsonl", "Force JSONL output")
   .option("--no-jsonl", "Force human-readable output")
   .addOption(new Option("--json").hideHelp())
+  .option("--debug", "Enable debug logging")
+  .option("--no-color", "Disable color output")
   .addHelpText(
     "after",
     `

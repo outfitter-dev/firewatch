@@ -14,6 +14,7 @@ import {
 } from "@outfitter/firewatch-core";
 import { Command, Option } from "commander";
 
+import { applyCommonOptions } from "../query-helpers";
 import { validateRepoFormat } from "../repo";
 import { outputStructured } from "../utils/json";
 import { shouldOutputJson } from "../utils/tty";
@@ -23,6 +24,8 @@ interface FreezeCommandOptions {
   list?: boolean;
   jsonl?: boolean;
   json?: boolean;
+  debug?: boolean;
+  noColor?: boolean;
 }
 
 async function resolveRepo(repo?: string): Promise<string> {
@@ -127,7 +130,10 @@ export const freezeCommand = new Command("freeze")
   .option("--jsonl", "Force structured output")
   .option("--no-jsonl", "Force human-readable output")
   .addOption(new Option("--json").hideHelp())
+  .option("--debug", "Enable debug logging")
+  .option("--no-color", "Disable color output")
   .action(async (prArg: string | undefined, options: FreezeCommandOptions) => {
+    applyCommonOptions(options);
     const config = await loadConfig();
     const outputJson = shouldOutputJson(options, config.output?.default_format);
 

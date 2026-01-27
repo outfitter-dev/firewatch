@@ -13,6 +13,7 @@ import {
 } from "@outfitter/firewatch-core";
 import { Command, Option } from "commander";
 
+import { applyCommonOptions } from "../query-helpers";
 import { parseRepoInput, parsePrNumber, resolveRepoOrThrow } from "../repo";
 import { outputStructured } from "../utils/json";
 import { shouldOutputJson } from "../utils/tty";
@@ -21,6 +22,8 @@ export interface CommentCommandOptions {
   repo?: string;
   jsonl?: boolean;
   json?: boolean;
+  debug?: boolean;
+  noColor?: boolean;
 }
 
 interface CommentContext {
@@ -59,6 +62,7 @@ export async function commentAction(
   body: string,
   options: CommentCommandOptions
 ): Promise<void> {
+  applyCommonOptions(options);
   if (!body.trim()) {
     console.error("Comment body cannot be empty.");
     process.exit(1);
@@ -104,4 +108,6 @@ export const commentCommand = new Command("comment")
   .option("--jsonl", "Force JSONL output")
   .option("--no-jsonl", "Force human-readable output")
   .addOption(new Option("--json").hideHelp())
+  .option("--debug", "Enable debug logging")
+  .option("--no-color", "Disable color output")
   .action(commentAction);

@@ -93,15 +93,32 @@ export const DEFAULT_STALE_THRESHOLD = "5m";
 // ============================================================================
 
 /**
- * Apply global options like debug and color settings.
+ * Common options interface for debug and color settings.
  */
-export function applyGlobalOptions(options: QueryCommandOptions): void {
+export interface CommonOptions {
+  debug?: boolean;
+  noColor?: boolean;
+}
+
+/**
+ * Apply common options like debug and color settings.
+ * Can be called from any command handler.
+ */
+export function applyCommonOptions(options: CommonOptions): void {
   if (options.noColor) {
     process.env.NO_COLOR = "1";
   }
   if (options.debug) {
     process.env.FIREWATCH_DEBUG = "1";
   }
+}
+
+/**
+ * Apply global options like debug and color settings.
+ * @deprecated Use applyCommonOptions instead for non-query commands.
+ */
+export function applyGlobalOptions(options: QueryCommandOptions): void {
+  applyCommonOptions(options);
 }
 
 // ============================================================================

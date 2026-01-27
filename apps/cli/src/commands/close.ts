@@ -20,6 +20,7 @@ import {
 import { Command, Option } from "commander";
 
 import { identifyUnaddressedFeedback } from "../actionable";
+import { applyCommonOptions } from "../query-helpers";
 import { parseRepoInput, validateRepoFormat } from "../repo";
 import { outputStructured } from "../utils/json";
 import { shouldOutputJson } from "../utils/tty";
@@ -31,6 +32,8 @@ export interface CloseCommandOptions {
   yes?: boolean;
   jsonl?: boolean;
   json?: boolean;
+  debug?: boolean;
+  noColor?: boolean;
 }
 
 interface CloseContext {
@@ -503,6 +506,7 @@ export async function closeAction(
   ids: string[],
   options: CloseCommandOptions
 ): Promise<void> {
+  applyCommonOptions(options);
   try {
     const ctx = await createContext(options);
 
@@ -539,4 +543,6 @@ export const closeCommand = new Command("close")
   .option("--jsonl", "Force structured output")
   .option("--no-jsonl", "Force human-readable output")
   .addOption(new Option("--json").hideHelp())
+  .option("--debug", "Enable debug logging")
+  .option("--no-color", "Disable color output")
   .action(closeAction);
