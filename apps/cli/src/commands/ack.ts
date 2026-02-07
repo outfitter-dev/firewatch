@@ -1,5 +1,4 @@
 import {
-  GitHubClient,
   addAck,
   addAcks,
   batchAddReactions,
@@ -7,7 +6,6 @@ import {
   buildShortIdCache,
   classifyId,
   deduplicateByCommentId,
-  detectAuth,
   formatDisplayId,
   generateShortId,
   getAckedIds,
@@ -269,8 +267,8 @@ async function handleAck(
     return;
   }
 
-  const auth = await detectAuth(config.github_token);
-  const client = auth.isOk() ? new GitHubClient(auth.value.token) : null;
+  const authResult = await tryCreateClient(config.github_token);
+  const client = authResult?.client ?? null;
 
   let reactionAdded = false;
   if (client) {
@@ -304,7 +302,7 @@ async function handleAck(
         gh_id: entry.id,
         acked: true,
         reaction_added: reactionAdded,
-        ...(auth.isErr() ? { warning: auth.error.message } : {}),
+        ...(authResult ? {} : { warning: "No GitHub token; stored locally only" }),
       },
       "jsonl"
     );
@@ -312,7 +310,7 @@ async function handleAck(
   }
 
   const reactionMsg = reactionAdded ? " (reaction added)" : "";
-  if (auth.isErr()) {
+  if (!authResult) {
     console.log(
       `Acknowledged [${shortId}]${reactionMsg}. No GitHub token; stored locally only.`
     );
