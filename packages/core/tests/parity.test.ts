@@ -302,7 +302,10 @@ describe("compareParityData", () => {
   });
 
   test("preserves repo and filters in result", () => {
-    const filters: ParityFilterOptions = { type: "review_comment", unresolved: true };
+    const filters: ParityFilterOptions = {
+      type: "review_comment",
+      unresolved: true,
+    };
     const result = compareParityData(
       "outfitter-dev/firewatch",
       emptyData(),

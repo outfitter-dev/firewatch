@@ -168,7 +168,11 @@ async function handleView(ids: string[], options: ViewOptions): Promise<void> {
     let resolved = resolveViewId(id, ctx.repo);
 
     // Try async resolution for unresolved short IDs
-    if (resolved?.type === "comment" && !resolved.commentId && resolved.shortId) {
+    if (
+      resolved?.type === "comment" &&
+      !resolved.commentId &&
+      resolved.shortId
+    ) {
       const fullId = await resolveShortIdAsync(resolved.shortId, ctx.repo);
       if (fullId) {
         resolved.commentId = fullId;

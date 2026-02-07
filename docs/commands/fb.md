@@ -12,31 +12,31 @@ fw fb [id] [body] [options]
 
 The command behavior depends on the arguments provided:
 
-| Arguments        | Action                       |
-| ---------------- | ---------------------------- |
-| _(none)_         | List unaddressed feedback    |
-| `<pr>`           | List feedback on specific PR |
-| `<pr> <body>`    | Add comment to PR            |
-| `<id>`           | View comment details         |
-| `<id> <body>`    | Reply to comment             |
-| `<id> --ack`     | Acknowledge feedback         |
-| `<id> --resolve` | Resolve review thread        |
-| `<pr> --ack`     | Bulk acknowledge PR feedback |
+| Arguments        | Action                          |
+| ---------------- | ------------------------------- |
+| _(none)_         | List unaddressed feedback       |
+| `<pr>`           | List feedback on specific PR    |
+| `<pr> <body>`    | Add comment to PR               |
+| `<id>`           | View comment details            |
+| `<id> <body>`    | Reply to comment                |
+| `<id> --ack`     | Acknowledge feedback            |
+| `<id> --resolve` | Resolve review thread           |
+| `<pr> --ack`     | Bulk acknowledge PR feedback    |
 | `--current`      | Feedback on current branch's PR |
 | `--stack`        | Feedback on current stack's PRs |
 
 ## Options
 
-| Option               | Description                              |
-| -------------------- | ---------------------------------------- |
-| `--repo <name>`      | Repository (`owner/repo` format)         |
-| `-c, --current`      | Target current git branch's PR           |
-| `-s, --stack [dir]`  | Filter to current stack (all/up/down)    |
-| `--all`              | Show all feedback including resolved     |
-| `--ack`              | Acknowledge feedback (👍 + local record) |
-| `--resolve`          | Resolve thread (or resolve after reply)  |
-| `--json`             | Force JSON output                        |
-| `--no-json`          | Force human-readable output              |
+| Option              | Description                              |
+| ------------------- | ---------------------------------------- |
+| `--repo <name>`     | Repository (`owner/repo` format)         |
+| `-c, --current`     | Target current git branch's PR           |
+| `-s, --stack [dir]` | Filter to current stack (all/up/down)    |
+| `--all`             | Show all feedback including resolved     |
+| `--ack`             | Acknowledge feedback (👍 + local record) |
+| `--resolve`         | Resolve thread (or resolve after reply)  |
+| `--json`            | Force JSON output                        |
+| `--no-json`         | Force human-readable output              |
 
 ## Short IDs
 
@@ -180,11 +180,11 @@ The `--stack` flag enables stack-aware feedback queries for Graphite users. It d
 
 ### Stack Directions
 
-| Direction | PRs Included                                |
-| --------- | ------------------------------------------- |
-| `all`     | All PRs in the stack (default)              |
-| `down`    | Current PR + ancestors (toward trunk)       |
-| `up`      | Current PR + descendants (toward tip)       |
+| Direction | PRs Included                          |
+| --------- | ------------------------------------- |
+| `all`     | All PRs in the stack (default)        |
+| `down`    | Current PR + ancestors (toward trunk) |
+| `up`      | Current PR + descendants (toward tip) |
 
 ### Requirements
 

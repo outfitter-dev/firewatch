@@ -167,13 +167,13 @@ fw --orphaned --since 7d
 
 ### CLI to MCP Translation
 
-| CLI | MCP |
-|-----|-----|
-| `fw --summary` | `{"summary": true}` |
-| `fw --mine` | `{"mine": true}` |
-| `fw --reviews` | `{"reviews": true}` |
-| `fw fb` | `{}` (to fw_fb) |
-| `fw fb 123` | `{"pr": 123}` |
+| CLI             | MCP                  |
+| --------------- | -------------------- |
+| `fw --summary`  | `{"summary": true}`  |
+| `fw --mine`     | `{"mine": true}`     |
+| `fw --reviews`  | `{"reviews": true}`  |
+| `fw fb`         | `{}` (to fw_fb)      |
+| `fw fb 123`     | `{"pr": 123}`        |
 | `fw --orphaned` | `{"orphaned": true}` |
 
 ### MCP Examples
@@ -201,22 +201,27 @@ Present triage findings in this format:
 
 ```markdown
 ## Needs Immediate Attention (P0)
+
 - PR #123: Changes requested by @reviewer (2h ago)
   - 3 unaddressed comments
 - PR #456: CI failing - `test:unit` job
 
 ## Ready to Merge (P1)
+
 - PR #789: Approved by @alice, all checks passing
 - PR #101: Approved, waiting for CI
 
 ## Review Requests (P1)
+
 - PR #202: @bob requested your review (6h ago)
 
 ## Stale (3+ days)
+
 - PR #303: Last activity 5 days ago
   - Awaiting response from @charlie
 
 ## Stack Issues
+
 - Stack `feature/auth`:
   - PR #401 (position 1): Changes requested - blocking stack
   - PR #402 (position 2): Approved but blocked by #401

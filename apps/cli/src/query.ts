@@ -245,9 +245,7 @@ export function applyClientSideFilters(
       );
     }
     filtered = filtered.filter((entry) =>
-      options.mine
-        ? entry.pr_author === username
-        : entry.pr_author !== username
+      options.mine ? entry.pr_author === username : entry.pr_author !== username
     );
   }
 

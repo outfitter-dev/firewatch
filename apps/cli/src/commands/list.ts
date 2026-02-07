@@ -29,6 +29,7 @@ import {
   identifyUnaddressedFeedback,
   type UnaddressedFeedback,
 } from "../actionable";
+import { applyCommonOptions } from "../query-helpers";
 import {
   SEPARATOR,
   formatFeedbackItem,
@@ -36,7 +37,6 @@ import {
   s,
   truncate,
 } from "../render";
-import { applyCommonOptions } from "../query-helpers";
 import { parseRepoInput, resolveRepoOrThrow } from "../repo";
 import { outputStructured } from "../utils/json";
 import { resolveStates } from "../utils/states";
@@ -162,10 +162,7 @@ function applyTimeFilters(
 // Output formatting
 // ─────────────────────────────────────────────────────────────────────────────
 
-function formatFeedbackItemLine(
-  fb: UnaddressedFeedback,
-  repo: string
-): string {
+function formatFeedbackItemLine(fb: UnaddressedFeedback, repo: string): string {
   const shortId = generateShortId(fb.comment_id, repo);
   const location = fb.file ? `${fb.file}:${fb.line ?? "?"}` : "(comment)";
   const bodyPreview = fb.body
@@ -556,7 +553,8 @@ async function handleListPrs(options: ListPrsOptions): Promise<void> {
 
   // Sort by most recently updated
   prs.sort(
-    (a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+    (a, b) =>
+      new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
   );
 
   if (ctx.outputJson) {
@@ -624,10 +622,7 @@ const feedbackSubcommand = new Command("feedback")
   .option("--open", "Only open PRs")
   .option("--closed", "Only closed PRs")
   .option("--state <states>", "Explicit state filter (comma-separated)")
-  .option(
-    "--stale",
-    "Include unresolved review comments on merged/closed PRs"
-  )
+  .option("--stale", "Include unresolved review comments on merged/closed PRs")
   .option("--long", "Detailed output")
   .option("--jsonl", "Force JSONL output")
   .option("--no-jsonl", "Force human-readable output")
@@ -644,10 +639,7 @@ const prsSubcommand = new Command("prs")
   .option("--open", "Open PRs (default)")
   .option("--closed", "Closed/merged PRs")
   .option("--draft", "Draft PRs")
-  .option(
-    "--stale",
-    "Include unresolved review comments on merged/closed PRs"
-  )
+  .option("--stale", "Include unresolved review comments on merged/closed PRs")
   .option("--label <name>", "Filter by label (partial match)")
   .option("--since <duration>", "PRs updated within duration")
   .option("--jsonl", "Force JSONL output")
@@ -668,10 +660,7 @@ export const listCommand = new Command("list")
   .option("--open", "Only open PRs")
   .option("--closed", "Only closed PRs")
   .option("--state <states>", "Explicit state filter (comma-separated)")
-  .option(
-    "--stale",
-    "Include unresolved review comments on merged/closed PRs"
-  )
+  .option("--stale", "Include unresolved review comments on merged/closed PRs")
   .option("--long", "Detailed output")
   .option("--jsonl", "Force JSONL output")
   .option("--no-jsonl", "Force human-readable output")

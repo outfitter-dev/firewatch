@@ -112,10 +112,7 @@ export function formatPrLine(
  *
  * Output: `│     coderabbitai (3), greptile-apps (1)`
  */
-export function formatDetailLine(
-  detail: string,
-  isLastPr: boolean
-): string {
+export function formatDetailLine(detail: string, isLastPr: boolean): string {
   const prefix = isLastPr ? "   " : `  ${BOX.pipe}`;
   // Format authors with @ prefix
   const formatted = detail.replaceAll(
@@ -251,8 +248,5 @@ export function formatPrFeedbackHeader(
   width = 50
 ): string[] {
   const truncatedTitle = truncate(title, width - 10);
-  return [
-    `\nPR #${pr}: ${truncatedTitle}`,
-    SEPARATOR.tertiary.repeat(width),
-  ];
+  return [`\nPR #${pr}: ${truncatedTitle}`, SEPARATOR.tertiary.repeat(width)];
 }

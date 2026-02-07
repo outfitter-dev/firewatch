@@ -174,11 +174,18 @@ async function addPrComment(
   body: string,
   replyTo?: { shortId: string; ghId: string }
 ): Promise<void> {
-  const prIdResult = await ctx.client.fetchPullRequestId(ctx.owner, ctx.name, pr);
+  const prIdResult = await ctx.client.fetchPullRequestId(
+    ctx.owner,
+    ctx.name,
+    pr
+  );
   if (prIdResult.isErr()) {
     throw prIdResult.error;
   }
-  const commentResult = await ctx.client.addIssueComment(prIdResult.value, body);
+  const commentResult = await ctx.client.addIssueComment(
+    prIdResult.value,
+    body
+  );
   if (commentResult.isErr()) {
     throw commentResult.error;
   }

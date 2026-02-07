@@ -31,7 +31,10 @@ await mkdir(paths.config, { recursive: true });
 await mkdir(paths.data, { recursive: true });
 
 // Create config to disable auto-sync (no network calls in tests)
-await writeFile(join(paths.config, "config.toml"), "[sync]\nauto_sync = false\n");
+await writeFile(
+  join(paths.config, "config.toml"),
+  "[sync]\nauto_sync = false\n"
+);
 
 const repo = "outfitter-dev/firewatch";
 const dbPath = join(paths.cache, "firewatch.db");
@@ -96,13 +99,7 @@ const xdgDataHome =
 
 test("cli smoke runs root command against cached data", async () => {
   const proc = Bun.spawn({
-    cmd: [
-      process.execPath,
-      "apps/cli/bin/fw.ts",
-      "--repo",
-      repo,
-      "--summary",
-    ],
+    cmd: [process.execPath, "apps/cli/bin/fw.ts", "--repo", repo, "--summary"],
     cwd: process.cwd(),
     env: {
       ...process.env,

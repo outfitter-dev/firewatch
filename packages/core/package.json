@@ -3,9 +3,6 @@
   "version": "0.2.0",
   "description": "Core library for Firewatch - GitHub PR activity logger",
   "type": "module",
-  "publishConfig": {
-    "access": "public"
-  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -19,6 +16,9 @@
       "types": "./dist/plugins/index.d.ts",
       "import": "./dist/plugins/index.js"
     }
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "build": "bunx tsc -p tsconfig.json",

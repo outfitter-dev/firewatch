@@ -21,10 +21,10 @@ export {
 
 // Auth
 export {
-	detectAuth,
-	type AuthInfo,
-	type AuthResult,
-	type AuthSource,
+  detectAuth,
+  type AuthInfo,
+  type AuthResult,
+  type AuthSource,
 } from "./auth";
 
 // Cache

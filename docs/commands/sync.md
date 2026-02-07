@@ -16,16 +16,16 @@ fw sync [repo] [options]
 
 ## Options
 
-| Option        | Description                               |
-| ------------- | ----------------------------------------- |
-| `--clear`     | Clear cache before syncing                |
-| `--full`      | Full sync (ignore cursors)                |
-| `--open`      | Sync open PRs only                         |
-| `--closed`    | Sync closed + merged PRs only              |
-| `--dry-run`   | Show what would be synced                 |
-| `--quiet`     | Suppress progress output                  |
-| `--jsonl`     | Force JSONL output                        |
-| `--no-jsonl`  | Force human-readable output               |
+| Option       | Description                   |
+| ------------ | ----------------------------- |
+| `--clear`    | Clear cache before syncing    |
+| `--full`     | Full sync (ignore cursors)    |
+| `--open`     | Sync open PRs only            |
+| `--closed`   | Sync closed + merged PRs only |
+| `--dry-run`  | Show what would be synced     |
+| `--quiet`    | Suppress progress output      |
+| `--jsonl`    | Force JSONL output            |
+| `--no-jsonl` | Force human-readable output   |
 
 ## Examples
 

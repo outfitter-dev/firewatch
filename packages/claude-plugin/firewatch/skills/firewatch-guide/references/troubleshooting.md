@@ -4,12 +4,12 @@ Quick reference for diagnosing and resolving common Firewatch issues.
 
 ## Diagnostic Commands
 
-| Command | Purpose |
-|---------|---------|
-| `fw doctor` | Diagnose auth, cache, repo issues |
-| `fw doctor --fix` | Auto-repair common problems |
-| `fw status` | Show auth, cache, config state |
-| `fw status --short` | Compact status output |
+| Command             | Purpose                           |
+| ------------------- | --------------------------------- |
+| `fw doctor`         | Diagnose auth, cache, repo issues |
+| `fw doctor --fix`   | Auto-repair common problems       |
+| `fw status`         | Show auth, cache, config state    |
+| `fw status --short` | Compact status output             |
 
 ## Setup Checklist
 
@@ -27,6 +27,7 @@ fw --since 7d
 ```
 
 Expected output from `fw doctor`:
+
 - Auth: OK (shows auth method)
 - Cache: OK (shows path, writable)
 - Repo: OK (shows detected owner/repo)
@@ -67,6 +68,7 @@ fw config set token ghp_xxxxxxxxxxxx
 ```
 
 Required token scopes:
+
 - `repo` - Full repository access
 - `read:org` - Read org membership (for private repos)
 
@@ -75,6 +77,7 @@ Required token scopes:
 ### Cache Location
 
 Default XDG-compliant paths:
+
 - **macOS**: `~/.cache/firewatch/`
 - **Linux**: `~/.cache/firewatch/`
 - **Windows**: `%LOCALAPPDATA%/firewatch/Cache/`
@@ -146,6 +149,7 @@ fw query --repo owner/repo
 ### Common Detection Problems
 
 **"No repository detected"**
+
 - Not in a git repository
 - No remote named `origin`
 - Remote URL format not recognized
@@ -176,6 +180,7 @@ gt auth status
 ### Stack Detection Issues
 
 Graphite stack metadata requires:
+
 - `gt` CLI installed and authenticated
 - Repository initialized with Graphite (`gt init`)
 - Branches tracked by Graphite
@@ -204,6 +209,7 @@ fw query --no-graphite
 **Cause**: Not in a git repo or no recognizable remote.
 
 **Fix**:
+
 ```bash
 # Navigate to repo directory
 cd /path/to/repo
@@ -217,6 +223,7 @@ fw --repo owner/repo query
 **Cause**: Invalid or expired token, missing scopes.
 
 **Fix**:
+
 ```bash
 # Re-authenticate with gh CLI
 gh auth login
@@ -231,6 +238,7 @@ gh auth refresh
 **Cause**: Too many API requests.
 
 **Fix**:
+
 ```bash
 # Check rate limit status
 gh api rate_limit
@@ -245,6 +253,7 @@ gh auth status
 **Cause**: Permission issues or disk full.
 
 **Fix**:
+
 ```bash
 # Check disk space
 df -h ~/.cache
@@ -261,6 +270,7 @@ rm -rf ~/.cache/firewatch/
 **Cause**: API error, often due to large queries or invalid parameters.
 
 **Fix**:
+
 ```bash
 # Try with smaller time window
 fw --since 24h
@@ -288,6 +298,7 @@ MCP write operations (add, edit, close, rm) require authentication.
 **Symptoms**: Tools return "auth required" or "read-only mode".
 
 **Fix**:
+
 ```bash
 # Ensure auth is configured before starting MCP
 fw doctor

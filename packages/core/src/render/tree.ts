@@ -47,7 +47,8 @@ export function renderCategory(
   items: TreeNode[],
   hasItems = true
 ): string[] {
-  const marker = hasItems && items.length > 0 ? STATUS.diamond : STATUS.diamondEmpty;
+  const marker =
+    hasItems && items.length > 0 ? STATUS.diamond : STATUS.diamondEmpty;
   const lines: string[] = [`${marker} ${label} (${count})`];
 
   if (items.length > 0) {
@@ -84,8 +85,12 @@ export function renderHeader(
 
   // Use viewport width if available, otherwise specified width, otherwise header length
   const width =
-    options?.viewport?.width ?? options?.width ?? Math.max(headerText.length, 50);
-  const separator = separatorChar.repeat(Math.min(width, headerText.length + 10));
+    options?.viewport?.width ??
+    options?.width ??
+    Math.max(headerText.length, 50);
+  const separator = separatorChar.repeat(
+    Math.min(width, headerText.length + 10)
+  );
 
   return [headerText, separator];
 }

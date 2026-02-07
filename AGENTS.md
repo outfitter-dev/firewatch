@@ -147,19 +147,19 @@ The MCP server (`apps/mcp/`) exposes 6 tools with auth-gated write operations.
 
 **Base tools (always available):**
 
-| Tool        | Description                                           |
-| ----------- | ----------------------------------------------------- |
-| `fw_query`  | Query cached PR activity (supports summary, filters)  |
-| `fw_status` | Cache and auth status (`short` for compact)           |
-| `fw_doctor` | Diagnose auth/cache/repo issues (`fix` to auto-repair)|
-| `fw_help`   | Usage docs, JSON schemas, config inspection           |
+| Tool        | Description                                            |
+| ----------- | ------------------------------------------------------ |
+| `fw_query`  | Query cached PR activity (supports summary, filters)   |
+| `fw_status` | Cache and auth status (`short` for compact)            |
+| `fw_doctor` | Diagnose auth/cache/repo issues (`fix` to auto-repair) |
+| `fw_help`   | Usage docs, JSON schemas, config inspection            |
 
 **Write tools (require authentication):**
 
-| Tool    | Description                                               |
-| ------- | --------------------------------------------------------- |
-| `fw_pr` | PR mutations: edit fields, manage metadata, submit reviews|
-| `fw_fb` | Unified feedback: list, view, reply, ack, resolve         |
+| Tool    | Description                                                |
+| ------- | ---------------------------------------------------------- |
+| `fw_pr` | PR mutations: edit fields, manage metadata, submit reviews |
+| `fw_fb` | Unified feedback: list, view, reply, ack, resolve          |
 
 **Example calls:**
 

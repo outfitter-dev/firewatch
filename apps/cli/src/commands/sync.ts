@@ -104,10 +104,7 @@ function resolveSyncScopes(options: SyncCommandOptions): SyncScope[] {
 /**
  * Handle cache clearing if requested.
  */
-function handleClear(
-  ctx: SyncContext,
-  options: SyncCommandOptions
-): void {
+function handleClear(ctx: SyncContext, options: SyncCommandOptions): void {
   if (!options.clear) {
     return;
   }
@@ -129,10 +126,7 @@ function handleClear(
  * Handle dry-run output.
  * Returns true if this is a dry-run (caller should return early).
  */
-function handleDryRun(
-  ctx: SyncContext,
-  options: SyncCommandOptions
-): boolean {
+function handleDryRun(ctx: SyncContext, options: SyncCommandOptions): boolean {
   if (!options.dryRun) {
     return false;
   }
@@ -145,7 +139,9 @@ function handleDryRun(
       `Would sync ${ctx.repo} (${ctx.scope}, ${mode} from ${lastSyncDate}, ${meta.pr_count ?? 0} PRs cached)`
     );
   } else {
-    console.log(`Would sync ${ctx.repo} (${ctx.scope}, full, no previous sync)`);
+    console.log(
+      `Would sync ${ctx.repo} (${ctx.scope}, full, no previous sync)`
+    );
   }
   return true;
 }
@@ -258,7 +254,14 @@ async function handleSync(
   const plugins = useGraphite ? [graphitePlugin] : [];
 
   for (const scope of scopes) {
-    const ctx: SyncContext = { config, repo, db, outputJson, isFullSync, scope };
+    const ctx: SyncContext = {
+      config,
+      repo,
+      db,
+      outputJson,
+      isFullSync,
+      scope,
+    };
     const startTime = Date.now();
     const spinner = createSpinner(ctx, options);
 

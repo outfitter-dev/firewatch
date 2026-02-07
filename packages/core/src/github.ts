@@ -4,11 +4,7 @@
  * Uses native fetch for minimal dependencies.
  */
 
-import {
-  Result,
-  NetworkError,
-  NotFoundError,
-} from "@outfitter/contracts";
+import { Result, NetworkError, NotFoundError } from "@outfitter/contracts";
 
 const GITHUB_GRAPHQL_ENDPOINT = "https://api.github.com/graphql";
 const GITHUB_REST_ENDPOINT = "https://api.github.com";
@@ -623,7 +619,7 @@ export class GitHubClient {
 
       if (response.status === 204) {
         // For void responses (DELETE, some POST operations)
-        return Result.ok() as Result<T, NetworkError>;
+        return Result.ok(undefined as unknown as T);
       }
 
       const json = (await response.json()) as T;
@@ -663,7 +659,9 @@ export class GitHubClient {
       states,
     });
 
-    if (response.isErr()) {return response;}
+    if (response.isErr()) {
+      return response;
+    }
     return GitHubClient.unwrap(response.value);
   }
 
@@ -684,10 +682,14 @@ export class GitHubClient {
         { ids: chunk }
       );
 
-      if (response.isErr()) {return Result.err(response.error);}
+      if (response.isErr()) {
+        return Result.err(response.error);
+      }
 
       const data = GitHubClient.unwrap(response.value);
-      if (data.isErr()) {return data;}
+      if (data.isErr()) {
+        return data;
+      }
 
       for (const node of data.value.nodes) {
         if (!node?.id || !node.reactions) {
@@ -722,10 +724,14 @@ export class GitHubClient {
       number,
     });
 
-    if (response.isErr()) {return response;}
+    if (response.isErr()) {
+      return response;
+    }
 
     const data = GitHubClient.unwrap(response.value);
-    if (data.isErr()) {return data;}
+    if (data.isErr()) {
+      return data;
+    }
 
     const prId = data.value.repository?.pullRequest?.id;
     if (!prId) {
@@ -750,20 +756,27 @@ export class GitHubClient {
     let hasNextPage = true;
 
     while (hasNextPage) {
-      const response: Result<GraphQLResponse<ReviewThreadsData>, NetworkError> =
-        await this.query<ReviewThreadsData>(REVIEW_THREADS_QUERY, {
-          owner,
-          repo,
-          number,
-          first: 50,
-          after,
-        });
+      const response: Result<
+        GraphQLResponse<ReviewThreadsData>,
+        NetworkError
+      > = await this.query<ReviewThreadsData>(REVIEW_THREADS_QUERY, {
+        owner,
+        repo,
+        number,
+        first: 50,
+        after,
+      });
 
-      if (response.isErr()) {return Result.err(response.error);}
+      if (response.isErr()) {
+        return Result.err(response.error);
+      }
 
-      const data: Result<ReviewThreadsData, NetworkError> =
-        GitHubClient.unwrap(response.value);
-      if (data.isErr()) {return data;}
+      const data: Result<ReviewThreadsData, NetworkError> = GitHubClient.unwrap(
+        response.value
+      );
+      if (data.isErr()) {
+        return data;
+      }
 
       const threads:
         | {
@@ -806,10 +819,14 @@ export class GitHubClient {
             }
           );
 
-          if (commentResponse.isErr()) {return Result.err(commentResponse.error);}
+          if (commentResponse.isErr()) {
+            return Result.err(commentResponse.error);
+          }
 
           const commentData = GitHubClient.unwrap(commentResponse.value);
-          if (commentData.isErr()) {return commentData;}
+          if (commentData.isErr()) {
+            return commentData;
+          }
 
           const comments = commentData.value.node?.comments;
           if (!comments) {
@@ -843,10 +860,14 @@ export class GitHubClient {
       body,
     });
 
-    if (response.isErr()) {return response;}
+    if (response.isErr()) {
+      return response;
+    }
 
     const data = GitHubClient.unwrap(response.value);
-    if (data.isErr()) {return data;}
+    if (data.isErr()) {
+      return data;
+    }
 
     const node = data.value.addComment?.commentEdge?.node;
     if (!node) {
@@ -876,10 +897,14 @@ export class GitHubClient {
       }
     );
 
-    if (response.isErr()) {return response;}
+    if (response.isErr()) {
+      return response;
+    }
 
     const data = GitHubClient.unwrap(response.value);
-    if (data.isErr()) {return data;}
+    if (data.isErr()) {
+      return data;
+    }
 
     const comment = data.value.addPullRequestReviewThreadReply?.comment;
     if (!comment) {
@@ -906,10 +931,14 @@ export class GitHubClient {
       { threadId }
     );
 
-    if (response.isErr()) {return response;}
+    if (response.isErr()) {
+      return response;
+    }
 
     const data = GitHubClient.unwrap(response.value);
-    if (data.isErr()) {return data;}
+    if (data.isErr()) {
+      return data;
+    }
 
     if (!data.value.resolveReviewThread?.thread?.id) {
       return Result.err(
@@ -928,10 +957,14 @@ export class GitHubClient {
   > {
     const response = await this.query<ViewerData>(VIEWER_QUERY, {});
 
-    if (response.isErr()) {return response;}
+    if (response.isErr()) {
+      return response;
+    }
 
     const data = GitHubClient.unwrap(response.value);
-    if (data.isErr()) {return data;}
+    if (data.isErr()) {
+      return data;
+    }
 
     const login = data.value.viewer?.login;
     if (!login) {
@@ -954,10 +987,14 @@ export class GitHubClient {
       { pullRequestId }
     );
 
-    if (response.isErr()) {return response;}
+    if (response.isErr()) {
+      return response;
+    }
 
     const data = GitHubClient.unwrap(response.value);
-    if (data.isErr()) {return data;}
+    if (data.isErr()) {
+      return data;
+    }
 
     if (!data.value.convertPullRequestToDraft?.pullRequest?.id) {
       return Result.err(
@@ -979,10 +1016,14 @@ export class GitHubClient {
       { pullRequestId }
     );
 
-    if (response.isErr()) {return response;}
+    if (response.isErr()) {
+      return response;
+    }
 
     const data = GitHubClient.unwrap(response.value);
-    if (data.isErr()) {return data;}
+    if (data.isErr()) {
+      return data;
+    }
 
     if (!data.value.markPullRequestReadyForReview?.pullRequest?.id) {
       return Result.err(
@@ -1003,10 +1044,14 @@ export class GitHubClient {
       pullRequestId,
     });
 
-    if (response.isErr()) {return response;}
+    if (response.isErr()) {
+      return response;
+    }
 
     const data = GitHubClient.unwrap(response.value);
-    if (data.isErr()) {return data;}
+    if (data.isErr()) {
+      return data;
+    }
 
     if (!data.value.closePullRequest?.pullRequest?.id) {
       return Result.err(
@@ -1033,7 +1078,9 @@ export class GitHubClient {
         body: { labels },
       }
     );
-    if (result.isErr()) {return result;}
+    if (result.isErr()) {
+      return result;
+    }
     return Result.ok();
   }
 
@@ -1048,7 +1095,9 @@ export class GitHubClient {
         `/repos/${owner}/${repo}/issues/${prNumber}/labels/${encodeURIComponent(label)}`,
         { method: "DELETE" }
       );
-      if (result.isErr()) {return result;}
+      if (result.isErr()) {
+        return result;
+      }
     }
     return Result.ok();
   }
@@ -1066,7 +1115,9 @@ export class GitHubClient {
         body: { assignees },
       }
     );
-    if (result.isErr()) {return result;}
+    if (result.isErr()) {
+      return result;
+    }
     return Result.ok();
   }
 
@@ -1083,7 +1134,9 @@ export class GitHubClient {
         body: { assignees },
       }
     );
-    if (result.isErr()) {return result;}
+    if (result.isErr()) {
+      return result;
+    }
     return Result.ok();
   }
 
@@ -1100,7 +1153,9 @@ export class GitHubClient {
         body: { reviewers },
       }
     );
-    if (result.isErr()) {return result;}
+    if (result.isErr()) {
+      return result;
+    }
     return Result.ok();
   }
 
@@ -1117,7 +1172,9 @@ export class GitHubClient {
         body: { reviewers },
       }
     );
-    if (result.isErr()) {return result;}
+    if (result.isErr()) {
+      return result;
+    }
     return Result.ok();
   }
 
@@ -1144,7 +1201,9 @@ export class GitHubClient {
       },
     });
 
-    if (result.isErr()) {return result;}
+    if (result.isErr()) {
+      return result;
+    }
 
     const response = result.value;
     if (!response) {
@@ -1170,7 +1229,9 @@ export class GitHubClient {
         body: updates,
       }
     );
-    if (result.isErr()) {return result;}
+    if (result.isErr()) {
+      return result;
+    }
     return Result.ok();
   }
 
@@ -1186,7 +1247,9 @@ export class GitHubClient {
         { method: "GET" }
       );
 
-      if (result.isErr()) {return result;}
+      if (result.isErr()) {
+        return result;
+      }
 
       const milestones = result.value;
       if (!milestones || milestones.length === 0) {
@@ -1220,7 +1283,9 @@ export class GitHubClient {
       repo,
       name
     );
-    if (milestoneResult.isErr()) {return milestoneResult;}
+    if (milestoneResult.isErr()) {
+      return milestoneResult;
+    }
 
     const result = await this.rest(
       `/repos/${owner}/${repo}/issues/${prNumber}`,
@@ -1229,7 +1294,9 @@ export class GitHubClient {
         body: { milestone: milestoneResult.value },
       }
     );
-    if (result.isErr()) {return result;}
+    if (result.isErr()) {
+      return result;
+    }
     return Result.ok();
   }
 
@@ -1245,7 +1312,9 @@ export class GitHubClient {
         body: { milestone: null },
       }
     );
-    if (result.isErr()) {return result;}
+    if (result.isErr()) {
+      return result;
+    }
     return Result.ok();
   }
 
@@ -1299,10 +1368,14 @@ export class GitHubClient {
       content,
     });
 
-    if (response.isErr()) {return response;}
+    if (response.isErr()) {
+      return response;
+    }
 
     const data = GitHubClient.unwrap(response.value);
-    if (data.isErr()) {return data;}
+    if (data.isErr()) {
+      return data;
+    }
 
     const reaction = data.value.addReaction?.reaction;
     if (!reaction) {
@@ -1341,7 +1414,9 @@ export class GitHubClient {
         body: { body },
       }
     );
-    if (result.isErr()) {return result;}
+    if (result.isErr()) {
+      return result;
+    }
     if (!result.value) {
       return Result.err(
         new NotFoundError({
@@ -1377,7 +1452,9 @@ export class GitHubClient {
         body: { body },
       }
     );
-    if (result.isErr()) {return result;}
+    if (result.isErr()) {
+      return result;
+    }
     if (!result.value) {
       return Result.err(
         new NotFoundError({
@@ -1408,7 +1485,9 @@ export class GitHubClient {
         method: "DELETE",
       }
     );
-    if (result.isErr()) {return result;}
+    if (result.isErr()) {
+      return result;
+    }
     return Result.ok();
   }
 
@@ -1430,7 +1509,9 @@ export class GitHubClient {
         method: "DELETE",
       }
     );
-    if (result.isErr()) {return result;}
+    if (result.isErr()) {
+      return result;
+    }
     return Result.ok();
   }
 }

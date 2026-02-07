@@ -179,7 +179,8 @@ export function getFreezeInfo(
  * @returns Array of freeze info for all frozen PRs
  */
 export function getFrozenPRs(db: Database, repo?: string): FreezeInfo[] {
-  let query = "SELECT repo, number, frozen_at FROM prs WHERE frozen_at IS NOT NULL";
+  let query =
+    "SELECT repo, number, frozen_at FROM prs WHERE frozen_at IS NOT NULL";
   const params: Record<string, unknown> = {};
 
   if (repo) {

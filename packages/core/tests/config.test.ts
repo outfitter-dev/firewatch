@@ -1,4 +1,11 @@
-import { afterAll, afterEach, beforeEach, describe, expect, test } from "bun:test";
+import {
+  afterAll,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  test,
+} from "bun:test";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -218,10 +225,7 @@ describe("environment variable overrides", () => {
     const config = await loadConfig({ cwd: tempRoot });
 
     expect(config.repos).toEqual(["org/repo1", "org/repo2", "org/repo3"]);
-    expect(config.filters?.exclude_authors).toEqual([
-      "dependabot",
-      "renovate",
-    ]);
+    expect(config.filters?.exclude_authors).toEqual(["dependabot", "renovate"]);
     expect(config.filters?.bot_patterns).toEqual([
       String.raw`\[bot\]`,
       "autofix",

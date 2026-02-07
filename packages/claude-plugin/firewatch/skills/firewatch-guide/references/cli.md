@@ -4,12 +4,12 @@ Complete reference for the `fw` command-line tool.
 
 ## Global Options
 
-| Flag | Description |
-|------|-------------|
-| `--jsonl` | Force JSONL output |
+| Flag         | Description                 |
+| ------------ | --------------------------- |
+| `--jsonl`    | Force JSONL output          |
 | `--no-jsonl` | Force human-readable output |
-| `--debug` | Enable debug logging |
-| `--no-color` | Disable color output |
+| `--debug`    | Enable debug logging        |
+| `--no-color` | Disable color output        |
 
 ---
 
@@ -19,38 +19,38 @@ The base `fw` command queries cached PR activity.
 
 ### Filtering Options
 
-| Flag | Description |
-|------|-------------|
-| `--pr [numbers]` | Filter to specific PR(s) |
-| `--repo <name>` | Filter to specific repository |
-| `-a, --all` | Include all cached repos |
-| `--mine` | Items on PRs assigned to me |
-| `--reviews` | PRs I need to review |
-| `--open` | Filter to open PRs (including drafts) |
-| `--ready` | Filter to ready PRs (open, non-draft) |
-| `--closed` | Include merged and closed PRs |
-| `--draft` | Filter to draft PRs |
-| `--orphaned` | Unresolved comments on merged/closed PRs |
-| `--state <states>` | Explicit comma-separated PR states |
-| `--type <types>` | Filter by entry type (comment, review, commit, ci, event) |
-| `--label <name>` | Filter by PR label (partial match) |
-| `--author <list>` | Filter by author(s), prefix `!` to exclude |
-| `--no-bots` | Exclude bot activity |
-| `-s, --since <dur>` | Filter by time window (e.g., `24h`, `7d`, `2w`) |
+| Flag                | Description                                               |
+| ------------------- | --------------------------------------------------------- |
+| `--pr [numbers]`    | Filter to specific PR(s)                                  |
+| `--repo <name>`     | Filter to specific repository                             |
+| `-a, --all`         | Include all cached repos                                  |
+| `--mine`            | Items on PRs assigned to me                               |
+| `--reviews`         | PRs I need to review                                      |
+| `--open`            | Filter to open PRs (including drafts)                     |
+| `--ready`           | Filter to ready PRs (open, non-draft)                     |
+| `--closed`          | Include merged and closed PRs                             |
+| `--draft`           | Filter to draft PRs                                       |
+| `--orphaned`        | Unresolved comments on merged/closed PRs                  |
+| `--state <states>`  | Explicit comma-separated PR states                        |
+| `--type <types>`    | Filter by entry type (comment, review, commit, ci, event) |
+| `--label <name>`    | Filter by PR label (partial match)                        |
+| `--author <list>`   | Filter by author(s), prefix `!` to exclude                |
+| `--no-bots`         | Exclude bot activity                                      |
+| `-s, --since <dur>` | Filter by time window (e.g., `24h`, `7d`, `2w`)           |
 
 ### Output Options
 
-| Flag | Description |
-|------|-------------|
-| `--summary` | Aggregate entries into per-PR summary |
-| `-n, --limit <count>` | Limit number of results |
-| `--offset <count>` | Skip first N results |
+| Flag                  | Description                           |
+| --------------------- | ------------------------------------- |
+| `--summary`           | Aggregate entries into per-PR summary |
+| `-n, --limit <count>` | Limit number of results               |
+| `--offset <count>`    | Skip first N results                  |
 
 ### Sync Options
 
-| Flag | Description |
-|------|-------------|
-| `--no-sync` | Use cache only, no network |
+| Flag          | Description                    |
+| ------------- | ------------------------------ |
+| `--no-sync`   | Use cache only, no network     |
 | `--sync-full` | Force a full sync before query |
 
 ### Examples
@@ -93,26 +93,26 @@ Unified interface for viewing, replying to, and resolving feedback.
 fw fb [options] [id] [body]
 ```
 
-| Pattern | Description |
-|---------|-------------|
-| `fw fb` | List all unaddressed feedback (repo-wide) |
-| `fw fb 123` | List unaddressed feedback for PR #123 |
-| `fw fb 123 --all` | List all feedback for PR including resolved |
-| `fw fb @a7f3c` | View comment by short ID |
-| `fw fb @a7f3c "text"` | Reply to comment |
-| `fw fb @a7f3c --resolve` | Resolve thread (review comments only) |
-| `fw fb @a7f3c "text" --resolve` | Reply and resolve |
-| `fw fb @a7f3c --ack` | Acknowledge with thumbs-up |
-| `fw fb 123 --ack` | Bulk acknowledge all feedback on PR |
+| Pattern                         | Description                                 |
+| ------------------------------- | ------------------------------------------- |
+| `fw fb`                         | List all unaddressed feedback (repo-wide)   |
+| `fw fb 123`                     | List unaddressed feedback for PR #123       |
+| `fw fb 123 --all`               | List all feedback for PR including resolved |
+| `fw fb @a7f3c`                  | View comment by short ID                    |
+| `fw fb @a7f3c "text"`           | Reply to comment                            |
+| `fw fb @a7f3c --resolve`        | Resolve thread (review comments only)       |
+| `fw fb @a7f3c "text" --resolve` | Reply and resolve                           |
+| `fw fb @a7f3c --ack`            | Acknowledge with thumbs-up                  |
+| `fw fb 123 --ack`               | Bulk acknowledge all feedback on PR         |
 
 ### Options
 
-| Flag | Description |
-|------|-------------|
-| `--repo <name>` | Repository (owner/repo format) |
-| `--all` | Show all feedback including resolved |
-| `--ack` | Acknowledge feedback (thumbs-up + local record) |
-| `--resolve` | Resolve the thread after replying |
+| Flag            | Description                                     |
+| --------------- | ----------------------------------------------- |
+| `--repo <name>` | Repository (owner/repo format)                  |
+| `--all`         | Show all feedback including resolved            |
+| `--ack`         | Acknowledge feedback (thumbs-up + local record) |
+| `--resolve`     | Resolve the thread after replying               |
 
 ### Short IDs
 
@@ -139,20 +139,20 @@ GitHub PR operations aligned with `gh` CLI patterns.
 fw pr edit <pr> [options]
 ```
 
-| Flag | Description |
-|------|-------------|
-| `--title <text>` | Change PR title |
-| `--body <text>` | Change PR description |
-| `--base <branch>` | Change base branch |
-| `--milestone <name>` | Set milestone by name |
-| `--remove-milestone` | Clear milestone |
-| `--draft` | Convert to draft |
-| `--ready` | Mark ready for review |
-| `--add-label <name>` | Add label (repeatable) |
-| `--remove-label <name>` | Remove label (repeatable) |
-| `--add-reviewer <user>` | Add reviewer (repeatable) |
+| Flag                       | Description                  |
+| -------------------------- | ---------------------------- |
+| `--title <text>`           | Change PR title              |
+| `--body <text>`            | Change PR description        |
+| `--base <branch>`          | Change base branch           |
+| `--milestone <name>`       | Set milestone by name        |
+| `--remove-milestone`       | Clear milestone              |
+| `--draft`                  | Convert to draft             |
+| `--ready`                  | Mark ready for review        |
+| `--add-label <name>`       | Add label (repeatable)       |
+| `--remove-label <name>`    | Remove label (repeatable)    |
+| `--add-reviewer <user>`    | Add reviewer (repeatable)    |
 | `--remove-reviewer <user>` | Remove reviewer (repeatable) |
-| `--add-assignee <user>` | Add assignee (repeatable) |
+| `--add-assignee <user>`    | Add assignee (repeatable)    |
 | `--remove-assignee <user>` | Remove assignee (repeatable) |
 
 **Examples:**
@@ -189,12 +189,12 @@ fw pr comment 123 "LGTM, merging when CI passes"
 fw pr review <pr> [options]
 ```
 
-| Flag | Description |
-|------|-------------|
-| `-a, --approve` | Approve the PR |
-| `-r, --request-changes` | Request changes |
-| `-c, --comment` | Leave a comment review |
-| `-b, --body <text>` | Review body (required for changes/comment) |
+| Flag                    | Description                                |
+| ----------------------- | ------------------------------------------ |
+| `-a, --approve`         | Approve the PR                             |
+| `-r, --request-changes` | Request changes                            |
+| `-c, --comment`         | Leave a comment review                     |
+| `-b, --body <text>`     | Review body (required for changes/comment) |
 
 **Examples:**
 
@@ -222,11 +222,12 @@ Show Firewatch state information.
 fw status [options]
 ```
 
-| Flag | Description |
-|------|-------------|
+| Flag      | Description    |
+| --------- | -------------- |
 | `--short` | Compact output |
 
 **Output includes:**
+
 - Version
 - Auth status and source
 - Config file paths
@@ -244,11 +245,12 @@ Diagnose Firewatch setup.
 fw doctor [options]
 ```
 
-| Flag | Description |
-|------|-------------|
+| Flag    | Description                         |
+| ------- | ----------------------------------- |
 | `--fix` | Attempt to fix issues automatically |
 
 **Checks:**
+
 - GitHub API connectivity
 - Authentication (gh CLI → env → config)
 - Config file validity
@@ -266,11 +268,11 @@ Print JSON schema for Firewatch data types.
 fw schema [name]
 ```
 
-| Name | Description |
-|------|-------------|
-| `entry` | Individual activity entry (default) |
-| `worklist` | Per-PR summary object |
-| `config` | Configuration file schema |
+| Name       | Description                         |
+| ---------- | ----------------------------------- |
+| `entry`    | Individual activity entry (default) |
+| `worklist` | Per-PR summary object               |
+| `config`   | Configuration file schema           |
 
 ---
 
@@ -307,10 +309,10 @@ fw status
 
 Config files use TOML format:
 
-| Path | Purpose |
-|------|---------|
-| `~/.config/firewatch/config.toml` | User config |
-| `.firewatch.toml` | Project config (optional) |
+| Path                              | Purpose                   |
+| --------------------------------- | ------------------------- |
+| `~/.config/firewatch/config.toml` | User config               |
+| `.firewatch.toml`                 | Project config (optional) |
 
 View config:
 
@@ -332,8 +334,8 @@ fw config user.github_username myusername
 
 XDG-compliant cache location:
 
-| Path | Contents |
-|------|----------|
+| Path                              | Contents        |
+| --------------------------------- | --------------- |
 | `~/.cache/firewatch/firewatch.db` | SQLite database |
 
 Cache management:
@@ -350,11 +352,11 @@ fw cache clear --repo owner/repo  # Clear specific repo
 
 Time durations use this format:
 
-| Format | Meaning |
-|--------|---------|
-| `Nh` | N hours |
-| `Nd` | N days |
-| `Nw` | N weeks |
-| `Nm` | N months |
+| Format | Meaning  |
+| ------ | -------- |
+| `Nh`   | N hours  |
+| `Nd`   | N days   |
+| `Nw`   | N weeks  |
+| `Nm`   | N months |
 
 Examples: `24h`, `7d`, `2w`, `3m`
