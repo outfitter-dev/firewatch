@@ -42,7 +42,7 @@ function formatMessage(
 }
 
 /**
- * Create a Logger that satisfies the @outfitter/contracts Logger interface.
+ * Create a Logger that satisfies the contracts Logger interface.
  *
  * Outputs structured log lines to stderr (errors) and stdout (info/debug).
  * Supports child loggers with inherited context.
@@ -58,7 +58,9 @@ export function createLogger(options: LoggerOptions = {}): Logger {
 		message: string,
 		metadata?: Record<string, unknown>,
 	): void {
-		if (silent || !shouldLog(level, minLevel)) return;
+		if (silent || !shouldLog(level, minLevel)) {
+			return;
+		}
 
 		const formatted = formatMessage(level, message, metadata, context);
 

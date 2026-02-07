@@ -64,7 +64,7 @@ async function createContext(
   const { owner, name } = parseRepoInput(repo);
 
   const auth = await detectAuth(loadedConfig.github_token);
-  const client = auth.token ? new GitHubClient(auth.token) : null;
+  const client = auth.isOk() ? new GitHubClient(auth.value.token) : null;
 
   return {
     client,

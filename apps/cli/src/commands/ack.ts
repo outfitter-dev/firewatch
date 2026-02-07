@@ -284,7 +284,7 @@ async function handleAck(
   }
 
   const auth = await detectAuth(config.github_token);
-  const client = auth.token ? new GitHubClient(auth.token) : null;
+  const client = auth.isOk() ? new GitHubClient(auth.value.token) : null;
 
   let reactionAdded = false;
   if (client) {
@@ -318,7 +318,7 @@ async function handleAck(
         gh_id: entry.id,
         acked: true,
         reaction_added: reactionAdded,
-        ...(auth.token ? {} : { warning: auth.error }),
+        ...(auth.isErr() ? { warning: auth.error.message } : {}),
       },
       "jsonl"
     );
@@ -326,7 +326,7 @@ async function handleAck(
   }
 
   const reactionMsg = reactionAdded ? " (reaction added)" : "";
-  if (!auth.token) {
+  if (auth.isErr()) {
     console.log(
       `Acknowledged [${shortId}]${reactionMsg}. No GitHub token; stored locally only.`
     );
@@ -384,7 +384,7 @@ async function handlePrBulkAck(
 
   // Setup client for reactions
   const auth = await detectAuth(config.github_token);
-  const client = auth.token ? new GitHubClient(auth.token) : null;
+  const client = auth.isOk() ? new GitHubClient(auth.value.token) : null;
 
   const commentIds = feedbacks.map((fb) => fb.comment_id);
   const reactionResults = client
@@ -670,7 +670,7 @@ async function handleMultiAck(
 
   // Setup client for reactions
   const auth = await detectAuth(config.github_token);
-  const client = auth.token ? new GitHubClient(auth.token) : null;
+  const client = auth.isOk() ? new GitHubClient(auth.value.token) : null;
 
   // Add reactions in parallel using batch utility
   const reactionResults = client
