@@ -1,3 +1,4 @@
+import { Result } from "@outfitter/contracts";
 import { expect, test } from "bun:test";
 
 import { GitHubClient, type GraphQLResponse } from "../src/github";
@@ -49,23 +50,25 @@ test("fetchReviewThreadMap paginates review thread comments", async () => {
       query: <T>(
         query: string,
         variables: Record<string, unknown>
-      ) => Promise<GraphQLResponse<T>>;
+      ) => Promise<Result<GraphQLResponse<T>, Error>>;
     }
   ).query = <T>(
     query: string,
     variables: Record<string, unknown>
-  ): Promise<GraphQLResponse<T>> => {
+  ): Promise<Result<GraphQLResponse<T>, Error>> => {
     calls.push({ query, variables });
     const response = responses.shift() as GraphQLResponse<T>;
-    return Promise.resolve(response);
+    return Promise.resolve(Result.ok(response));
   };
 
-  const map = await client.fetchReviewThreadMap(
+  const result = await client.fetchReviewThreadMap(
     "outfitter-dev",
     "firewatch",
     123
   );
 
+  expect(result.isOk()).toBe(true);
+  const map = result.value as Map<string, string>;
   expect(map.get("c1")).toBe("thread-1");
   expect(map.get("c2")).toBe("thread-1");
   expect(map.get("c3")).toBe("thread-1");

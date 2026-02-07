@@ -162,9 +162,7 @@ function jsonLines(items: unknown[]): string {
 }
 
 /** Check if params contain any PR edit fields (title, body, base, draft, ready, milestone) */
-function hasEditFields(
-  params: PrParams | FirewatchParams
-): boolean {
+function hasEditFields(params: PrParams | FirewatchParams): boolean {
   return !!(
     params.title ||
     params.body ||
@@ -488,9 +486,7 @@ async function ensureRepoCacheIfNeeded(
   if (options.noSync) {
     for (const scope of scopes) {
       if (!hasRepoCache(repoFilter, scope)) {
-        throw new Error(
-          `No-sync mode: no cache for ${repoFilter} (${scope}).`
-        );
+        throw new Error(`No-sync mode: no cache for ${repoFilter} (${scope}).`);
       }
     }
     return;
@@ -627,7 +623,6 @@ async function performSync(
 
   return results;
 }
-
 
 function addShortIds(entries: FirewatchEntry[]): FirewatchEntry[] {
   // Build cache first so short IDs can be resolved in follow-up commands
@@ -806,7 +801,11 @@ async function handleQuery(params: FirewatchParams): Promise<McpToolResult> {
     typeList,
     includeAuthors
   );
-  filtered = filterByPerspective(filtered, mcpParams, config.user?.github_username);
+  filtered = filterByPerspective(
+    filtered,
+    mcpParams,
+    config.user?.github_username
+  );
 
   // Phase 10: Resolve and format output
   const output = await resolveQueryOutput(queryParams, filtered, context, {
@@ -903,13 +902,17 @@ async function handleAddReview(
   reviewType: "approve" | "request-changes" | "comment",
   body?: string
 ): Promise<McpToolResult> {
-  const review = await ctx.client.addReview(
+  const reviewResult = await ctx.client.addReview(
     ctx.owner,
     ctx.name,
     pr,
     reviewType,
     body
   );
+  if (reviewResult.isErr()) {
+    throw new Error(reviewResult.error.message);
+  }
+  const review = reviewResult.value;
   return textResult(
     JSON.stringify({
       ok: true,
@@ -959,17 +962,24 @@ async function handleAddReply(
   shouldResolve: boolean
 ): Promise<McpToolResult> {
   const replyToId = await resolveCommentIdFromShortId(replyTo, ctx.repo);
-  const threadMap = await ctx.client.fetchReviewThreadMap(
+  const threadMapResult = await ctx.client.fetchReviewThreadMap(
     ctx.owner,
     ctx.name,
     pr
   );
-  const threadId = threadMap.get(replyToId);
+  if (threadMapResult.isErr()) {
+    throw new Error(threadMapResult.error.message);
+  }
+  const threadId = threadMapResult.value.get(replyToId);
   if (!threadId) {
     throw new Error(`No review thread found for comment ${replyTo}.`);
   }
 
-  const reply = await ctx.client.addReviewThreadReply(threadId, body);
+  const replyResult = await ctx.client.addReviewThreadReply(threadId, body);
+  if (replyResult.isErr()) {
+    throw new Error(replyResult.error.message);
+  }
+  const reply = replyResult.value;
   if (shouldResolve) {
     await ctx.client.resolveReviewThread(threadId);
   }
@@ -992,8 +1002,22 @@ async function handleAddComment(
   pr: number,
   body: string
 ): Promise<McpToolResult> {
-  const prId = await ctx.client.fetchPullRequestId(ctx.owner, ctx.name, pr);
-  const comment = await ctx.client.addIssueComment(prId, body);
+  const prIdResult = await ctx.client.fetchPullRequestId(
+    ctx.owner,
+    ctx.name,
+    pr
+  );
+  if (prIdResult.isErr()) {
+    throw new Error(prIdResult.error.message);
+  }
+  const commentResult = await ctx.client.addIssueComment(
+    prIdResult.value,
+    body
+  );
+  if (commentResult.isErr()) {
+    throw new Error(commentResult.error.message);
+  }
+  const comment = commentResult.value;
 
   return textResult(
     JSON.stringify({
@@ -1046,7 +1070,13 @@ async function handleAdd(params: FirewatchParams): Promise<McpToolResult> {
   const body = params.body ?? "";
 
   if (params.reply_to) {
-    return handleAddReply(ctx, pr, params.reply_to, body, Boolean(params.resolve));
+    return handleAddReply(
+      ctx,
+      pr,
+      params.reply_to,
+      body,
+      Boolean(params.resolve)
+    );
   }
 
   return handleAddComment(ctx, pr, body);
@@ -1076,12 +1106,19 @@ async function applyDraftStatus(
     return;
   }
 
-  const prId = await ctx.client.fetchPullRequestId(ctx.owner, ctx.name, pr);
+  const prIdResult = await ctx.client.fetchPullRequestId(
+    ctx.owner,
+    ctx.name,
+    pr
+  );
+  if (prIdResult.isErr()) {
+    throw new Error(prIdResult.error.message);
+  }
   if (draft) {
-    await ctx.client.convertPullRequestToDraft(prId);
+    await ctx.client.convertPullRequestToDraft(prIdResult.value);
   }
   if (ready) {
-    await ctx.client.markPullRequestReady(prId);
+    await ctx.client.markPullRequestReady(prIdResult.value);
   }
 }
 
@@ -1597,8 +1634,22 @@ async function handlePrAddComment(
   pr: number,
   body: string
 ): Promise<McpToolResult> {
-  const prId = await ctx.client.fetchPullRequestId(ctx.owner, ctx.name, pr);
-  const comment = await ctx.client.addIssueComment(prId, body);
+  const prIdResult = await ctx.client.fetchPullRequestId(
+    ctx.owner,
+    ctx.name,
+    pr
+  );
+  if (prIdResult.isErr()) {
+    throw new Error(prIdResult.error.message);
+  }
+  const commentResult = await ctx.client.addIssueComment(
+    prIdResult.value,
+    body
+  );
+  if (commentResult.isErr()) {
+    throw new Error(commentResult.error.message);
+  }
+  const comment = commentResult.value;
   const shortId = formatShortId(generateShortId(comment.id, ctx.repo));
 
   return textResult(
@@ -1772,12 +1823,15 @@ async function handleCommentResolve(
     );
   }
 
-  const threadMap = await ctx.client.fetchReviewThreadMap(
+  const threadMapResult = await ctx.client.fetchReviewThreadMap(
     ctx.owner,
     ctx.name,
     entry.pr
   );
-  const threadId = threadMap.get(commentId);
+  if (threadMapResult.isErr()) {
+    throw new Error(threadMapResult.error.message);
+  }
+  const threadId = threadMapResult.value.get(commentId);
 
   if (!threadId) {
     throw new Error(`No review thread found for comment ${shortIdDisplay}.`);
@@ -1808,18 +1862,25 @@ async function handleCommentReply(
   const body = params.body!;
 
   if (entry.subtype === "review_comment") {
-    const threadMap = await ctx.client.fetchReviewThreadMap(
+    const threadMapResult = await ctx.client.fetchReviewThreadMap(
       ctx.owner,
       ctx.name,
       entry.pr
     );
-    const threadId = threadMap.get(commentId);
+    if (threadMapResult.isErr()) {
+      throw new Error(threadMapResult.error.message);
+    }
+    const threadId = threadMapResult.value.get(commentId);
 
     if (!threadId) {
       throw new Error(`No review thread found for comment ${shortIdDisplay}.`);
     }
 
-    const reply = await ctx.client.addReviewThreadReply(threadId, body);
+    const replyResult = await ctx.client.addReviewThreadReply(threadId, body);
+    if (replyResult.isErr()) {
+      throw new Error(replyResult.error.message);
+    }
+    const reply = replyResult.value;
 
     if (params.resolve) {
       await ctx.client.resolveReviewThread(threadId);
@@ -1842,12 +1903,22 @@ async function handleCommentReply(
     );
   }
 
-  const prId = await ctx.client.fetchPullRequestId(
+  const prIdResult = await ctx.client.fetchPullRequestId(
     ctx.owner,
     ctx.name,
     entry.pr
   );
-  const comment = await ctx.client.addIssueComment(prId, body);
+  if (prIdResult.isErr()) {
+    throw new Error(prIdResult.error.message);
+  }
+  const commentResult = await ctx.client.addIssueComment(
+    prIdResult.value,
+    body
+  );
+  if (commentResult.isErr()) {
+    throw new Error(commentResult.error.message);
+  }
+  const comment = commentResult.value;
   const newShortId = formatShortId(generateShortId(comment.id, ctx.repo));
 
   return textResult(

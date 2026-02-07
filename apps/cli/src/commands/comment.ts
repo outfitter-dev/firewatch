@@ -35,7 +35,9 @@ interface CommentContext {
   outputJson: boolean;
 }
 
-async function createContext(options: CommentCommandOptions): Promise<CommentContext> {
+async function createContext(
+  options: CommentCommandOptions
+): Promise<CommentContext> {
   const config = await loadConfig();
   const repo = await resolveRepoOrThrow(options.repo);
   const { owner, name } = parseRepoInput(repo);
@@ -71,8 +73,15 @@ export async function commentAction(
   try {
     const ctx = await createContext(options);
 
-    const prId = await ctx.client.fetchPullRequestId(ctx.owner, ctx.name, pr);
-    const comment = await ctx.client.addIssueComment(prId, body);
+    const prIdResult = await ctx.client.fetchPullRequestId(ctx.owner, ctx.name, pr);
+    if (prIdResult.isErr()) {
+      throw prIdResult.error;
+    }
+    const commentResult = await ctx.client.addIssueComment(prIdResult.value, body);
+    if (commentResult.isErr()) {
+      throw commentResult.error;
+    }
+    const comment = commentResult.value;
 
     const payload = {
       ok: true,

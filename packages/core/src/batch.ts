@@ -195,16 +195,15 @@ export function batchAddReactions(
 ): Promise<ReactionResult[]> {
   return Promise.all(
     commentIds.map(async (commentId) => {
-      try {
-        await client.addReaction(commentId, "THUMBS_UP");
-        return { commentId, reactionAdded: true };
-      } catch (error) {
+      const result = await client.addReaction(commentId, "THUMBS_UP");
+      if (result.isErr()) {
         return {
           commentId,
           reactionAdded: false,
-          error: error instanceof Error ? error.message : String(error),
+          error: result.error.message,
         };
       }
+      return { commentId, reactionAdded: true };
     })
   );
 }
