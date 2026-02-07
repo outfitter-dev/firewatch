@@ -6,9 +6,7 @@
  */
 import {
   ENTRY_TYPES,
-  GitHubClient,
   PATHS,
-  detectAuth,
   getAllSyncMeta,
   getDatabase,
   getRepos,
@@ -31,6 +29,7 @@ import { InvalidArgumentError } from "commander";
 import { existsSync, readdirSync } from "node:fs";
 import ora from "ora";
 
+import { createAuthenticatedClient } from "./auth-client";
 import { validateRepoFormat } from "./repo";
 
 // ============================================================================
@@ -486,12 +485,7 @@ export async function ensureRepoCache(
   scope: SyncScope,
   options: { full?: boolean } = {}
 ): Promise<{ synced: boolean }> {
-  const auth = await detectAuth(config.github_token);
-  if (auth.isErr()) {
-    throw new Error(auth.error.message);
-  }
-
-  const client = new GitHubClient(auth.value.token);
+  const { client } = await createAuthenticatedClient(config.github_token);
   const useGraphite =
     detectedRepo === repo && (await getGraphiteStacks()) !== null;
   const plugins = useGraphite ? [graphitePlugin] : [];

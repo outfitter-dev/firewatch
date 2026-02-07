@@ -8,9 +8,8 @@
  */
 
 import {
-  GitHubClient,
+  type GitHubClient,
   buildShortIdCache,
-  detectAuth,
   formatDisplayId,
   generateShortId,
   getAckedIds,
@@ -20,6 +19,7 @@ import {
   parseSince,
   queryEntries,
   type FirewatchConfig,
+  type FirewatchEntry,
   type PrState,
   type StackDirection,
 } from "@outfitter/firewatch-core";
@@ -29,6 +29,7 @@ import {
   identifyUnaddressedFeedback,
   type UnaddressedFeedback,
 } from "../actionable";
+import { tryCreateClient } from "../auth-client";
 import { applyCommonOptions } from "../query-helpers";
 import {
   SEPARATOR,
@@ -89,6 +90,17 @@ interface ListPrsOptions {
   noColor?: boolean;
 }
 
+interface PrSummary {
+  pr: number;
+  pr_title: string;
+  pr_state: string;
+  pr_author: string;
+  pr_branch: string;
+  pr_labels: string[];
+  updated_at: string;
+  url: string | undefined;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Context
 // ─────────────────────────────────────────────────────────────────────────────
@@ -101,8 +113,8 @@ async function createContext(
   const repo = await resolveRepoOrThrow(options.repo);
   const { owner, name } = parseRepoInput(repo);
 
-  const auth = await detectAuth(loadedConfig.github_token);
-  const client = auth.isOk() ? new GitHubClient(auth.value.token) : null;
+  const authResult = await tryCreateClient(loadedConfig.github_token);
+  const client = authResult?.client ?? null;
 
   return {
     client,
@@ -458,6 +470,37 @@ async function handlePrFeedbackList(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// List PRs helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Build a deduplicated PR summary map from entries, tracking latest activity. */
+function buildPrMap(entries: FirewatchEntry[]): Map<number, PrSummary> {
+  const prMap = new Map<number, PrSummary>();
+
+  for (const entry of entries) {
+    if (prMap.has(entry.pr)) {
+      const existing = prMap.get(entry.pr)!;
+      if (entry.created_at > existing.updated_at) {
+        existing.updated_at = entry.created_at;
+      }
+    } else {
+      prMap.set(entry.pr, {
+        pr: entry.pr,
+        pr_title: entry.pr_title,
+        pr_state: entry.pr_state,
+        pr_author: entry.pr_author,
+        pr_branch: entry.pr_branch,
+        pr_labels: entry.pr_labels ?? [],
+        updated_at: entry.created_at,
+        url: entry.url,
+      });
+    }
+  }
+
+  return prMap;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // List PRs handler
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -502,41 +545,7 @@ async function handleListPrs(options: ListPrsOptions): Promise<void> {
   const entries = await queryEntries({ filters });
 
   // Build unique PR list from entries
-  interface PrSummary {
-    pr: number;
-    pr_title: string;
-    pr_state: string;
-    pr_author: string;
-    pr_branch: string;
-    pr_labels: string[];
-    updated_at: string;
-    url: string | undefined;
-  }
-
-  const prMap = new Map<number, PrSummary>();
-
-  for (const entry of entries) {
-    if (prMap.has(entry.pr)) {
-      // Update with latest activity timestamp
-      const existing = prMap.get(entry.pr)!;
-      if (entry.created_at > existing.updated_at) {
-        existing.updated_at = entry.created_at;
-      }
-    } else {
-      prMap.set(entry.pr, {
-        pr: entry.pr,
-        pr_title: entry.pr_title,
-        pr_state: entry.pr_state,
-        pr_author: entry.pr_author,
-        pr_branch: entry.pr_branch,
-        pr_labels: entry.pr_labels ?? [],
-        updated_at: entry.created_at,
-        url: entry.url,
-      });
-    }
-  }
-
-  let prs = [...prMap.values()];
+  let prs = [...buildPrMap(entries).values()];
 
   // Filter by label if specified
   if (options.label) {

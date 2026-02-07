@@ -5,7 +5,6 @@
  */
 import {
   countHiddenEntries,
-  detectRepo,
   getDatabase,
   getFreezeInfo,
   loadConfig,
@@ -14,7 +13,7 @@ import {
 import { Command, Option } from "commander";
 
 import { applyCommonOptions } from "../query-helpers";
-import { validateRepoFormat } from "../repo";
+import { resolveRepoOrThrow } from "../repo";
 import { outputStructured } from "../utils/json";
 import { shouldOutputJson } from "../utils/tty";
 
@@ -26,26 +25,12 @@ interface UnfreezeCommandOptions {
   noColor?: boolean;
 }
 
-async function resolveRepo(repo?: string): Promise<string> {
-  if (repo) {
-    validateRepoFormat(repo);
-    return repo;
-  }
-
-  const detected = await detectRepo();
-  if (!detected.repo) {
-    throw new Error("No repository detected. Use --repo owner/repo.");
-  }
-
-  return detected.repo;
-}
-
 async function handleUnfreeze(
   prNumber: number,
   options: UnfreezeCommandOptions,
   outputJson: boolean
 ): Promise<void> {
-  const repo = await resolveRepo(options.repo);
+  const repo = await resolveRepoOrThrow(options.repo);
   const db = getDatabase();
 
   // Get previous freeze info for reporting

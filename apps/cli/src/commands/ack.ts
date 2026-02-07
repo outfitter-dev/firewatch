@@ -8,7 +8,6 @@ import {
   classifyId,
   deduplicateByCommentId,
   detectAuth,
-  detectRepo,
   formatDisplayId,
   generateShortId,
   getAckedIds,
@@ -29,8 +28,9 @@ import {
 import { Command, Option } from "commander";
 
 import { identifyUnaddressedFeedback } from "../actionable";
+import { tryCreateClient } from "../auth-client";
 import { applyCommonOptions } from "../query-helpers";
-import { validateRepoFormat } from "../repo";
+import { resolveRepoOrThrow, validateRepoFormat } from "../repo";
 import { outputStructured } from "../utils/json";
 import { resolveStates, type StateOptions } from "../utils/states";
 import { shouldOutputJson } from "../utils/tty";
@@ -46,20 +46,6 @@ interface AckCommandOptions extends StateOptions {
   before?: string;
   debug?: boolean;
   noColor?: boolean;
-}
-
-async function resolveRepo(repo?: string): Promise<string> {
-  if (repo) {
-    validateRepoFormat(repo);
-    return repo;
-  }
-
-  const detected = await detectRepo();
-  if (!detected.repo) {
-    throw new Error("No repository detected. Use --repo owner/repo.");
-  }
-
-  return detected.repo;
 }
 
 /**
@@ -223,7 +209,7 @@ async function handleClear(
   options: AckCommandOptions,
   outputJson: boolean
 ): Promise<void> {
-  const repo = await resolveRepo(options.repo);
+  const repo = await resolveRepoOrThrow(options.repo);
   const { commentId, shortId, pr } = await resolveCommentForClear(
     clearId,
     repo
@@ -259,7 +245,7 @@ async function handleAck(
   config: FirewatchConfig,
   outputJson: boolean
 ): Promise<void> {
-  const repo = await resolveRepo(options.repo);
+  const repo = await resolveRepoOrThrow(options.repo);
   const { entry, shortId } = await resolveCommentEntry(id, repo);
   const alreadyAcked = await isAcked(entry.id, repo);
 
@@ -344,7 +330,7 @@ async function handlePrBulkAck(
   config: FirewatchConfig,
   outputJson: boolean
 ): Promise<void> {
-  const repo = await resolveRepo(options.repo);
+  const repo = await resolveRepoOrThrow(options.repo);
 
   const entries = await queryEntries({
     filters: {
@@ -385,8 +371,8 @@ async function handlePrBulkAck(
   }
 
   // Setup client for reactions
-  const auth = await detectAuth(config.github_token);
-  const client = auth.isOk() ? new GitHubClient(auth.value.token) : null;
+  const authResult = await tryCreateClient(config.github_token);
+  const client = authResult?.client ?? null;
 
   const commentIds = feedbacks.map((fb) => fb.comment_id);
   const reactionResults = client
@@ -595,7 +581,7 @@ async function handleMultiAck(
   config: FirewatchConfig,
   outputJson: boolean
 ): Promise<void> {
-  const repo = await resolveRepo(options.repo);
+  const repo = await resolveRepoOrThrow(options.repo);
 
   // Resolve state filters (default to all states when acking specific IDs)
   const states = resolveStates({
@@ -680,8 +666,8 @@ async function handleMultiAck(
   const alreadyAcked = ackChecks.filter((r) => r.alreadyAcked);
 
   // Setup client for reactions
-  const auth = await detectAuth(config.github_token);
-  const client = auth.isOk() ? new GitHubClient(auth.value.token) : null;
+  const authResult = await tryCreateClient(config.github_token);
+  const client = authResult?.client ?? null;
 
   // Add reactions in parallel using batch utility
   const reactionResults = client

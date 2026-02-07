@@ -7,9 +7,8 @@
  * - `PRRC_...`, `IC_...` -> Comment by full ID (Comment editing mode)
  */
 import {
-  GitHubClient,
+  type GitHubClient,
   buildShortIdCache,
-  detectAuth,
   formatDisplayId,
   generateShortId,
   loadConfig,
@@ -20,6 +19,7 @@ import {
 } from "@outfitter/firewatch-core";
 import { Command, Option } from "commander";
 
+import { createAuthenticatedClient } from "../auth-client";
 import { applyCommonOptions } from "../query-helpers";
 import { parseRepoInput, resolveRepoOrThrow } from "../repo";
 import { outputStructured } from "../utils/json";
@@ -106,13 +106,10 @@ async function createContext(options: EditOptions): Promise<EditContext> {
   const repo = await resolveRepoOrThrow(options.repo);
   const { owner, name } = parseRepoInput(repo);
 
-  const auth = await detectAuth(config.github_token);
-  if (auth.isErr()) {
-    throw new Error(auth.error.message);
-  }
+  const { client } = await createAuthenticatedClient(config.github_token);
 
   return {
-    client: new GitHubClient(auth.value.token),
+    client,
     config,
     repo,
     owner,

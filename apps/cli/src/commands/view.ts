@@ -8,10 +8,9 @@
  */
 
 import {
-  GitHubClient,
+  type GitHubClient,
   buildShortIdCache,
   classifyId,
-  detectAuth,
   formatDisplayId,
   generateShortId,
   loadConfig,
@@ -24,6 +23,7 @@ import {
 } from "@outfitter/firewatch-core";
 import { Command, Option } from "commander";
 
+import { tryCreateClient } from "../auth-client";
 import { applyCommonOptions } from "../query-helpers";
 import { SEPARATOR, s } from "../render";
 import { parseRepoInput, resolveRepoOrThrow } from "../repo";
@@ -63,8 +63,8 @@ async function createContext(
   const repo = await resolveRepoOrThrow(options.repo);
   const { owner, name } = parseRepoInput(repo);
 
-  const auth = await detectAuth(loadedConfig.github_token);
-  const client = auth.isOk() ? new GitHubClient(auth.value.token) : null;
+  const authResult = await tryCreateClient(loadedConfig.github_token);
+  const client = authResult?.client ?? null;
 
   return {
     client,
