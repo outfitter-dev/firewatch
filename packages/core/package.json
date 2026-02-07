@@ -25,6 +25,7 @@
     "check": "bunx tsc --noEmit"
   },
   "dependencies": {
+    "@outfitter/contracts": "^0.1.0",
     "env-paths": "^3.0.0",
     "zod": "^4.3.5"
   },
