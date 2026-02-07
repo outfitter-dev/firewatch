@@ -981,7 +981,10 @@ async function handleAddReply(
   }
   const reply = replyResult.value;
   if (shouldResolve) {
-    await ctx.client.resolveReviewThread(threadId);
+    const resolveResult = await ctx.client.resolveReviewThread(threadId);
+    if (resolveResult.isErr()) {
+      throw new Error(resolveResult.error.message);
+    }
   }
 
   return textResult(
@@ -1115,10 +1118,16 @@ async function applyDraftStatus(
     throw new Error(prIdResult.error.message);
   }
   if (draft) {
-    await ctx.client.convertPullRequestToDraft(prIdResult.value);
+    const draftResult = await ctx.client.convertPullRequestToDraft(prIdResult.value);
+    if (draftResult.isErr()) {
+      throw new Error(draftResult.error.message);
+    }
   }
   if (ready) {
-    await ctx.client.markPullRequestReady(prIdResult.value);
+    const readyResult = await ctx.client.markPullRequestReady(prIdResult.value);
+    if (readyResult.isErr()) {
+      throw new Error(readyResult.error.message);
+    }
   }
 }
 
@@ -1837,7 +1846,10 @@ async function handleCommentResolve(
     throw new Error(`No review thread found for comment ${shortIdDisplay}.`);
   }
 
-  await ctx.client.resolveReviewThread(threadId);
+  const resolveResult = await ctx.client.resolveReviewThread(threadId);
+  if (resolveResult.isErr()) {
+    throw new Error(resolveResult.error.message);
+  }
 
   return textResult(
     JSON.stringify({
@@ -1883,7 +1895,10 @@ async function handleCommentReply(
     const reply = replyResult.value;
 
     if (params.resolve) {
-      await ctx.client.resolveReviewThread(threadId);
+      const resolveResult = await ctx.client.resolveReviewThread(threadId);
+      if (resolveResult.isErr()) {
+        throw new Error(resolveResult.error.message);
+      }
     }
 
     const replyShortId = formatShortId(generateShortId(reply.id, ctx.repo));
