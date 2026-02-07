@@ -7,13 +7,17 @@ import {
 import type { SchemaName } from "../types";
 
 export function schemaDoc(name: SchemaName | undefined): object {
-  if (name === "worklist") {
-    return WORKLIST_SCHEMA_DOC;
+  switch (name) {
+    case "worklist":
+      return WORKLIST_SCHEMA_DOC;
+    case "config":
+      return CONFIG_SCHEMA_DOC;
+    case "query":
+    case "entry":
+    case undefined:
+      // "query" returns entry schema — queries produce entries
+      return ENTRY_SCHEMA_DOC;
   }
-  if (name === "config") {
-    return CONFIG_SCHEMA_DOC;
-  }
-  return ENTRY_SCHEMA_DOC;
 }
 
 export function buildHelpText(writeToolsAvailable: boolean): string {
