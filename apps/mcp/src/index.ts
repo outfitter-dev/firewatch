@@ -494,12 +494,11 @@ async function ensureRepoCacheIfNeeded(
 
   const autoSync = config.sync?.auto_sync ?? true;
   const threshold = config.sync?.stale_threshold ?? DEFAULT_STALE_THRESHOLD;
-  let thresholdMs = 0;
-  try {
-    thresholdMs = parseDurationMs(threshold);
-  } catch {
-    thresholdMs = parseDurationMs(DEFAULT_STALE_THRESHOLD);
-  }
+  const thresholdResult = parseDurationMs(threshold);
+  const fallbackResult = thresholdResult.isErr()
+    ? parseDurationMs(DEFAULT_STALE_THRESHOLD)
+    : thresholdResult;
+  const thresholdMs = fallbackResult.isOk() ? fallbackResult.value : 0;
 
   const db = getDatabase();
 
@@ -607,7 +606,15 @@ async function performSync(
     for (const scope of scopes) {
       const result = await syncRepo(client, repo, {
         ...(options.full && { full: true }),
-        ...(options.since && { since: parseSince(options.since) }),
+        ...(options.since && {
+          since: (() => {
+            const sinceResult = parseSince(options.since!);
+            if (sinceResult.isErr()) {
+              throw new Error(sinceResult.error.message);
+            }
+            return sinceResult.value;
+          })(),
+        }),
         scope,
         plugins: useGraphite ? [graphitePlugin] : [],
       });

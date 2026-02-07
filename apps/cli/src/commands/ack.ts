@@ -483,9 +483,13 @@ function applyTimeFilters<T extends CommentResolution>(
   let filtered = comments;
 
   if (options.since) {
-    const sinceDate = parseSince(options.since);
+    const sinceResult = parseSince(options.since);
+    if (sinceResult.isErr()) {
+      console.error(sinceResult.error.message);
+      process.exit(1);
+    }
     filtered = filtered.filter(
-      (r) => r.entry && new Date(r.entry.created_at) >= sinceDate
+      (r) => r.entry && new Date(r.entry.created_at) >= sinceResult.value
     );
   }
 
