@@ -5,6 +5,7 @@
  * timestamp are hidden from query results (unless includeFrozen is set).
  * Frozen PRs continue syncing normally - freeze only affects display.
  */
+import { NotFoundError, Result } from "@outfitter/contracts";
 import type { Database } from "bun:sqlite";
 
 /**
@@ -34,7 +35,11 @@ interface FreezeRow {
  * @param pr - PR number
  * @returns The freeze info with the new frozen_at timestamp
  */
-export function freezePR(db: Database, repo: string, pr: number): FreezeInfo {
+export function freezePR(
+  db: Database,
+  repo: string,
+  pr: number
+): Result<FreezeInfo, NotFoundError> {
   const frozenAt = new Date().toISOString();
 
   const stmt = db.prepare(`
@@ -50,14 +55,20 @@ export function freezePR(db: Database, repo: string, pr: number): FreezeInfo {
   });
 
   if (result.changes === 0) {
-    throw new Error(`PR #${pr} not found in ${repo}`);
+    return Result.err(
+      new NotFoundError({
+        message: `PR #${pr} not found in ${repo}`,
+        resourceType: "PR",
+        resourceId: `${repo}#${pr}`,
+      })
+    );
   }
 
-  return {
+  return Result.ok({
     repo,
     pr,
     frozen_at: frozenAt,
-  };
+  });
 }
 
 /**
@@ -69,7 +80,11 @@ export function freezePR(db: Database, repo: string, pr: number): FreezeInfo {
  * @param pr - PR number
  * @returns The freeze info (frozen_at will be null after unfreezing)
  */
-export function unfreezePR(db: Database, repo: string, pr: number): FreezeInfo {
+export function unfreezePR(
+  db: Database,
+  repo: string,
+  pr: number
+): Result<FreezeInfo, NotFoundError> {
   // Get the previous frozen_at value for reporting
   const previousStmt = db.prepare(`
     SELECT frozen_at FROM prs WHERE repo = $repo AND number = $number
@@ -79,7 +94,13 @@ export function unfreezePR(db: Database, repo: string, pr: number): FreezeInfo {
   } | null;
 
   if (!previous) {
-    throw new Error(`PR #${pr} not found in ${repo}`);
+    return Result.err(
+      new NotFoundError({
+        message: `PR #${pr} not found in ${repo}`,
+        resourceType: "PR",
+        resourceId: `${repo}#${pr}`,
+      })
+    );
   }
 
   const stmt = db.prepare(`
@@ -93,11 +114,11 @@ export function unfreezePR(db: Database, repo: string, pr: number): FreezeInfo {
     $number: pr,
   });
 
-  return {
+  return Result.ok({
     repo,
     pr,
     frozen_at: null,
-  };
+  });
 }
 
 /**

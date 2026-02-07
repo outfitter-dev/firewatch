@@ -10,7 +10,6 @@ import {
   getDatabase,
   getFrozenPRs,
   loadConfig,
-  type FreezeInfo,
 } from "@outfitter/firewatch-core";
 import { Command, Option } from "commander";
 
@@ -86,33 +85,25 @@ async function handleFreeze(
   const repo = await resolveRepo(options.repo);
   const db = getDatabase();
 
-  let info: FreezeInfo;
-  try {
-    info = freezePR(db, repo, prNumber);
-  } catch (error) {
+  const result = freezePR(db, repo, prNumber);
+
+  if (result.isErr()) {
     if (outputJson) {
       await outputStructured(
-        {
-          ok: false,
-          repo,
-          pr: prNumber,
-          error: error instanceof Error ? error.message : String(error),
-        },
+        { ok: false, repo, pr: prNumber, error: result.error.message },
         "jsonl"
       );
       process.exit(1);
     }
-    throw error;
+    console.error(result.error.message);
+    process.exit(1);
   }
+
+  const info = result.value;
 
   if (outputJson) {
     await outputStructured(
-      {
-        ok: true,
-        repo,
-        pr: prNumber,
-        frozen_at: info.frozen_at,
-      },
+      { ok: true, repo, pr: prNumber, frozen_at: info.frozen_at },
       "jsonl"
     );
     return;
