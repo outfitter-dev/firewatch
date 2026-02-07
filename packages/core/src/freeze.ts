@@ -40,35 +40,45 @@ export function freezePR(
   repo: string,
   pr: number
 ): Result<FreezeInfo, NotFoundError> {
-  const frozenAt = new Date().toISOString();
+  try {
+    const frozenAt = new Date().toISOString();
 
-  const stmt = db.prepare(`
-    UPDATE prs
-    SET frozen_at = $frozen_at
-    WHERE repo = $repo AND number = $number
-  `);
+    const stmt = db.prepare(`
+      UPDATE prs
+      SET frozen_at = $frozen_at
+      WHERE repo = $repo AND number = $number
+    `);
 
-  const result = stmt.run({
-    $repo: repo,
-    $number: pr,
-    $frozen_at: frozenAt,
-  });
+    const result = stmt.run({
+      $repo: repo,
+      $number: pr,
+      $frozen_at: frozenAt,
+    });
 
-  if (result.changes === 0) {
+    if (result.changes === 0) {
+      return Result.err(
+        new NotFoundError({
+          message: `PR #${pr} not found in ${repo}`,
+          resourceType: "PR",
+          resourceId: `${repo}#${pr}`,
+        })
+      );
+    }
+
+    return Result.ok({
+      repo,
+      pr,
+      frozen_at: frozenAt,
+    });
+  } catch (error) {
     return Result.err(
       new NotFoundError({
-        message: `PR #${pr} not found in ${repo}`,
+        message: `Failed to freeze PR #${pr}: ${error instanceof Error ? error.message : String(error)}`,
         resourceType: "PR",
         resourceId: `${repo}#${pr}`,
       })
     );
   }
-
-  return Result.ok({
-    repo,
-    pr,
-    frozen_at: frozenAt,
-  });
 }
 
 /**
@@ -85,40 +95,50 @@ export function unfreezePR(
   repo: string,
   pr: number
 ): Result<FreezeInfo, NotFoundError> {
-  // Get the previous frozen_at value for reporting
-  const previousStmt = db.prepare(`
-    SELECT frozen_at FROM prs WHERE repo = $repo AND number = $number
-  `);
-  const previous = previousStmt.get({ $repo: repo, $number: pr }) as {
-    frozen_at: string | null;
-  } | null;
+  try {
+    // Get the previous frozen_at value for reporting
+    const previousStmt = db.prepare(`
+      SELECT frozen_at FROM prs WHERE repo = $repo AND number = $number
+    `);
+    const previous = previousStmt.get({ $repo: repo, $number: pr }) as {
+      frozen_at: string | null;
+    } | null;
 
-  if (!previous) {
+    if (!previous) {
+      return Result.err(
+        new NotFoundError({
+          message: `PR #${pr} not found in ${repo}`,
+          resourceType: "PR",
+          resourceId: `${repo}#${pr}`,
+        })
+      );
+    }
+
+    const stmt = db.prepare(`
+      UPDATE prs
+      SET frozen_at = NULL
+      WHERE repo = $repo AND number = $number
+    `);
+
+    stmt.run({
+      $repo: repo,
+      $number: pr,
+    });
+
+    return Result.ok({
+      repo,
+      pr,
+      frozen_at: null,
+    });
+  } catch (error) {
     return Result.err(
       new NotFoundError({
-        message: `PR #${pr} not found in ${repo}`,
+        message: `Failed to unfreeze PR #${pr}: ${error instanceof Error ? error.message : String(error)}`,
         resourceType: "PR",
         resourceId: `${repo}#${pr}`,
       })
     );
   }
-
-  const stmt = db.prepare(`
-    UPDATE prs
-    SET frozen_at = NULL
-    WHERE repo = $repo AND number = $number
-  `);
-
-  stmt.run({
-    $repo: repo,
-    $number: pr,
-  });
-
-  return Result.ok({
-    repo,
-    pr,
-    frozen_at: null,
-  });
 }
 
 /**

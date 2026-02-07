@@ -263,12 +263,18 @@ async function applyDraftState(
     const prId = prIdResult.value;
 
     if (options.draft) {
-      await ctx.client.convertPullRequestToDraft(prId);
+      const draftResult = await ctx.client.convertPullRequestToDraft(prId);
+      if (draftResult.isErr()) {
+        throw draftResult.error;
+      }
       changes.draft = true;
     }
 
     if (options.ready) {
-      await ctx.client.markPullRequestReady(prId);
+      const readyResult = await ctx.client.markPullRequestReady(prId);
+      if (readyResult.isErr()) {
+        throw readyResult.error;
+      }
       changes.ready = true;
     }
   }

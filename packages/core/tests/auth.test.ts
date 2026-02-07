@@ -27,8 +27,9 @@ function disableGhCli(): void {
 }
 
 /**
- * Run assertions for gh CLI auth, skipping gracefully in environments
- * where gh is not installed or not authenticated (e.g. CI).
+ * Run assertions for gh CLI auth. Always asserts at least once:
+ * - When gh is authenticated: verifies token and source
+ * - When gh is unavailable (e.g. CI): verifies error is AuthError
  */
 async function verifyGhCliAuth(savedGhConfig: string | undefined): Promise<void> {
   if (savedGhConfig) {
@@ -37,13 +38,13 @@ async function verifyGhCliAuth(savedGhConfig: string | undefined): Promise<void>
 
   const result = await detectAuth();
 
-  // If gh CLI is not installed or not authenticated (e.g. CI), skip gracefully
   if (result.isErr()) {
+    // gh CLI not available — verify we get a proper AuthError
+    expect(result.error).toBeInstanceOf(AuthError);
     return;
   }
 
-  expect(result.isOk()).toBe(true);
-  const auth = result.value as AuthInfo;
+  const auth = result.value;
   expect(auth.source).toBe("gh-cli");
   expect(auth.token).toBeTruthy();
 }
