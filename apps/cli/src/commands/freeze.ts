@@ -5,7 +5,6 @@
  * timestamp are hidden from query results (unless --include-frozen).
  */
 import {
-  detectRepo,
   freezePR,
   getDatabase,
   getFrozenPRs,
@@ -14,7 +13,7 @@ import {
 import { Command, Option } from "commander";
 
 import { applyCommonOptions } from "../query-helpers";
-import { validateRepoFormat } from "../repo";
+import { resolveRepoOrThrow, validateRepoFormat } from "../repo";
 import { outputStructured } from "../utils/json";
 import { shouldOutputJson } from "../utils/tty";
 
@@ -25,20 +24,6 @@ interface FreezeCommandOptions {
   json?: boolean;
   debug?: boolean;
   noColor?: boolean;
-}
-
-async function resolveRepo(repo?: string): Promise<string> {
-  if (repo) {
-    validateRepoFormat(repo);
-    return repo;
-  }
-
-  const detected = await detectRepo();
-  if (!detected.repo) {
-    throw new Error("No repository detected. Use --repo owner/repo.");
-  }
-
-  return detected.repo;
 }
 
 function formatFreezeDate(isoDate: string): string {
@@ -82,7 +67,7 @@ async function handleFreeze(
   options: FreezeCommandOptions,
   outputJson: boolean
 ): Promise<void> {
-  const repo = await resolveRepo(options.repo);
+  const repo = await resolveRepoOrThrow(options.repo);
   const db = getDatabase();
 
   const result = freezePR(db, repo, prNumber);

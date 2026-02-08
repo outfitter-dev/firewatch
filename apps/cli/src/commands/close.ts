@@ -1,11 +1,9 @@
 import {
-  GitHubClient,
+  type GitHubClient,
   addAcks,
   buildAckRecords,
   buildShortIdCache,
   deduplicateByCommentId,
-  detectAuth,
-  detectRepo,
   formatDisplayId,
   generateShortId,
   getAckedIds,
@@ -20,8 +18,9 @@ import {
 import { Command, Option } from "commander";
 
 import { identifyUnaddressedFeedback } from "../actionable";
+import { createAuthenticatedClient } from "../auth-client";
 import { applyCommonOptions } from "../query-helpers";
-import { parseRepoInput, validateRepoFormat } from "../repo";
+import { parseRepoInput, resolveRepoOrThrow } from "../repo";
 import { outputStructured } from "../utils/json";
 import { shouldOutputJson } from "../utils/tty";
 
@@ -45,33 +44,14 @@ interface CloseContext {
   outputJson: boolean;
 }
 
-async function resolveRepo(repo?: string): Promise<string> {
-  if (repo) {
-    validateRepoFormat(repo);
-    return repo;
-  }
-
-  const detected = await detectRepo();
-  if (!detected.repo) {
-    throw new Error("No repository detected. Use --repo owner/repo.");
-  }
-
-  return detected.repo;
-}
-
 async function createContext(
   options: CloseCommandOptions
 ): Promise<CloseContext> {
   const config = await loadConfig();
-  const repo = await resolveRepo(options.repo);
+  const repo = await resolveRepoOrThrow(options.repo);
   const { owner, name } = parseRepoInput(repo);
 
-  const auth = await detectAuth(config.github_token);
-  if (auth.isErr()) {
-    throw new Error(auth.error.message);
-  }
-
-  const client = new GitHubClient(auth.value.token);
+  const { client } = await createAuthenticatedClient(config.github_token);
 
   return {
     client,
