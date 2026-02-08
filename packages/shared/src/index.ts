@@ -1,10 +1,10 @@
 /**
  * Firewatch Shared Utilities
  *
- * Placeholder for future shared utilities across Firewatch packages.
+ * Cross-cutting utilities used by core, CLI, and MCP packages.
  */
 
-/**
- * Package version - placeholder export.
- */
 export const VERSION = "0.2.0";
+
+// Logger
+export { createLogger, silentLogger } from "./logger";

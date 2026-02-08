@@ -18,5 +18,8 @@
   },
   "devDependencies": {
     "@types/bun": "^1.3.6"
+  },
+  "dependencies": {
+    "@outfitter/contracts": "^0.1.0"
   }
 }
