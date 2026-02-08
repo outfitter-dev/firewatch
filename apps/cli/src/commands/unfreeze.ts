@@ -88,22 +88,18 @@ async function handleUnfreeze(
   // Count hidden entries before unfreezing
   const hiddenCount = countHiddenEntries(db, repo, prNumber);
 
-  try {
-    unfreezePR(db, repo, prNumber);
-  } catch (error) {
+  const unfreezeResult = unfreezePR(db, repo, prNumber);
+
+  if (unfreezeResult.isErr()) {
     if (outputJson) {
       await outputStructured(
-        {
-          ok: false,
-          repo,
-          pr: prNumber,
-          error: error instanceof Error ? error.message : String(error),
-        },
+        { ok: false, repo, pr: prNumber, error: unfreezeResult.error.message },
         "jsonl"
       );
       process.exit(1);
     }
-    throw error;
+    console.error(unfreezeResult.error.message);
+    process.exit(1);
   }
 
   if (outputJson) {
