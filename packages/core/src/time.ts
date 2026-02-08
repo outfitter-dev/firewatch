@@ -1,11 +1,15 @@
+import { Result, ValidationError } from "@outfitter/contracts";
+
 /**
  * Parse a duration string like "24h", "7d" into a Date.
  */
-export function parseSince(since: string): Date {
+export function parseSince(since: string): Result<Date, ValidationError> {
   const match = since.match(/^(\d+)(h|d|w|m)$/);
   if (!match) {
-    throw new Error(
-      `Invalid duration format: ${since}. Use format like 24h, 7d, 2w, 1m`
+    return Result.err(
+      new ValidationError({
+        message: `Invalid duration format: ${since}. Use format like 24h, 7d, 2w, 1m`,
+      })
     );
   }
 
@@ -28,18 +32,22 @@ export function parseSince(since: string): Date {
       break;
   }
 
-  return now;
+  return Result.ok(now);
 }
 
 /**
  * Parse a duration string like "5m", "2h" into milliseconds.
  * Supports s, m, h, d, w units (m = minutes).
  */
-export function parseDurationMs(duration: string): number {
+export function parseDurationMs(
+  duration: string
+): Result<number, ValidationError> {
   const match = duration.match(/^(\d+)(s|m|h|d|w)$/);
   if (!match) {
-    throw new Error(
-      `Invalid duration format: ${duration}. Use format like 30s, 5m, 2h, 7d`
+    return Result.err(
+      new ValidationError({
+        message: `Invalid duration format: ${duration}. Use format like 30s, 5m, 2h, 7d`,
+      })
     );
   }
 
@@ -48,16 +56,18 @@ export function parseDurationMs(duration: string): number {
 
   switch (unit) {
     case "s":
-      return value * 1000;
+      return Result.ok(value * 1000);
     case "m":
-      return value * 60 * 1000;
+      return Result.ok(value * 60 * 1000);
     case "h":
-      return value * 60 * 60 * 1000;
+      return Result.ok(value * 60 * 60 * 1000);
     case "d":
-      return value * 24 * 60 * 60 * 1000;
+      return Result.ok(value * 24 * 60 * 60 * 1000);
     case "w":
-      return value * 7 * 24 * 60 * 60 * 1000;
+      return Result.ok(value * 7 * 24 * 60 * 60 * 1000);
     default:
-      throw new Error(`Invalid unit: ${unit}`);
+      return Result.err(
+        new ValidationError({ message: `Invalid unit: ${unit}` })
+      );
   }
 }

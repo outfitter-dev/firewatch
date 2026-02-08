@@ -222,7 +222,15 @@ export function buildQueryOptions(
       ...(params.type && { type: params.type }),
       ...(states && { states }),
       ...(params.label && { label: params.label }),
-      ...(since && { since: parseSince(since) }),
+      ...(since && {
+        since: (() => {
+          const result = parseSince(since);
+          if (result.isErr()) {
+            throw new Error(result.error.message);
+          }
+          return result.value;
+        })(),
+      }),
     },
     ...(params.limit !== undefined && { limit: params.limit }),
     ...(params.offset !== undefined && { offset: params.offset }),

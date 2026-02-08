@@ -145,8 +145,14 @@ function applyTimeFilters(
   }
 
   if (filters.since) {
-    const sinceDate = parseSince(filters.since);
-    filtered = filtered.filter((fb) => new Date(fb.created_at) >= sinceDate);
+    const sinceResult = parseSince(filters.since);
+    if (sinceResult.isErr()) {
+      console.error(sinceResult.error.message);
+      process.exit(1);
+    }
+    filtered = filtered.filter(
+      (fb) => new Date(fb.created_at) >= sinceResult.value
+    );
   }
 
   return filtered;
@@ -484,7 +490,12 @@ async function handleListPrs(options: ListPrsOptions): Promise<void> {
   };
 
   if (options.since) {
-    filters.since = parseSince(options.since);
+    const sinceResult = parseSince(options.since);
+    if (sinceResult.isErr()) {
+      console.error(sinceResult.error.message);
+      process.exit(1);
+    }
+    filters.since = sinceResult.value;
   }
 
   if (options.mine && username) {

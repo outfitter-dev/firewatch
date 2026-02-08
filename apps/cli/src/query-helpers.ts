@@ -270,10 +270,18 @@ export function resolveSinceFilter(
 ): Date | undefined {
   const DEFAULT_ORPHANED_SINCE = "7d";
   if (since) {
-    return parseSince(since);
+    const result = parseSince(since);
+    if (result.isErr()) {
+      throw new Error(result.error.message);
+    }
+    return result.value;
   }
   if (orphaned) {
-    return parseSince(DEFAULT_ORPHANED_SINCE);
+    const result = parseSince(DEFAULT_ORPHANED_SINCE);
+    if (result.isErr()) {
+      throw new Error(result.error.message);
+    }
+    return result.value;
   }
   return undefined;
 }
@@ -453,12 +461,16 @@ export function isStale(
     return true;
   }
 
-  let thresholdMs = 0;
-  try {
-    thresholdMs = parseDurationMs(threshold);
-  } catch {
-    thresholdMs = parseDurationMs(DEFAULT_STALE_THRESHOLD);
+  const result = parseDurationMs(threshold);
+  if (result.isErr()) {
+    const fallback = parseDurationMs(DEFAULT_STALE_THRESHOLD);
+    if (fallback.isErr()) {
+      return true;
+    }
+    const last = new Date(lastSync).getTime();
+    return Date.now() - last > fallback.value;
   }
+  const thresholdMs = result.value;
 
   const last = new Date(lastSync).getTime();
   return Date.now() - last > thresholdMs;
