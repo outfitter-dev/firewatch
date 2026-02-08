@@ -35,7 +35,7 @@ import {
   shouldExcludeAuthor,
   syncRepo,
   type AckRecord,
-  type AuthResult,
+  type AuthInfo,
   type FirewatchConfig,
   type FirewatchEntry,
   type PrState,
@@ -461,14 +461,14 @@ async function ensureRepoCache(
   await ensureDirectories();
 
   const auth = await detectAuth(config.github_token);
-  if (!auth.token) {
-    throw new Error(auth.error);
+  if (auth.isErr()) {
+    throw new Error(auth.error.message);
   }
 
   const graphiteEnabled =
     detectedRepo === repo && (await getGraphiteStacks()) !== null;
   const plugins = graphiteEnabled ? [graphitePlugin] : [];
-  const client = new GitHubClient(auth.token);
+  const client = new GitHubClient(auth.value.token);
   await syncRepo(client, repo, { plugins, scope });
 }
 
@@ -588,11 +588,11 @@ async function performSync(
   }[]
 > {
   const auth = await detectAuth(config.github_token);
-  if (!auth.token) {
-    throw new Error(auth.error);
+  if (auth.isErr()) {
+    throw new Error(auth.error.message);
   }
 
-  const client = new GitHubClient(auth.token);
+  const client = new GitHubClient(auth.value.token);
   const graphiteEnabled = await resolveGraphiteEnabled(detectedRepo);
   const scopes =
     options.scopes && options.scopes.length > 0
@@ -834,9 +834,9 @@ async function handleStatus(params: FirewatchParams): Promise<McpToolResult> {
   const output = {
     version: mcpVersion,
     auth: {
-      ok: Boolean(auth.token),
-      source: auth.source,
-      ...(auth.error && { error: auth.error }),
+      ok: auth.isOk(),
+      source: auth.isOk() ? auth.value.source : "none",
+      ...(auth.isErr() && { error: auth.error.message }),
     },
     config: {
       paths: {
@@ -890,11 +890,11 @@ async function createMutationContext(
 
   const config = await loadConfig();
   const auth = await detectAuth(config.github_token);
-  if (!auth.token) {
-    throw new Error(auth.error);
+  if (auth.isErr()) {
+    throw new Error(auth.error.message);
   }
 
-  return { repo, owner, name, client: new GitHubClient(auth.token) };
+  return { repo, owner, name, client: new GitHubClient(auth.value.token) };
 }
 
 async function handleAddReview(
@@ -1161,11 +1161,11 @@ async function handleRm(params: FirewatchParams): Promise<McpToolResult> {
 
   const config = await loadConfig();
   const auth = await detectAuth(config.github_token);
-  if (!auth.token) {
-    throw new Error(auth.error);
+  if (auth.isErr()) {
+    throw new Error(auth.error.message);
   }
 
-  const client = new GitHubClient(auth.token);
+  const client = new GitHubClient(auth.value.token);
 
   if (labels.length > 0) {
     await client.removeLabels(owner, name, pr, labels);
@@ -1271,9 +1271,10 @@ async function handleDoctor(params: FirewatchParams): Promise<McpToolResult> {
   let githubOk = false;
   let githubChecked = false;
   let githubStatus: number | undefined;
+  const authToken = auth.isOk() ? auth.value.token : undefined;
   try {
     const response = await fetch("https://api.github.com/rate_limit", {
-      headers: auth.token ? { Authorization: `Bearer ${auth.token}` } : {},
+      headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
     });
     githubStatus = response.status;
     githubOk = response.ok;
@@ -1293,10 +1294,10 @@ async function handleDoctor(params: FirewatchParams): Promise<McpToolResult> {
     });
   }
 
-  if (!auth.token) {
+  if (auth.isErr()) {
     issues.push({
       check: "auth",
-      message: auth.error ?? "No GitHub auth available",
+      message: auth.error.message,
     });
   }
 
@@ -1321,9 +1322,9 @@ async function handleDoctor(params: FirewatchParams): Promise<McpToolResult> {
         status: githubStatus,
       },
       auth: {
-        ok: Boolean(auth.token),
-        source: auth.source,
-        ...(auth.error && { error: auth.error }),
+        ok: auth.isOk(),
+        source: auth.isOk() ? auth.value.source : "none",
+        ...(auth.isErr() && { error: auth.error.message }),
       },
       config: {
         ok: true,
@@ -1496,11 +1497,11 @@ async function createFeedbackContext(
   }
 
   const auth = await detectAuth(config.github_token);
-  if (!auth.token) {
-    throw new Error(auth.error);
+  if (auth.isErr()) {
+    throw new Error(auth.error.message);
   }
 
-  const client = new GitHubClient(auth.token);
+  const client = new GitHubClient(auth.value.token);
   await ensureRepoCacheIfNeeded(repo, config, detected.repo, ["open", "draft"]);
 
   return { repo, owner, name, config, client, detectedRepo: detected.repo };
@@ -2006,7 +2007,7 @@ export class FirewatchMCPServer {
   readonly server: McpServer;
   private _isAuthenticated = false;
   private _writeToolsRegistered = false;
-  private _authResult: AuthResult | null = null;
+  private _authInfo: AuthInfo | null = null;
 
   constructor() {
     this.server = new McpServer(
@@ -2043,24 +2044,24 @@ export class FirewatchMCPServer {
       return {
         authenticated: this._isAuthenticated,
         toolsEnabled: true,
-        ...(this._authResult?.source && { source: this._authResult.source }),
+        ...(this._authInfo?.source && { source: this._authInfo.source }),
       };
     }
 
     // Check auth
     const config = await loadConfig();
     const auth = await detectAuth(config.github_token);
-    this._authResult = auth;
 
-    if (!auth.token) {
+    if (auth.isErr()) {
       return {
         authenticated: false,
         toolsEnabled: false,
-        ...(auth.error && { error: auth.error }),
+        error: auth.error.message,
       };
     }
 
     // Auth succeeded - register write tools
+    this._authInfo = auth.value;
     this._isAuthenticated = true;
     this.registerWriteTools();
     this._writeToolsRegistered = true;
@@ -2071,7 +2072,7 @@ export class FirewatchMCPServer {
     return {
       authenticated: true,
       toolsEnabled: true,
-      source: auth.source,
+      source: auth.value.source,
     };
   }
 

@@ -59,22 +59,22 @@ async function checkGithubReachable(): Promise<CheckResult> {
 async function checkAuth(): Promise<CheckResult> {
   const config = await loadConfig();
   const auth = await detectAuth(config.github_token);
-  if (!auth.token) {
+  if (auth.isErr()) {
     return {
       name: "Auth valid",
       ok: false,
-      message: auth.error ?? "No auth token found",
+      message: auth.error.message,
       hint: "Run `gh auth login` or set FIREWATCH_GITHUB_TOKEN.",
     };
   }
 
   try {
-    const client = new GitHubClient(auth.token);
+    const client = new GitHubClient(auth.value.token);
     const login = await client.fetchViewerLogin();
     return {
       name: "Auth valid",
       ok: true,
-      message: `${login} via ${auth.source}`,
+      message: `${login} via ${auth.value.source}`,
     };
   } catch (error) {
     return {

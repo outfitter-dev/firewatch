@@ -20,7 +20,12 @@ export {
 } from "./authors";
 
 // Auth
-export { detectAuth, type AuthResult, type AuthSource } from "./auth";
+export {
+	detectAuth,
+	type AuthInfo,
+	type AuthResult,
+	type AuthSource,
+} from "./auth";
 
 // Cache
 export {

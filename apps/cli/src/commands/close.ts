@@ -65,11 +65,11 @@ async function createContext(options: CloseCommandOptions): Promise<CloseContext
   const { owner, name } = parseRepoInput(repo);
 
   const auth = await detectAuth(config.github_token);
-  if (!auth.token) {
-    throw new Error(auth.error ?? "No GitHub token available");
+  if (auth.isErr()) {
+    throw new Error(auth.error.message);
   }
 
-  const client = new GitHubClient(auth.token);
+  const client = new GitHubClient(auth.value.token);
 
   return {
     client,

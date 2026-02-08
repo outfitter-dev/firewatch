@@ -246,14 +246,14 @@ async function handleSync(
 
   // Authenticate
   const auth = await detectAuth(config.github_token);
-  if (!auth.token) {
+  if (auth.isErr()) {
     console.error("GitHub authentication required.");
-    console.error(auth.error ?? "No token found. Run 'gh auth login' or set GITHUB_TOKEN.");
+    console.error(auth.error.message);
     process.exit(1);
   }
 
   // Create GitHub client and plugins
-  const client = new GitHubClient(auth.token);
+  const client = new GitHubClient(auth.value.token);
   const useGraphite = (await getGraphiteStacks()) !== null;
   const plugins = useGraphite ? [graphitePlugin] : [];
 

@@ -107,12 +107,12 @@ async function createContext(options: EditOptions): Promise<EditContext> {
   const { owner, name } = parseRepoInput(repo);
 
   const auth = await detectAuth(config.github_token);
-  if (!auth.token) {
-    throw new Error(auth.error ?? "No GitHub token available");
+  if (auth.isErr()) {
+    throw new Error(auth.error.message);
   }
 
   return {
-    client: new GitHubClient(auth.token),
+    client: new GitHubClient(auth.value.token),
     config,
     repo,
     owner,

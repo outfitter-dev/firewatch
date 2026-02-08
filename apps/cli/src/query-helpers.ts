@@ -475,11 +475,11 @@ export async function ensureRepoCache(
   options: { full?: boolean } = {}
 ): Promise<{ synced: boolean }> {
   const auth = await detectAuth(config.github_token);
-  if (!auth.token) {
-    throw new Error(auth.error);
+  if (auth.isErr()) {
+    throw new Error(auth.error.message);
   }
 
-  const client = new GitHubClient(auth.token);
+  const client = new GitHubClient(auth.value.token);
   const useGraphite =
     detectedRepo === repo && (await getGraphiteStacks()) !== null;
   const plugins = useGraphite ? [graphitePlugin] : [];
