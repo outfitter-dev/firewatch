@@ -93,5 +93,8 @@ export interface StackProvider {
    *   - "down": Current PR + PRs toward trunk (ancestors)
    *   - "up": Current PR + PRs toward tip (descendants)
    */
-  getStackPRs(branch: string, direction?: StackDirection): Promise<StackPRs | null>;
+  getStackPRs(
+    branch: string,
+    direction?: StackDirection
+  ): Promise<StackPRs | null>;
 }

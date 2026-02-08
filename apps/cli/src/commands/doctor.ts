@@ -229,7 +229,9 @@ export const doctorCommand = new Command("doctor")
       }
 
       // Render header
-      const headerLines = renderHeader(["Firewatch Health Check"], { width: 24 });
+      const headerLines = renderHeader(["Firewatch Health Check"], {
+        width: 24,
+      });
       for (const line of headerLines) {
         console.log(line);
       }

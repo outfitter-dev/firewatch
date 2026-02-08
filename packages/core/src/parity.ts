@@ -122,7 +122,11 @@ export function filterComments(
 
   for (const [id, comment] of comments) {
     // Type filter
-    if (filters.type && filters.type !== "all" && comment.type !== filters.type) {
+    if (
+      filters.type &&
+      filters.type !== "all" &&
+      comment.type !== filters.type
+    ) {
       continue;
     }
 
@@ -196,7 +200,9 @@ export function compareParityData(
         pr: ghComment.pr,
         type: ghComment.type,
         kind: "missing_in_fw",
-        ...(ghComment.isResolved !== undefined && { ghResolved: ghComment.isResolved }),
+        ...(ghComment.isResolved !== undefined && {
+          ghResolved: ghComment.isResolved,
+        }),
         author: ghComment.author,
       });
     } else if (
@@ -209,8 +215,12 @@ export function compareParityData(
         pr: ghComment.pr,
         type: ghComment.type,
         kind: "state_mismatch",
-        ...(ghComment.isResolved !== undefined && { ghResolved: ghComment.isResolved }),
-        ...(fwComment.isResolved !== undefined && { fwResolved: fwComment.isResolved }),
+        ...(ghComment.isResolved !== undefined && {
+          ghResolved: ghComment.isResolved,
+        }),
+        ...(fwComment.isResolved !== undefined && {
+          fwResolved: fwComment.isResolved,
+        }),
         author: ghComment.author,
       });
     }
@@ -224,7 +234,9 @@ export function compareParityData(
         pr: fwComment.pr,
         type: fwComment.type,
         kind: "extra_in_fw",
-        ...(fwComment.isResolved !== undefined && { fwResolved: fwComment.isResolved }),
+        ...(fwComment.isResolved !== undefined && {
+          fwResolved: fwComment.isResolved,
+        }),
         author: fwComment.author,
       });
     }
@@ -305,7 +317,9 @@ export function formatParityResult(result: ParityResult): string {
   if (!result.match) {
     lines.push("\n--- Discrepancies ---");
 
-    const missing = result.discrepancies.filter((d) => d.kind === "missing_in_fw");
+    const missing = result.discrepancies.filter(
+      (d) => d.kind === "missing_in_fw"
+    );
     const extra = result.discrepancies.filter((d) => d.kind === "extra_in_fw");
     const stateMismatch = result.discrepancies.filter(
       (d) => d.kind === "state_mismatch"

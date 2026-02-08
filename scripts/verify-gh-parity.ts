@@ -25,6 +25,7 @@
 
 import { $ } from "bun";
 
+import { getDatabase } from "../packages/core/src/cache";
 import {
   compareParityData,
   formatParityResult,
@@ -32,7 +33,6 @@ import {
   type ParityData,
   type ParityFilterOptions,
 } from "../packages/core/src/parity";
-import { getDatabase } from "../packages/core/src/cache";
 import { getSyncMeta } from "../packages/core/src/repository";
 
 interface CliOptions {
@@ -184,7 +184,8 @@ async function fetchGitHubData(
     }
   `;
 
-  const result = (await $`gh api graphql -f query=${query}`.json()) as GqlResponse;
+  const result =
+    (await $`gh api graphql -f query=${query}`.json()) as GqlResponse;
   const prs = result.data?.repository?.pullRequests?.nodes ?? [];
 
   const data: ParityData = {

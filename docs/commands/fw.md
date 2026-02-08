@@ -34,15 +34,15 @@ fw [options]
 
 ### State
 
-| Option             | Description                                     |
-| ------------------ | ----------------------------------------------- |
-| `--open`           | Include open PRs (including drafts)             |
-| `--ready`          | Include ready PRs (open, non-draft)             |
-| `--closed`         | Include merged and closed PRs                   |
-| `--draft`          | Include draft PRs                               |
-| `--orphaned`       | Only unresolved review comments on merged/closed PRs |
+| Option             | Description                                             |
+| ------------------ | ------------------------------------------------------- |
+| `--open`           | Include open PRs (including drafts)                     |
+| `--ready`          | Include ready PRs (open, non-draft)                     |
+| `--closed`         | Include merged and closed PRs                           |
+| `--draft`          | Include draft PRs                                       |
+| `--orphaned`       | Only unresolved review comments on merged/closed PRs    |
 | `--stale`          | Include unresolved review comments on merged/closed PRs |
-| `--state <states>` | Explicit comma-separated state list             |
+| `--state <states>` | Explicit comma-separated state list                     |
 
 ### Filters
 
@@ -61,10 +61,10 @@ fw [options]
 
 ### Sync/Cache
 
-| Option             | Description                                     |
-| ------------------ | ----------------------------------------------- |
-| `--no-sync`        | Use cache only, no network                      |
-| `--sync-full`      | Force a full sync before query                  |
+| Option        | Description                    |
+| ------------- | ------------------------------ |
+| `--no-sync`   | Use cache only, no network     |
+| `--sync-full` | Force a full sync before query |
 
 ### Pagination
 

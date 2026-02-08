@@ -27,7 +27,10 @@ interface StackProvider {
   isAvailable(): Promise<boolean>;
   getStacks(): Promise<Stack[]>;
   getStackForBranch(branch: string): Promise<StackPosition | null>;
-  getStackPRs(branch: string, direction?: StackDirection): Promise<StackPRs | null>;
+  getStackPRs(
+    branch: string,
+    direction?: StackDirection
+  ): Promise<StackPRs | null>;
 }
 
 type StackDirection = "all" | "up" | "down";

@@ -73,9 +73,7 @@ export function validateMcpQueryOptions(params: McpQueryParams): void {
  * Build PR filter value from number array.
  * Returns single number for single item, array for multiple, undefined for empty.
  */
-export function buildPrFilter(
-  prList: number[]
-): number | number[] | undefined {
+export function buildPrFilter(prList: number[]): number | number[] | undefined {
   if (prList.length > 1) {
     return prList;
   }

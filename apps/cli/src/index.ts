@@ -15,16 +15,16 @@ import { doctorCommand } from "./commands/doctor";
 import { editCommand } from "./commands/edit";
 import { examplesCommand } from "./commands/examples";
 import { freezeCommand } from "./commands/freeze";
-import { replyCommand } from "./commands/reply";
-import { unfreezeCommand } from "./commands/unfreeze";
 import { listCommand } from "./commands/list";
 import { mcpCommand } from "./commands/mcp";
-import { rejectCommand } from "./commands/reject";
-import { viewCommand } from "./commands/view";
 import { queryCommand } from "./commands/query";
+import { rejectCommand } from "./commands/reject";
+import { replyCommand } from "./commands/reply";
 import { schemaCommand } from "./commands/schema";
 import { statusCommand } from "./commands/status";
 import { syncCommand } from "./commands/sync";
+import { unfreezeCommand } from "./commands/unfreeze";
+import { viewCommand } from "./commands/view";
 import { executeCliQuery } from "./query";
 import {
   applyGlobalOptions,
@@ -54,10 +54,7 @@ program
   .option("--closed", "Include merged and closed PRs")
   .option("--draft", "Filter to draft PRs")
   .option("--orphaned", "Unresolved review comments on merged/closed PRs")
-  .option(
-    "--stale",
-    "Include unresolved review comments on merged/closed PRs"
-  )
+  .option("--stale", "Include unresolved review comments on merged/closed PRs")
   .option("--include-frozen", "Include activity after freeze timestamps")
   .option("--state <states>", "Explicit comma-separated PR states")
   .option(
@@ -72,7 +69,10 @@ program
     "-s, --since <duration>",
     "Filter by time window. Formats: Nh, Nd, Nw, Nm (months). Examples: 24h, 7d"
   )
-  .option("--before <date>", "Entries created before ISO date (e.g., 2024-01-15)")
+  .option(
+    "--before <date>",
+    "Entries created before ISO date (e.g., 2024-01-15)"
+  )
   .option("--no-sync", "Skip auto-sync; use cache only")
   .option("--sync-full", "Force a full sync before query")
   .option("-n, --limit <count>", "Limit number of results", validateLimit)
@@ -177,7 +177,9 @@ program
       program.help();
       return;
     }
-    const subcommand = program.commands.find((cmd) => cmd.name() === commandName);
+    const subcommand = program.commands.find(
+      (cmd) => cmd.name() === commandName
+    );
     if (subcommand) {
       subcommand.help();
     } else {

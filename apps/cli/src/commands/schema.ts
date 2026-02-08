@@ -23,7 +23,12 @@ type SchemaAlias = "entry" | "worklist";
 
 type SchemaName = SchemaCommand | SchemaAlias;
 
-const VALID_COMMANDS = new Set<SchemaCommand>(["query", "fb", "status", "config"]);
+const VALID_COMMANDS = new Set<SchemaCommand>([
+  "query",
+  "fb",
+  "status",
+  "config",
+]);
 
 const schemaMap: Record<SchemaCommand, unknown> = {
   query: ENTRY_SCHEMA_DOC,
@@ -36,9 +41,15 @@ const schemaMap: Record<SchemaCommand, unknown> = {
  * Hidden aliases for backward compatibility.
  * Maps old type names to their canonical command names.
  */
-const aliasMap: Record<SchemaAlias, { canonical: SchemaCommand; hint: string }> = {
+const aliasMap: Record<
+  SchemaAlias,
+  { canonical: SchemaCommand; hint: string }
+> = {
   entry: { canonical: "query", hint: "fw schema query" },
-  worklist: { canonical: "query", hint: "worklist is a legacy alias (use fw --summary for worklist output)" },
+  worklist: {
+    canonical: "query",
+    hint: "worklist is a legacy alias (use fw --summary for worklist output)",
+  },
 };
 
 function isSchemaCommand(name: string): name is SchemaCommand {

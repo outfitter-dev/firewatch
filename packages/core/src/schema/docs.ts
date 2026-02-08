@@ -171,10 +171,22 @@ export const FB_SCHEMA_DOC = {
     pr_title: { type: "string" },
     pr_branch: { type: "string" },
     author: { type: "string", description: "Comment author username" },
-    body: { type: "string", optional: true, description: "Comment body (truncated to 200 chars)" },
+    body: {
+      type: "string",
+      optional: true,
+      description: "Comment body (truncated to 200 chars)",
+    },
     created_at: { type: "string", format: "date-time" },
-    file: { type: "string", optional: true, description: "File path for review comments" },
-    line: { type: "number", optional: true, description: "Line number for review comments" },
+    file: {
+      type: "string",
+      optional: true,
+      description: "File path for review comments",
+    },
+    line: {
+      type: "number",
+      optional: true,
+      description: "Line number for review comments",
+    },
     is_bot: { type: "boolean", description: "Whether author is a bot" },
   },
 };
@@ -187,10 +199,24 @@ export const STATUS_SCHEMA_DOC = {
     auth: {
       type: "object",
       fields: {
-        ok: { type: "boolean", description: "Whether authentication is configured" },
-        source: { type: "string", description: "Auth source (gh-cli, env, config)" },
-        username: { type: "string", optional: true, description: "Authenticated GitHub username" },
-        error: { type: "string", optional: true, description: "Auth error message if not ok" },
+        ok: {
+          type: "boolean",
+          description: "Whether authentication is configured",
+        },
+        source: {
+          type: "string",
+          description: "Auth source (gh-cli, env, config)",
+        },
+        username: {
+          type: "string",
+          optional: true,
+          description: "Authenticated GitHub username",
+        },
+        error: {
+          type: "string",
+          optional: true,
+          description: "Auth error message if not ok",
+        },
       },
     },
     config: {
@@ -216,14 +242,25 @@ export const STATUS_SCHEMA_DOC = {
     repo: {
       type: "object",
       fields: {
-        name: { type: "string", optional: true, description: "Detected repository (owner/repo)" },
-        source: { type: "string", optional: true, description: "Detection source (git, package.json, etc.)" },
+        name: {
+          type: "string",
+          optional: true,
+          description: "Detected repository (owner/repo)",
+        },
+        source: {
+          type: "string",
+          optional: true,
+          description: "Detection source (git, package.json, etc.)",
+        },
       },
     },
     graphite: {
       type: "object",
       fields: {
-        available: { type: "boolean", description: "Whether Graphite CLI is available" },
+        available: {
+          type: "boolean",
+          description: "Whether Graphite CLI is available",
+        },
       },
     },
     cache: {
@@ -232,7 +269,12 @@ export const STATUS_SCHEMA_DOC = {
         repos: { type: "number", description: "Number of cached repositories" },
         entries: { type: "number", description: "Total cached entries" },
         size_bytes: { type: "number", description: "Cache size in bytes" },
-        last_sync: { type: "string", format: "date-time", optional: true, description: "Last sync timestamp" },
+        last_sync: {
+          type: "string",
+          format: "date-time",
+          optional: true,
+          description: "Last sync timestamp",
+        },
       },
     },
   },

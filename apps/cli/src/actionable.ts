@@ -471,7 +471,6 @@ export function buildActionableSummary(
   };
 }
 
-
 export async function printActionableSummary(
   summary: ActionableSummary
 ): Promise<void> {

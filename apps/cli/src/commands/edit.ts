@@ -255,7 +255,11 @@ async function applyDraftState(
   const changes: Partial<PrEditResult> = {};
 
   if (options.draft || options.ready) {
-    const prIdResult = await ctx.client.fetchPullRequestId(ctx.owner, ctx.name, pr);
+    const prIdResult = await ctx.client.fetchPullRequestId(
+      ctx.owner,
+      ctx.name,
+      pr
+    );
     if (prIdResult.isErr()) {
       throw prIdResult.error;
     }

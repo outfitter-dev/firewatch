@@ -1,5 +1,5 @@
-import { $ } from "bun";
 import { AuthError, Result } from "@outfitter/contracts";
+import { $ } from "bun";
 
 /**
  * Authentication source for GitHub API access.
@@ -10,8 +10,8 @@ export type AuthSource = "gh-cli" | "env" | "config" | "none";
  * Successful authentication info.
  */
 export interface AuthInfo {
-	token: string;
-	source: Exclude<AuthSource, "none">;
+  token: string;
+  source: Exclude<AuthSource, "none">;
 }
 
 /**
@@ -19,28 +19,28 @@ export interface AuthInfo {
  * Kept for backward compatibility during migration.
  */
 export interface AuthResult {
-	token: string | null;
-	source: AuthSource;
-	error?: string;
+  token: string | null;
+  source: AuthSource;
+  error?: string;
 }
 
 /**
  * Check if the gh CLI is authenticated.
  */
 async function checkGhAuth(): Promise<boolean> {
-	const result = await $`gh auth status`.nothrow().quiet();
-	return result.exitCode === 0;
+  const result = await $`gh auth status`.nothrow().quiet();
+  return result.exitCode === 0;
 }
 
 /**
  * Get token from gh CLI.
  */
 async function getGhToken(): Promise<string | null> {
-	const result = await $`gh auth token`.nothrow().quiet();
-	if (result.exitCode !== 0) {
-		return null;
-	}
-	return result.text().trim() || null;
+  const result = await $`gh auth token`.nothrow().quiet();
+  if (result.exitCode !== 0) {
+    return null;
+  }
+  return result.text().trim() || null;
 }
 
 /**
@@ -48,9 +48,7 @@ async function getGhToken(): Promise<string | null> {
  * Checks FIREWATCH_GITHUB_TOKEN first, then GITHUB_TOKEN.
  */
 function getEnvToken(): string | null {
-	return (
-		process.env.FIREWATCH_GITHUB_TOKEN || process.env.GITHUB_TOKEN || null
-	);
+  return process.env.FIREWATCH_GITHUB_TOKEN || process.env.GITHUB_TOKEN || null;
 }
 
 /**
@@ -66,33 +64,33 @@ function getEnvToken(): string | null {
  * @returns Result with AuthInfo on success, AuthError on failure
  */
 export async function detectAuth(
-	configToken?: string,
+  configToken?: string
 ): Promise<Result<AuthInfo, AuthError>> {
-	// Try gh CLI first
-	if (await checkGhAuth()) {
-		const token = await getGhToken();
-		if (token) {
-			return Result.ok({ token, source: "gh-cli" as const });
-		}
-	}
+  // Try gh CLI first
+  if (await checkGhAuth()) {
+    const token = await getGhToken();
+    if (token) {
+      return Result.ok({ token, source: "gh-cli" as const });
+    }
+  }
 
-	// Try environment variables
-	const envToken = getEnvToken();
-	if (envToken) {
-		return Result.ok({ token: envToken, source: "env" as const });
-	}
+  // Try environment variables
+  const envToken = getEnvToken();
+  if (envToken) {
+    return Result.ok({ token: envToken, source: "env" as const });
+  }
 
-	// Try config file token
-	if (configToken) {
-		return Result.ok({ token: configToken, source: "config" as const });
-	}
+  // Try config file token
+  if (configToken) {
+    return Result.ok({ token: configToken, source: "config" as const });
+  }
 
-	// No authentication found
-	return Result.err(
-		new AuthError({
-			message:
-				"No GitHub authentication found. Please authenticate with `gh auth login`, " +
-				"set GITHUB_TOKEN environment variable, or configure a token with `fw config github_token <token>`.",
-		}),
-	);
+  // No authentication found
+  return Result.err(
+    new AuthError({
+      message:
+        "No GitHub authentication found. Please authenticate with `gh auth login`, " +
+        "set GITHUB_TOKEN environment variable, or configure a token with `fw config github_token <token>`.",
+    })
+  );
 }

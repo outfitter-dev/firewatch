@@ -206,11 +206,11 @@ Each agent must return results in this structure:
 
 ### Test Results
 
-| Test         | Command                | Result | Notes               |
-| ------------ | ---------------------- | ------ | ------------------- |
-| Basic query  | `fw --limit 5`         | PASS   | Returns valid JSONL |
-| Invalid type | `fw --type invalid`    | PASS   | Exits with error    |
-| ...          | ...                    | ...    | ...                 |
+| Test         | Command             | Result | Notes               |
+| ------------ | ------------------- | ------ | ------------------- |
+| Basic query  | `fw --limit 5`      | PASS   | Returns valid JSONL |
+| Invalid type | `fw --type invalid` | PASS   | Exits with error    |
+| ...          | ...                 | ...    | ...                 |
 
 ### Summary
 

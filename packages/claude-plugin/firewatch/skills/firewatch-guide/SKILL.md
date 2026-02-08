@@ -193,43 +193,47 @@ git add -A && git commit -m "Address review feedback" && git push
 
 ## Comment Categories
 
-| Type | Action |
-|------|--------|
-| Bug/logic error | Fix code, reply explaining fix |
+| Type             | Action                                    |
+| ---------------- | ----------------------------------------- |
+| Bug/logic error  | Fix code, reply explaining fix            |
 | Style/preference | Apply if reasonable, or discuss tradeoffs |
-| Question | Reply with explanation (no code change) |
-| Nitpick | Fix quickly or ack for future |
+| Question         | Reply with explanation (no code change)   |
+| Nitpick          | Fix quickly or ack for future             |
 
 ### Response Templates
 
 **Code Fixed:**
+
 > Fixed in [commit]. [Brief explanation].
 
 **Clarification:**
+
 > Good question! [Explanation]. I chose this because [reasoning].
 
 **Acknowledged:**
+
 > Good point, I'll address this in a follow-up PR.
 
 **Disagreement:**
+
 > I considered that, but [reasoning]. Happy to discuss further.
 
 ---
 
 ## CLI Quick Reference
 
-| Command | Purpose |
-|---------|---------|
-| `fw` | Query activity (auto-syncs if stale) |
-| `fw --summary` | Per-PR aggregation |
-| `fw fb` | List/view/reply/resolve feedback |
-| `fw fb 123` | Feedback for PR #123 |
-| `fw fb @id "text"` | Reply to comment |
-| `fw fb @id --resolve` | Resolve thread |
-| `fw pr edit 123 --title "..."` | Edit PR fields |
-| `fw status` | Auth/cache/repo info |
-| `fw doctor` | Diagnose issues |
-| `fw schema entry` | Output format schema |
+| Command                        | Purpose                              |
+| ------------------------------ | ------------------------------------ |
+| `fw`                           | Query activity (auto-syncs if stale) |
+| `fw --summary`                 | Per-PR aggregation                   |
+| `fw fb`                        | List/view/reply/resolve feedback     |
+| `fw fb 123`                    | Feedback for PR #123                 |
+| `fw fb @id "text"`             | Reply to comment                     |
+| `fw fb @id --resolve`          | Resolve thread                       |
+| `fw pr edit 123 --title "..."` | Edit PR fields                       |
+| `fw status`                    | Auth/cache/repo info                 |
+| `fw doctor`                    | Diagnose issues                      |
+| `fw schema entry`              | Output format schema                 |
 
 See [references/cli.md](references/cli.md) for complete command documentation.
 
@@ -237,14 +241,14 @@ See [references/cli.md](references/cli.md) for complete command documentation.
 
 ## MCP Tools Quick Reference
 
-| Tool | Purpose |
-|------|---------|
-| `fw_query` | Query cached activity |
-| `fw_fb` | Feedback operations |
-| `fw_pr` | PR mutations (edit/rm/review) |
-| `fw_status` | Status info |
-| `fw_doctor` | Diagnostics |
-| `fw_help` | Usage docs |
+| Tool        | Purpose                       |
+| ----------- | ----------------------------- |
+| `fw_query`  | Query cached activity         |
+| `fw_fb`     | Feedback operations           |
+| `fw_pr`     | PR mutations (edit/rm/review) |
+| `fw_status` | Status info                   |
+| `fw_doctor` | Diagnostics                   |
+| `fw_help`   | Usage docs                    |
 
 See [references/mcp.md](references/mcp.md) for complete tool documentation.
 

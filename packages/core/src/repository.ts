@@ -653,10 +653,7 @@ function applyExcludeStaleFilter(
   );
 }
 
-function applyFreezeFilter(
-  filters: QueryFilters,
-  conditions: string[]
-): void {
+function applyFreezeFilter(filters: QueryFilters, conditions: string[]): void {
   if (filters.includeFrozen) {
     return;
   }

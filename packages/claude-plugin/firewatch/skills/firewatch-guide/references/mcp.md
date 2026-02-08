@@ -7,12 +7,14 @@ Complete reference for Firewatch MCP server tools.
 The Firewatch MCP server exposes tools for querying and managing GitHub PR activity. Start via `fw mcp`.
 
 **Base tools** (always available):
+
 - `fw_query` - Query cached activity
 - `fw_status` - Status info
 - `fw_doctor` - Diagnostics
 - `fw_help` - Usage documentation
 
 **Write tools** (require authentication):
+
 - `fw_fb` - Feedback operations
 - `fw_pr` - PR mutations
 
@@ -24,31 +26,31 @@ Query cached PR activity with filters.
 
 ### Parameters
 
-| Name | Type | Description |
-|------|------|-------------|
-| `repo` | string | Repository (owner/repo) |
-| `pr` | number \| number[] | Filter to specific PR(s) |
-| `type` | string \| string[] | Entry type: comment, review, commit, ci, event |
-| `author` | string \| string[] | Filter by author(s), prefix `!` to exclude |
-| `states` | string[] | PR states: open, closed, merged, draft |
-| `state` | string | Comma-separated states (alternative) |
-| `open` | boolean | Filter to open PRs (including drafts) |
-| `ready` | boolean | Filter to ready PRs (open, non-draft) |
-| `closed` | boolean | Include merged/closed PRs |
-| `draft` | boolean | Filter to draft PRs |
-| `label` | string | Filter by PR label |
-| `since` | string | Time window (24h, 7d, etc.) |
-| `limit` | number | Max results |
-| `offset` | number | Skip first N results |
-| `summary` | boolean | Per-PR aggregation |
-| `summary_short` | boolean | Compact summary |
-| `orphaned` | boolean | Unresolved on merged/closed PRs |
-| `all` | boolean | Include all cached repos |
-| `mine` | boolean | My PRs only |
-| `reviews` | boolean | PRs I need to review |
-| `no_bots` | boolean | Exclude bot activity |
-| `no_sync` | boolean | Cache only, no sync |
-| `sync_full` | boolean | Force a full sync before query |
+| Name            | Type               | Description                                    |
+| --------------- | ------------------ | ---------------------------------------------- |
+| `repo`          | string             | Repository (owner/repo)                        |
+| `pr`            | number \| number[] | Filter to specific PR(s)                       |
+| `type`          | string \| string[] | Entry type: comment, review, commit, ci, event |
+| `author`        | string \| string[] | Filter by author(s), prefix `!` to exclude     |
+| `states`        | string[]           | PR states: open, closed, merged, draft         |
+| `state`         | string             | Comma-separated states (alternative)           |
+| `open`          | boolean            | Filter to open PRs (including drafts)          |
+| `ready`         | boolean            | Filter to ready PRs (open, non-draft)          |
+| `closed`        | boolean            | Include merged/closed PRs                      |
+| `draft`         | boolean            | Filter to draft PRs                            |
+| `label`         | string             | Filter by PR label                             |
+| `since`         | string             | Time window (24h, 7d, etc.)                    |
+| `limit`         | number             | Max results                                    |
+| `offset`        | number             | Skip first N results                           |
+| `summary`       | boolean            | Per-PR aggregation                             |
+| `summary_short` | boolean            | Compact summary                                |
+| `orphaned`      | boolean            | Unresolved on merged/closed PRs                |
+| `all`           | boolean            | Include all cached repos                       |
+| `mine`          | boolean            | My PRs only                                    |
+| `reviews`       | boolean            | PRs I need to review                           |
+| `no_bots`       | boolean            | Exclude bot activity                           |
+| `no_sync`       | boolean            | Cache only, no sync                            |
+| `sync_full`     | boolean            | Force a full sync before query                 |
 
 ### Examples
 
@@ -84,15 +86,15 @@ Unified feedback operations for viewing, replying, resolving, and acknowledging 
 
 ### Parameters
 
-| Name | Type | Description |
-|------|------|-------------|
-| `pr` | number | PR number for PR-level operations |
-| `id` | string | Comment ID (short `@a7f3c` or full) |
-| `body` | string | Comment text for reply |
-| `resolve` | boolean | Resolve thread or ack |
-| `ack` | boolean | Thumbs-up reaction + local record |
-| `all` | boolean | Include resolved/acked feedback |
-| `repo` | string | Repository (owner/repo) |
+| Name      | Type    | Description                         |
+| --------- | ------- | ----------------------------------- |
+| `pr`      | number  | PR number for PR-level operations   |
+| `id`      | string  | Comment ID (short `@a7f3c` or full) |
+| `body`    | string  | Comment text for reply              |
+| `resolve` | boolean | Resolve thread or ack               |
+| `ack`     | boolean | Thumbs-up reaction + local record   |
+| `all`     | boolean | Include resolved/acked feedback     |
+| `repo`    | string  | Repository (owner/repo)             |
 
 ### Usage Patterns
 
@@ -112,43 +114,43 @@ Unified feedback operations for viewing, replying, resolving, and acknowledging 
 **View comment:**
 
 ```json
-{"id": "@a7f3c"}
+{ "id": "@a7f3c" }
 ```
 
 **Reply:**
 
 ```json
-{"id": "@a7f3c", "body": "Fixed in latest commit"}
+{ "id": "@a7f3c", "body": "Fixed in latest commit" }
 ```
 
 **Reply and resolve:**
 
 ```json
-{"id": "@a7f3c", "body": "Done", "resolve": true}
+{ "id": "@a7f3c", "body": "Done", "resolve": true }
 ```
 
 **Resolve without reply:**
 
 ```json
-{"id": "@a7f3c", "resolve": true}
+{ "id": "@a7f3c", "resolve": true }
 ```
 
 **Acknowledge:**
 
 ```json
-{"id": "@a7f3c", "ack": true}
+{ "id": "@a7f3c", "ack": true }
 ```
 
 **Bulk acknowledge PR:**
 
 ```json
-{"pr": 123, "ack": true}
+{ "pr": 123, "ack": true }
 ```
 
 **Add comment to PR:**
 
 ```json
-{"pr": 123, "body": "LGTM!"}
+{ "pr": 123, "body": "LGTM!" }
 ```
 
 ### Response
@@ -175,73 +177,73 @@ PR mutations: edit fields, manage metadata, submit reviews.
 
 ### Parameters
 
-| Name | Type | Description |
-|------|------|-------------|
+| Name     | Type   | Description                         |
+| -------- | ------ | ----------------------------------- |
 | `action` | string | Required: "edit", "rm", or "review" |
-| `pr` | number | Required: PR number |
-| `repo` | string | Repository (owner/repo) |
+| `pr`     | number | Required: PR number                 |
+| `repo`   | string | Repository (owner/repo)             |
 
 **Edit action params:**
 
-| Name | Type | Description |
-|------|------|-------------|
-| `title` | string | New title |
-| `body` | string | New description |
-| `base` | string | New base branch |
-| `milestone` | string | Set milestone |
-| `draft` | boolean | Convert to draft |
-| `ready` | boolean | Mark ready for review |
-| `labels` | string \| string[] | Add labels |
-| `label` | string | Add single label |
-| `reviewer` | string \| string[] | Add reviewers |
-| `assignee` | string \| string[] | Add assignees |
+| Name        | Type               | Description           |
+| ----------- | ------------------ | --------------------- |
+| `title`     | string             | New title             |
+| `body`      | string             | New description       |
+| `base`      | string             | New base branch       |
+| `milestone` | string             | Set milestone         |
+| `draft`     | boolean            | Convert to draft      |
+| `ready`     | boolean            | Mark ready for review |
+| `labels`    | string \| string[] | Add labels            |
+| `label`     | string             | Add single label      |
+| `reviewer`  | string \| string[] | Add reviewers         |
+| `assignee`  | string \| string[] | Add assignees         |
 
 **Remove action params:**
 
-| Name | Type | Description |
-|------|------|-------------|
-| `labels` | string \| string[] | Labels to remove |
-| `reviewer` | string \| string[] | Reviewers to remove |
-| `assignee` | string \| string[] | Assignees to remove |
-| `milestone` | boolean | Clear milestone (true) |
+| Name        | Type               | Description            |
+| ----------- | ------------------ | ---------------------- |
+| `labels`    | string \| string[] | Labels to remove       |
+| `reviewer`  | string \| string[] | Reviewers to remove    |
+| `assignee`  | string \| string[] | Assignees to remove    |
+| `milestone` | boolean            | Clear milestone (true) |
 
 **Review action params:**
 
-| Name | Type | Description |
-|------|------|-------------|
+| Name     | Type   | Description                                       |
+| -------- | ------ | ------------------------------------------------- |
 | `review` | string | Required: "approve", "request-changes", "comment" |
-| `body` | string | Review body |
+| `body`   | string | Review body                                       |
 
 ### Examples
 
 **Edit title:**
 
 ```json
-{"action": "edit", "pr": 123, "title": "feat: new feature"}
+{ "action": "edit", "pr": 123, "title": "feat: new feature" }
 ```
 
 **Add labels:**
 
 ```json
-{"action": "edit", "pr": 123, "labels": ["bug", "urgent"]}
+{ "action": "edit", "pr": 123, "labels": ["bug", "urgent"] }
 ```
 
 **Mark ready:**
 
 ```json
-{"action": "edit", "pr": 123, "ready": true}
+{ "action": "edit", "pr": 123, "ready": true }
 ```
 
 **Remove label:**
 
 ```json
-{"action": "rm", "pr": 123, "labels": "needs-review"}
+{ "action": "rm", "pr": 123, "labels": "needs-review" }
 ```
 
 **Approve PR:**
 
 ```json
-{"action": "review", "pr": 123, "review": "approve"}
+{ "action": "review", "pr": 123, "review": "approve" }
 ```
 
 **Request changes:**
@@ -263,16 +265,16 @@ Show cache and authentication status.
 
 ### Parameters
 
-| Name | Type | Description |
-|------|------|-------------|
-| `short` | boolean | Compact output |
-| `status_short` | boolean | Alias for short |
+| Name           | Type    | Description                           |
+| -------------- | ------- | ------------------------------------- |
+| `short`        | boolean | Compact output                        |
+| `status_short` | boolean | Alias for short                       |
 | `recheck_auth` | boolean | Re-verify auth and enable write tools |
 
 ### Example
 
 ```json
-{"short": true}
+{ "short": true }
 ```
 
 ### Response
@@ -296,8 +298,8 @@ Diagnose Firewatch setup issues.
 
 ### Parameters
 
-| Name | Type | Description |
-|------|------|-------------|
+| Name  | Type    | Description         |
+| ----- | ------- | ------------------- |
 | `fix` | boolean | Attempt auto-repair |
 
 ### Response
@@ -306,12 +308,12 @@ Diagnose Firewatch setup issues.
 {
   "ok": true,
   "checks": {
-    "github_api": {"ok": true, "status": 200},
-    "auth": {"ok": true, "source": "gh"},
-    "config": {"ok": true, "user": "...", "project": "..."},
-    "cache": {"ok": true, "path": "..."},
-    "repo": {"ok": true, "repo": "owner/repo", "source": "git"},
-    "graphite": {"ok": true, "enabled": true}
+    "github_api": { "ok": true, "status": 200 },
+    "auth": { "ok": true, "source": "gh" },
+    "config": { "ok": true, "user": "...", "project": "..." },
+    "cache": { "ok": true, "path": "..." },
+    "repo": { "ok": true, "repo": "owner/repo", "source": "git" },
+    "graphite": { "ok": true, "enabled": true }
   },
   "issues": []
 }
@@ -325,11 +327,11 @@ Usage documentation and schema info.
 
 ### Parameters
 
-| Name | Type | Description |
-|------|------|-------------|
-| `schema` | string | Show schema: "query", "entry", "worklist", "config" |
-| `config_key` | string | Show config value for key |
-| `config_path` | boolean | Show config file locations |
+| Name          | Type    | Description                                         |
+| ------------- | ------- | --------------------------------------------------- |
+| `schema`      | string  | Show schema: "query", "entry", "worklist", "config" |
+| `config_key`  | string  | Show config value for key                           |
+| `config_path` | boolean | Show config file locations                          |
 
 ### Examples
 
@@ -356,7 +358,7 @@ The MCP server uses auth-gated dynamic tool registration:
 4. Use `fw_status` with `recheck_auth: true` to trigger re-verification
 
 ```json
-{"recheck_auth": true}
+{ "recheck_auth": true }
 ```
 
 Response includes:
@@ -377,25 +379,25 @@ Response includes:
 
 Individual activity entries have this structure:
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `id` | string | GitHub node ID |
-| `short_id` | string | Short ID (e.g., `@a7f3c`) |
-| `repo` | string | Repository (owner/repo) |
-| `pr` | number | PR number |
-| `pr_title` | string | PR title |
-| `pr_author` | string | PR author login |
-| `pr_branch` | string | PR branch name |
-| `pr_state` | string | PR state |
-| `type` | string | Entry type |
-| `subtype` | string | Comment subtype (issue_comment, review_comment) |
-| `author` | string | Entry author |
-| `body` | string | Content body |
-| `created_at` | string | ISO timestamp |
-| `file` | string | File path (review comments) |
-| `line` | number | Line number (review comments) |
-| `thread_resolved` | boolean | Thread resolution status |
-| `graphite` | object | Graphite stack metadata |
+| Field             | Type    | Description                                     |
+| ----------------- | ------- | ----------------------------------------------- |
+| `id`              | string  | GitHub node ID                                  |
+| `short_id`        | string  | Short ID (e.g., `@a7f3c`)                       |
+| `repo`            | string  | Repository (owner/repo)                         |
+| `pr`              | number  | PR number                                       |
+| `pr_title`        | string  | PR title                                        |
+| `pr_author`       | string  | PR author login                                 |
+| `pr_branch`       | string  | PR branch name                                  |
+| `pr_state`        | string  | PR state                                        |
+| `type`            | string  | Entry type                                      |
+| `subtype`         | string  | Comment subtype (issue_comment, review_comment) |
+| `author`          | string  | Entry author                                    |
+| `body`            | string  | Content body                                    |
+| `created_at`      | string  | ISO timestamp                                   |
+| `file`            | string  | File path (review comments)                     |
+| `line`            | number  | Line number (review comments)                   |
+| `thread_resolved` | boolean | Thread resolution status                        |
+| `graphite`        | object  | Graphite stack metadata                         |
 
 ---
 
@@ -403,15 +405,15 @@ Individual activity entries have this structure:
 
 Per-PR summaries have this structure:
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `repo` | string | Repository |
-| `pr` | number | PR number |
-| `pr_title` | string | PR title |
-| `pr_author` | string | PR author |
-| `pr_state` | string | PR state |
+| Field              | Type   | Description          |
+| ------------------ | ------ | -------------------- |
+| `repo`             | string | Repository           |
+| `pr`               | number | PR number            |
+| `pr_title`         | string | PR title             |
+| `pr_author`        | string | PR author            |
+| `pr_state`         | string | PR state             |
 | `last_activity_at` | string | Most recent activity |
-| `counts` | object | Entry counts by type |
-| `review_states` | object | Review state counts |
-| `ci_status` | object | CI status summary |
-| `graphite` | object | Stack metadata |
+| `counts`           | object | Entry counts by type |
+| `review_states`    | object | Review state counts  |
+| `ci_status`        | object | CI status summary    |
+| `graphite`         | object | Stack metadata       |

@@ -43,12 +43,14 @@ Add to your MCP configuration:
 The MCP server exposes 6 tools with auth-gated write operations.
 
 **Base tools (always available):**
+
 - `fw_query` - Query cached PR activity (filters, summary output)
 - `fw_status` - Cache and auth status
 - `fw_doctor` - Diagnose auth/cache/repo issues
 - `fw_help` - Usage docs, JSON schemas, config inspection
 
 **Write tools (require authentication):**
+
 - `fw_pr` - PR mutations (edit fields, manage metadata, submit reviews)
 - `fw_fb` - Unified feedback (list, view, reply, ack, resolve)
 

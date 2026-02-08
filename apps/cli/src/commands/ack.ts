@@ -377,7 +377,9 @@ async function handlePrBulkAck(
 
   // Require confirmation for bulk operations unless --yes
   if (!options.yes && !outputJson) {
-    console.error(`Found ${feedbacks.length} unaddressed feedback items on PR #${prNum}.`);
+    console.error(
+      `Found ${feedbacks.length} unaddressed feedback items on PR #${prNum}.`
+    );
     console.error("Use --yes to confirm bulk acknowledgement.");
     return;
   }
@@ -647,7 +649,12 @@ async function handleMultiAck(
 
     if (outputJson) {
       await outputStructured(
-        { ok: true, repo, acked_count: 0, message: "No comments match filters" },
+        {
+          ok: true,
+          repo,
+          acked_count: 0,
+          message: "No comments match filters",
+        },
         "jsonl"
       );
     } else {
@@ -745,7 +752,10 @@ export const ackCommand = new Command("ack")
   .option("-l, --list", "List acknowledged comments")
   .option("-x, --clear <id>", "Remove acknowledgement for a comment")
   .option("-y, --yes", "Skip confirmation for bulk operations")
-  .option("--since <duration>", "Filter to comments within duration (e.g., 24h, 7d)")
+  .option(
+    "--since <duration>",
+    "Filter to comments within duration (e.g., 24h, 7d)"
+  )
   .option("--before <date>", "Filter to comments before ISO date")
   .option("--open", "Filter to open PRs only")
   .option("--closed", "Filter to closed PRs only")

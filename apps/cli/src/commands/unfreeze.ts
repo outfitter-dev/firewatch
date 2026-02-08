@@ -117,9 +117,13 @@ async function handleUnfreeze(
     return;
   }
 
-  console.log(`Unfrozen PR #${prNumber} (was frozen since ${previousInfo.frozen_at})`);
+  console.log(
+    `Unfrozen PR #${prNumber} (was frozen since ${previousInfo.frozen_at})`
+  );
   if (hiddenCount > 0) {
-    console.log(`${hiddenCount} ${hiddenCount === 1 ? "entry is" : "entries are"} now visible again.`);
+    console.log(
+      `${hiddenCount} ${hiddenCount === 1 ? "entry is" : "entries are"} now visible again.`
+    );
   }
 }
 

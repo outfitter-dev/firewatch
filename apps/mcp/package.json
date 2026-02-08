@@ -5,17 +5,17 @@
   "bin": {
     "fw-mcp": "./bin/fw-mcp.ts"
   },
-  "type": "module",
-  "publishConfig": {
-    "access": "public"
-  },
   "files": [
     "bin",
-    "src",
-    "dist"
+    "dist",
+    "src"
   ],
+  "type": "module",
   "exports": {
     ".": "./src/index.ts"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "dev": "bun --watch bin/fw-mcp.ts",
