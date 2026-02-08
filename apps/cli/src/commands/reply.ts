@@ -44,7 +44,9 @@ interface ReplyContext {
   outputJson: boolean;
 }
 
-async function createContext(options: ReplyCommandOptions): Promise<ReplyContext> {
+async function createContext(
+  options: ReplyCommandOptions
+): Promise<ReplyContext> {
   const config = await loadConfig();
   const repo = await resolveRepoOrThrow(options.repo);
   const { owner, name } = parseRepoInput(repo);
@@ -114,18 +116,25 @@ async function replyToReviewThread(
   body: string,
   resolve: boolean
 ): Promise<void> {
-  const threadMap = await ctx.client.fetchReviewThreadMap(
+  const threadMapResult = await ctx.client.fetchReviewThreadMap(
     ctx.owner,
     ctx.name,
     entry.pr
   );
-  const threadId = threadMap.get(entry.id);
+  if (threadMapResult.isErr()) {
+    throw threadMapResult.error;
+  }
+  const threadId = threadMapResult.value.get(entry.id);
 
   if (!threadId) {
     throw new Error(`No review thread found for comment ${shortId}`);
   }
 
-  const reply = await ctx.client.addReviewThreadReply(threadId, body);
+  const replyResult = await ctx.client.addReviewThreadReply(threadId, body);
+  if (replyResult.isErr()) {
+    throw replyResult.error;
+  }
+  const reply = replyResult.value;
 
   if (resolve) {
     await ctx.client.resolveReviewThread(threadId);
@@ -165,8 +174,15 @@ async function addPrComment(
   body: string,
   replyTo?: { shortId: string; ghId: string }
 ): Promise<void> {
-  const prId = await ctx.client.fetchPullRequestId(ctx.owner, ctx.name, pr);
-  const comment = await ctx.client.addIssueComment(prId, body);
+  const prIdResult = await ctx.client.fetchPullRequestId(ctx.owner, ctx.name, pr);
+  if (prIdResult.isErr()) {
+    throw prIdResult.error;
+  }
+  const commentResult = await ctx.client.addIssueComment(prIdResult.value, body);
+  if (commentResult.isErr()) {
+    throw commentResult.error;
+  }
+  const comment = commentResult.value;
 
   const newShortId = formatDisplayId(generateShortId(comment.id, ctx.repo));
 
@@ -207,7 +223,9 @@ export async function replyAction(
   applyCommonOptions(options);
   const body = bodyArg ?? options.body;
   if (!body) {
-    console.error("Reply body required. Use: fw reply <id> <body> or fw reply <id> --body <text>");
+    console.error(
+      "Reply body required. Use: fw reply <id> <body> or fw reply <id> --body <text>"
+    );
     process.exit(1);
   }
 
@@ -243,7 +261,13 @@ export async function replyAction(
     const { entry, shortId } = resolved;
 
     if (entry.subtype === "review_comment") {
-      await replyToReviewThread(ctx, entry, shortId, body, options.resolve ?? false);
+      await replyToReviewThread(
+        ctx,
+        entry,
+        shortId,
+        body,
+        options.resolve ?? false
+      );
     } else {
       // Issue comment - add a new PR comment as "reply"
       await addPrComment(ctx, entry.pr, body, { shortId, ghId: entry.id });

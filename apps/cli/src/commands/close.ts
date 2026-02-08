@@ -59,7 +59,9 @@ async function resolveRepo(repo?: string): Promise<string> {
   return detected.repo;
 }
 
-async function createContext(options: CloseCommandOptions): Promise<CloseContext> {
+async function createContext(
+  options: CloseCommandOptions
+): Promise<CloseContext> {
   const config = await loadConfig();
   const repo = await resolveRepo(options.repo);
   const { owner, name } = parseRepoInput(repo);
@@ -100,12 +102,15 @@ async function closeComment(
   // For review comments, resolve the thread
   if (subtype === "review_comment") {
     try {
-      const threadMap = await ctx.client.fetchReviewThreadMap(
+      const threadMapResult = await ctx.client.fetchReviewThreadMap(
         ctx.owner,
         ctx.name,
         pr
       );
-      const threadId = threadMap.get(commentId);
+      if (threadMapResult.isErr()) {
+        throw threadMapResult.error;
+      }
+      const threadId = threadMapResult.value.get(commentId);
 
       if (!threadId) {
         return {
@@ -144,8 +149,15 @@ async function closeComment(
 
 async function closePR(ctx: CloseContext, prNum: number): Promise<void> {
   try {
-    const prId = await ctx.client.fetchPullRequestId(ctx.owner, ctx.name, prNum);
-    await ctx.client.closePullRequest(prId);
+    const prIdResult = await ctx.client.fetchPullRequestId(
+      ctx.owner,
+      ctx.name,
+      prNum
+    );
+    if (prIdResult.isErr()) {
+      throw prIdResult.error;
+    }
+    await ctx.client.closePullRequest(prIdResult.value);
 
     if (ctx.outputJson) {
       await outputStructured(
@@ -260,7 +272,9 @@ async function handleCloseComments(
         // Default: close the PR itself (requires confirmation)
         if (!autoConfirm && !ctx.outputJson) {
           console.error(`This will close PR #${prNum}.`);
-          console.error("Use --yes to confirm, or --feedback to resolve threads instead.");
+          console.error(
+            "Use --yes to confirm, or --feedback to resolve threads instead."
+          );
           continue;
         }
         await closePR(ctx, prNum);
@@ -444,7 +458,9 @@ async function handleClosePrFeedback(
   }
 
   if (!autoConfirm && !ctx.outputJson) {
-    console.error(`Found ${feedbacks.length} unaddressed feedback items on PR #${prNum}.`);
+    console.error(
+      `Found ${feedbacks.length} unaddressed feedback items on PR #${prNum}.`
+    );
     console.error("Use --yes to confirm closing all.");
     return;
   }

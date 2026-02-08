@@ -36,7 +36,9 @@ interface ApproveContext {
   outputJson: boolean;
 }
 
-async function createContext(options: ApproveCommandOptions): Promise<ApproveContext> {
+async function createContext(
+  options: ApproveCommandOptions
+): Promise<ApproveContext> {
   const config = await loadConfig();
   const repo = await resolveRepoOrThrow(options.repo);
   const { owner, name } = parseRepoInput(repo);
@@ -66,13 +68,17 @@ export async function approveAction(
   try {
     const ctx = await createContext(options);
 
-    const review = await ctx.client.addReview(
+    const reviewResult = await ctx.client.addReview(
       ctx.owner,
       ctx.name,
       pr,
       "approve",
       options.body
     );
+    if (reviewResult.isErr()) {
+      throw reviewResult.error;
+    }
+    const review = reviewResult.value;
 
     const payload = {
       ok: true,

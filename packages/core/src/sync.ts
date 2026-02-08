@@ -303,7 +303,8 @@ function resolveSyncWindow(
       ? new Date(syncMeta.last_sync)
       : undefined);
   const useTimeWindow = Boolean(syncSince);
-  const cursor = options.full || useTimeWindow ? null : (syncMeta?.cursor ?? null);
+  const cursor =
+    options.full || useTimeWindow ? null : (syncMeta?.cursor ?? null);
 
   return { syncSince, useTimeWindow, cursor };
 }
@@ -359,7 +360,11 @@ async function fetchSyncPage(
     }
   );
 
-  const { nodes, pageInfo } = data.repository.pullRequests;
+  if (data.isErr()) {
+    throw data.error;
+  }
+
+  const { nodes, pageInfo } = data.value.repository.pullRequests;
   const prMetadataList: PRMetadata[] = [];
   const allEntries: FirewatchEntry[] = [];
   let prsProcessed = 0;
@@ -403,8 +408,11 @@ async function enrichEntries(
   const commentIds = entries
     .filter((entry) => entry.type === "comment")
     .map((entry) => entry.id);
-  const reactionsById = await client.fetchCommentReactions(commentIds);
-  let entriesToWrite = applyCommentReactions(entries, reactionsById);
+  const reactionsResult = await client.fetchCommentReactions(commentIds);
+  if (reactionsResult.isErr()) {
+    throw reactionsResult.error;
+  }
+  let entriesToWrite = applyCommentReactions(entries, reactionsResult.value);
 
   if (plugins) {
     for (const plugin of plugins) {
@@ -422,7 +430,11 @@ async function enrichEntries(
 async function syncAllPages(
   context: SyncContext,
   initialCursor: string | null
-): Promise<{ entriesAdded: number; prsProcessed: number; cursor: string | null }> {
+): Promise<{
+  entriesAdded: number;
+  prsProcessed: number;
+  cursor: string | null;
+}> {
   let entriesAdded = 0;
   let prsProcessed = 0;
   let currentCursor = initialCursor;
@@ -474,7 +486,11 @@ async function updateClosedPRsSince(
       states: ["CLOSED", "MERGED"],
     });
 
-    const { nodes, pageInfo } = data.repository.pullRequests;
+    if (data.isErr()) {
+      throw data.error;
+    }
+
+    const { nodes, pageInfo } = data.value.repository.pullRequests;
     const prMetadataList: PRMetadata[] = [];
 
     for (const pr of nodes) {
@@ -546,22 +562,18 @@ export async function syncRepo(
     states,
     ...(options.plugins && { plugins: options.plugins }),
   };
-  const { entriesAdded, prsProcessed, cursor: currentCursor } =
-    await syncAllPages(context, cursor);
+  const {
+    entriesAdded,
+    prsProcessed,
+    cursor: currentCursor,
+  } = await syncAllPages(context, cursor);
 
   if (scope === "open" && syncSince && !options.full) {
-    await updateClosedPRsSince(
-      client,
-      owner,
-      repoName,
-      repo,
-      syncSince,
-      db
-    );
+    await updateClosedPRsSince(client, owner, repoName, repo, syncSince, db);
   }
 
   // Cursor is only meaningful for cursor-based syncs (no time window).
-  const storedCursor = useTimeWindow ? undefined : currentCursor ?? undefined;
+  const storedCursor = useTimeWindow ? undefined : (currentCursor ?? undefined);
   const newMeta: SyncMetadata = {
     repo,
     scope,

@@ -184,18 +184,18 @@ function getRestId(entry: FirewatchEntry): number | null {
 function hasPrEdits(options: EditOptions): boolean {
   return Boolean(
     options.title ||
-      options.body ||
-      options.base ||
-      options.milestone ||
-      options.removeMilestone ||
-      options.draft ||
-      options.ready ||
-      (options.addLabel && options.addLabel.length > 0) ||
-      (options.removeLabel && options.removeLabel.length > 0) ||
-      (options.addReviewer && options.addReviewer.length > 0) ||
-      (options.removeReviewer && options.removeReviewer.length > 0) ||
-      (options.addAssignee && options.addAssignee.length > 0) ||
-      (options.removeAssignee && options.removeAssignee.length > 0)
+    options.body ||
+    options.base ||
+    options.milestone ||
+    options.removeMilestone ||
+    options.draft ||
+    options.ready ||
+    (options.addLabel && options.addLabel.length > 0) ||
+    (options.removeLabel && options.removeLabel.length > 0) ||
+    (options.addReviewer && options.addReviewer.length > 0) ||
+    (options.removeReviewer && options.removeReviewer.length > 0) ||
+    (options.addAssignee && options.addAssignee.length > 0) ||
+    (options.removeAssignee && options.removeAssignee.length > 0)
   );
 }
 
@@ -255,7 +255,11 @@ async function applyDraftState(
   const changes: Partial<PrEditResult> = {};
 
   if (options.draft || options.ready) {
-    const prId = await ctx.client.fetchPullRequestId(ctx.owner, ctx.name, pr);
+    const prIdResult = await ctx.client.fetchPullRequestId(ctx.owner, ctx.name, pr);
+    if (prIdResult.isErr()) {
+      throw prIdResult.error;
+    }
+    const prId = prIdResult.value;
 
     if (options.draft) {
       await ctx.client.convertPullRequestToDraft(prId);
@@ -689,7 +693,11 @@ export const editCommand = new Command("edit")
   .option("--draft", "Convert to draft (PR only)")
   .option("--ready", "Mark ready for review (PR only)")
   .option("--add-label <name>", "Add label (PR only, repeatable)", collect)
-  .option("--remove-label <name>", "Remove label (PR only, repeatable)", collect)
+  .option(
+    "--remove-label <name>",
+    "Remove label (PR only, repeatable)",
+    collect
+  )
   .option(
     "--add-reviewer <user>",
     "Add reviewer (PR only, repeatable)",

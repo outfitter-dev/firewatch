@@ -36,7 +36,9 @@ interface RejectContext {
   outputJson: boolean;
 }
 
-async function createContext(options: RejectCommandOptions): Promise<RejectContext> {
+async function createContext(
+  options: RejectCommandOptions
+): Promise<RejectContext> {
   const config = await loadConfig();
   const repo = await resolveRepoOrThrow(options.repo);
   const { owner, name } = parseRepoInput(repo);
@@ -64,20 +66,26 @@ export async function rejectAction(
 ): Promise<void> {
   applyCommonOptions(options);
   if (!options.body) {
-    console.error("Body is required for rejecting a PR. Use -b to provide a reason.");
+    console.error(
+      "Body is required for rejecting a PR. Use -b to provide a reason."
+    );
     process.exit(1);
   }
 
   try {
     const ctx = await createContext(options);
 
-    const review = await ctx.client.addReview(
+    const reviewResult = await ctx.client.addReview(
       ctx.owner,
       ctx.name,
       pr,
       "request-changes",
       options.body
     );
+    if (reviewResult.isErr()) {
+      throw reviewResult.error;
+    }
+    const review = reviewResult.value;
 
     const payload = {
       ok: true,
