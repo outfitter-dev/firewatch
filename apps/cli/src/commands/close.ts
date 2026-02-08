@@ -103,7 +103,10 @@ async function closeComment(
         };
       }
 
-      await ctx.client.resolveReviewThread(threadId);
+      const resolveResult = await ctx.client.resolveReviewThread(threadId);
+      if (resolveResult.isErr()) {
+        throw resolveResult.error;
+      }
       return { shortId, ghId: commentId, pr, resolved: true, acked: false };
     } catch (error) {
       return {
@@ -137,7 +140,10 @@ async function closePR(ctx: CloseContext, prNum: number): Promise<void> {
     if (prIdResult.isErr()) {
       throw prIdResult.error;
     }
-    await ctx.client.closePullRequest(prIdResult.value);
+    const closeResult = await ctx.client.closePullRequest(prIdResult.value);
+    if (closeResult.isErr()) {
+      throw closeResult.error;
+    }
 
     if (ctx.outputJson) {
       await outputStructured(

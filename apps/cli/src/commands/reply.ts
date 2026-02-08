@@ -132,7 +132,10 @@ async function replyToReviewThread(
   const reply = replyResult.value;
 
   if (resolve) {
-    await ctx.client.resolveReviewThread(threadId);
+    const resolveResult = await ctx.client.resolveReviewThread(threadId);
+    if (resolveResult.isErr()) {
+      throw resolveResult.error;
+    }
   }
 
   const replyShortId = formatDisplayId(generateShortId(reply.id, ctx.repo));
