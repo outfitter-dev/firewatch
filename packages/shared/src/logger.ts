@@ -1,4 +1,4 @@
-import type { Logger } from "@outfitter/contracts";
+import type { Logger, LogMetadata, LogMethod } from "@outfitter/contracts/logging";
 
 type LogLevel = "trace" | "debug" | "info" | "warn" | "error" | "fatal";
 
@@ -56,7 +56,7 @@ export function createLogger(options: LoggerOptions = {}): Logger {
   function log(
     level: LogLevel,
     message: string,
-    metadata?: Record<string, unknown>
+    metadata?: Record<string, unknown>,
   ): void {
     if (silent || !shouldLog(level, minLevel)) {
       return;
@@ -74,14 +74,19 @@ export function createLogger(options: LoggerOptions = {}): Logger {
     }
   }
 
+  function method(level: LogLevel): LogMethod {
+    return ((message: string, metadata?: LogMetadata) =>
+      log(level, message, metadata)) as LogMethod;
+  }
+
   return {
-    trace: (message, metadata) => log("trace", message, metadata),
-    debug: (message, metadata) => log("debug", message, metadata),
-    info: (message, metadata) => log("info", message, metadata),
-    warn: (message, metadata) => log("warn", message, metadata),
-    error: (message, metadata) => log("error", message, metadata),
-    fatal: (message, metadata) => log("fatal", message, metadata),
-    child(childContext) {
+    trace: method("trace"),
+    debug: method("debug"),
+    info: method("info"),
+    warn: method("warn"),
+    error: method("error"),
+    fatal: method("fatal"),
+    child(childContext: LogMetadata) {
       return createLogger({
         level: minLevel,
         context: { ...context, ...childContext },

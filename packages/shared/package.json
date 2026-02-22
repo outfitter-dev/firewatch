@@ -17,7 +17,7 @@
     "check": "bunx tsc --noEmit"
   },
   "dependencies": {
-    "@outfitter/contracts": "^0.1.0"
+    "@outfitter/contracts": "^0.4.1"
   },
   "devDependencies": {
     "@types/bun": "^1.3.6"
