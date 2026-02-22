@@ -1,3 +1,4 @@
+import { exitWithError } from "@outfitter/cli/output";
 import {
   getDatabase,
   loadConfig,
@@ -128,8 +129,7 @@ export const statusCommand = new Command("status")
       );
 
       if (result.isErr()) {
-        console.error("Status failed:", result.error.message);
-        process.exit(1);
+        exitWithError(result.error);
       }
 
       const output = result.value;
@@ -146,10 +146,8 @@ export const statusCommand = new Command("status")
 
       printFullOutput(output);
     } catch (error) {
-      console.error(
-        "Status failed:",
-        error instanceof Error ? error.message : error
+      exitWithError(
+        error instanceof Error ? error : new Error(String(error))
       );
-      process.exit(1);
     }
   });

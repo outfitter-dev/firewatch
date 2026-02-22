@@ -5,16 +5,17 @@
  * equivalent to `fw pr review <pr> --request-changes --body <text>`.
  */
 
+import { exitWithError } from "@outfitter/cli/output";
 import {
-  type GitHubClient,
+  getDatabase,
   loadConfig,
-  type FirewatchConfig,
+  rejectHandler,
 } from "@outfitter/firewatch-core";
+import { silentLogger } from "@outfitter/firewatch-shared";
 import { Command, Option } from "commander";
 
-import { createAuthenticatedClient } from "../auth-client";
 import { applyCommonOptions } from "../query-helpers";
-import { parseRepoInput, parsePrNumber, resolveRepoOrThrow } from "../repo";
+import { parsePrNumber, resolveRepoOrThrow } from "../repo";
 import { outputStructured } from "../utils/json";
 import { shouldOutputJson } from "../utils/tty";
 
@@ -27,84 +28,54 @@ export interface RejectCommandOptions {
   noColor?: boolean;
 }
 
-interface RejectContext {
-  client: GitHubClient;
-  config: FirewatchConfig;
-  repo: string;
-  owner: string;
-  name: string;
-  outputJson: boolean;
-}
-
-async function createContext(
-  options: RejectCommandOptions
-): Promise<RejectContext> {
-  const config = await loadConfig();
-  const repo = await resolveRepoOrThrow(options.repo);
-  const { owner, name } = parseRepoInput(repo);
-
-  const { client } = await createAuthenticatedClient(config.github_token);
-
-  return {
-    client,
-    config,
-    repo,
-    owner,
-    name,
-    outputJson: shouldOutputJson(options, config.output?.default_format),
-  };
-}
-
 export async function rejectAction(
   pr: number,
   options: RejectCommandOptions
 ): Promise<void> {
   applyCommonOptions(options);
   if (!options.body) {
-    console.error(
-      "Body is required for rejecting a PR. Use -b to provide a reason."
+    exitWithError(
+      new Error(
+        "Body is required for rejecting a PR. Use -b to provide a reason."
+      )
     );
-    process.exit(1);
   }
 
   try {
-    const ctx = await createContext(options);
+    const config = await loadConfig();
+    const db = getDatabase();
+    const repo = await resolveRepoOrThrow(options.repo);
+    const outputJson = shouldOutputJson(options, config.output?.default_format);
 
-    const reviewResult = await ctx.client.addReview(
-      ctx.owner,
-      ctx.name,
-      pr,
-      "request-changes",
-      options.body
+    const result = await rejectHandler(
+      { pr, repo, body: options.body },
+      { config, db, logger: silentLogger }
     );
-    if (reviewResult.isErr()) {
-      throw reviewResult.error;
-    }
-    const review = reviewResult.value;
 
+    if (result.isErr()) {
+      exitWithError(result.error);
+    }
+
+    const review = result.value;
     const payload = {
       ok: true,
-      repo: ctx.repo,
+      repo,
       pr,
       action: "changes_requested",
-      ...(review?.id && { review_id: review.id }),
-      ...(review?.url && { url: review.url }),
+      ...(review.id && { review_id: review.id }),
+      ...(review.url && { url: review.url }),
     };
 
-    if (ctx.outputJson) {
+    if (outputJson) {
       await outputStructured(payload, "jsonl");
     } else {
-      console.log(`Requested changes on ${ctx.repo}#${pr}.`);
-      if (review?.url) {
+      console.log(`Requested changes on ${repo}#${pr}.`);
+      if (review.url) {
         console.log(review.url);
       }
     }
   } catch (error) {
-    console.error(
-      "Reject failed:",
-      error instanceof Error ? error.message : error
-    );
-    process.exit(1);
+    exitWithError(error instanceof Error ? error : new Error(String(error)));
   }
 }
 

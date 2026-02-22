@@ -5,16 +5,17 @@
  * equivalent to `fw pr review <pr> --approve`.
  */
 
+import { exitWithError } from "@outfitter/cli/output";
 import {
-  type GitHubClient,
+  approveHandler,
+  getDatabase,
   loadConfig,
-  type FirewatchConfig,
 } from "@outfitter/firewatch-core";
+import { silentLogger } from "@outfitter/firewatch-shared";
 import { Command, Option } from "commander";
 
-import { createAuthenticatedClient } from "../auth-client";
 import { applyCommonOptions } from "../query-helpers";
-import { parseRepoInput, parsePrNumber, resolveRepoOrThrow } from "../repo";
+import { parsePrNumber, resolveRepoOrThrow } from "../repo";
 import { outputStructured } from "../utils/json";
 import { shouldOutputJson } from "../utils/tty";
 
@@ -27,77 +28,46 @@ export interface ApproveCommandOptions {
   noColor?: boolean;
 }
 
-interface ApproveContext {
-  client: GitHubClient;
-  config: FirewatchConfig;
-  repo: string;
-  owner: string;
-  name: string;
-  outputJson: boolean;
-}
-
-async function createContext(
-  options: ApproveCommandOptions
-): Promise<ApproveContext> {
-  const config = await loadConfig();
-  const repo = await resolveRepoOrThrow(options.repo);
-  const { owner, name } = parseRepoInput(repo);
-
-  const { client } = await createAuthenticatedClient(config.github_token);
-
-  return {
-    client,
-    config,
-    repo,
-    owner,
-    name,
-    outputJson: shouldOutputJson(options, config.output?.default_format),
-  };
-}
-
 export async function approveAction(
   pr: number,
   options: ApproveCommandOptions
 ): Promise<void> {
   applyCommonOptions(options);
   try {
-    const ctx = await createContext(options);
+    const config = await loadConfig();
+    const db = getDatabase();
+    const repo = await resolveRepoOrThrow(options.repo);
+    const outputJson = shouldOutputJson(options, config.output?.default_format);
 
-    const reviewResult = await ctx.client.addReview(
-      ctx.owner,
-      ctx.name,
-      pr,
-      "approve",
-      options.body
+    const result = await approveHandler(
+      { pr, repo, body: options.body },
+      { config, db, logger: silentLogger }
     );
-    if (reviewResult.isErr()) {
-      throw reviewResult.error;
-    }
-    const review = reviewResult.value;
 
+    if (result.isErr()) {
+      exitWithError(result.error);
+    }
+
+    const review = result.value;
     const payload = {
       ok: true,
-      repo: ctx.repo,
+      repo,
       pr,
       action: "approved",
-      ...(review?.id && { review_id: review.id }),
-      ...(review?.url && { url: review.url }),
+      ...(review.id && { review_id: review.id }),
+      ...(review.url && { url: review.url }),
     };
 
-    if (ctx.outputJson) {
+    if (outputJson) {
       await outputStructured(payload, "jsonl");
     } else {
-      console.log(`Approved ${ctx.repo}#${pr}.`);
-      if (review?.url) {
+      console.log(`Approved ${repo}#${pr}.`);
+      if (review.url) {
         console.log(review.url);
       }
     }
   } catch (error) {
-    console.error(
-      "Approve failed:",
-      error instanceof Error ? error.message : error
-    );
-    process.exit(1);
+    exitWithError(error instanceof Error ? error : new Error(String(error)));
   }
 }
 

@@ -4,6 +4,7 @@
  * Replaces `fw feedback reply` with direct `fw reply` access.
  */
 
+import { exitWithError } from "@outfitter/cli/output";
 import {
   type GitHubClient,
   buildShortIdCache,
@@ -228,10 +229,11 @@ export async function replyAction(
   applyCommonOptions(options);
   const body = bodyArg ?? options.body;
   if (!body) {
-    console.error(
-      "Reply body required. Use: fw reply <id> <body> or fw reply <id> --body <text>"
+    exitWithError(
+      new Error(
+        "Reply body required. Use: fw reply <id> <body> or fw reply <id> --body <text>"
+      )
     );
-    process.exit(1);
   }
 
   try {
@@ -249,8 +251,7 @@ export async function replyAction(
     if (idType === "pr_number") {
       const prNum = Number.parseInt(id, 10);
       if (Number.isNaN(prNum)) {
-        console.error(`Invalid PR number: ${id}`);
-        process.exit(1);
+        exitWithError(new Error(`Invalid PR number: ${id}`));
       }
       await addPrComment(ctx, prNum, body);
       return;
@@ -259,8 +260,7 @@ export async function replyAction(
     // Comment ID: reply to the specific comment
     const resolved = await resolveCommentId(id, ctx.repo, entries);
     if (!resolved) {
-      console.error(`Comment ${id} not found.`);
-      process.exit(1);
+      exitWithError(new Error(`Comment ${id} not found.`));
     }
 
     const { entry, shortId } = resolved;
@@ -278,11 +278,7 @@ export async function replyAction(
       await addPrComment(ctx, entry.pr, body, { shortId, ghId: entry.id });
     }
   } catch (error) {
-    console.error(
-      "Reply failed:",
-      error instanceof Error ? error.message : error
-    );
-    process.exit(1);
+    exitWithError(error instanceof Error ? error : new Error(String(error)));
   }
 }
 

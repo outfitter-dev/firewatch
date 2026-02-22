@@ -6,6 +6,7 @@
  * - `@abc12` -> Comment with short ID (Comment editing mode)
  * - `PRRC_...`, `IC_...` -> Comment by full ID (Comment editing mode)
  */
+import { exitWithError } from "@outfitter/cli/output";
 import {
   type GitHubClient,
   buildShortIdCache,
@@ -405,18 +406,19 @@ async function handlePrEdit(
 ): Promise<void> {
   // Validate conflicting options
   if (options.draft && options.ready) {
-    console.error("Cannot use --draft and --ready together.");
-    process.exit(1);
+    exitWithError(new Error("Cannot use --draft and --ready together."));
   }
 
   if (options.milestone && options.removeMilestone) {
-    console.error("Cannot use --milestone and --remove-milestone together.");
-    process.exit(1);
+    exitWithError(
+      new Error("Cannot use --milestone and --remove-milestone together.")
+    );
   }
 
   if (!hasPrEdits(options)) {
-    console.error("No edits specified. Use --help to see available options.");
-    process.exit(1);
+    exitWithError(
+      new Error("No edits specified. Use --help to see available options.")
+    );
   }
 
   // Apply all edits and collect results
@@ -467,21 +469,20 @@ async function resolveCommentEntry(
   const [resolution] = await resolveBatchIds([idArg], ctx.repo);
 
   if (!resolution || resolution.type === "error") {
-    console.error(
-      `Could not resolve ID "${idArg}": ${resolution?.error ?? "Unknown error"}`
+    exitWithError(
+      new Error(
+        `Could not resolve ID "${idArg}": ${resolution?.error ?? "Unknown error"}`
+      )
     );
-    return null;
   }
 
   if (resolution.type === "pr") {
     // Should not happen since we already checked for PR numbers
-    console.error(`Expected comment ID, got PR number: ${idArg}`);
-    return null;
+    exitWithError(new Error(`Expected comment ID, got PR number: ${idArg}`));
   }
 
   if (!resolution.entry) {
-    console.error(`Comment not found in cache: ${idArg}`);
-    return null;
+    exitWithError(new Error(`Comment not found in cache: ${idArg}`));
   }
 
   const shortId =
@@ -496,15 +497,16 @@ async function handleCommentEdit(
   options: EditOptions
 ): Promise<void> {
   if (!hasCommentEdits(options)) {
-    console.error(
-      "No edits specified. Use --body <text> or --delete for comments."
+    exitWithError(
+      new Error(
+        "No edits specified. Use --body <text> or --delete for comments."
+      )
     );
-    process.exit(1);
   }
 
   const resolved = await resolveCommentEntry(ctx, idArg);
   if (!resolved) {
-    process.exit(1);
+    exitWithError(new Error(`Could not resolve comment: ${idArg}`));
   }
 
   const { entry, shortId } = resolved;
@@ -549,10 +551,11 @@ async function handleCommentDelete(
     };
     if (ctx.outputJson) {
       await outputStructured(result, "jsonl");
-    } else {
-      console.error(`Failed to delete comment ${displayId}: ${result.error}`);
+      process.exit(1);
     }
-    process.exit(1);
+    exitWithError(
+      new Error(`Failed to delete comment ${displayId}: ${result.error}`)
+    );
   }
 
   try {
@@ -587,10 +590,11 @@ async function handleCommentDelete(
 
     if (ctx.outputJson) {
       await outputStructured(result, "jsonl");
-    } else {
-      console.error(`Failed to delete comment ${displayId}: ${result.error}`);
+      process.exit(1);
     }
-    process.exit(1);
+    exitWithError(
+      new Error(`Failed to delete comment ${displayId}: ${result.error}`)
+    );
   }
 }
 
@@ -612,10 +616,11 @@ async function handleCommentBodyUpdate(
     };
     if (ctx.outputJson) {
       await outputStructured(result, "jsonl");
-    } else {
-      console.error(`Failed to update comment ${displayId}: ${result.error}`);
+      process.exit(1);
     }
-    process.exit(1);
+    exitWithError(
+      new Error(`Failed to update comment ${displayId}: ${result.error}`)
+    );
   }
 
   try {
@@ -650,10 +655,11 @@ async function handleCommentBodyUpdate(
 
     if (ctx.outputJson) {
       await outputStructured(result, "jsonl");
-    } else {
-      console.error(`Failed to update comment ${displayId}: ${result.error}`);
+      process.exit(1);
     }
-    process.exit(1);
+    exitWithError(
+      new Error(`Failed to update comment ${displayId}: ${result.error}`)
+    );
   }
 }
 
@@ -675,11 +681,7 @@ async function handleEdit(idArg: string, options: EditOptions): Promise<void> {
       await handleCommentEdit(ctx, idArg, options);
     }
   } catch (error) {
-    console.error(
-      "Edit failed:",
-      error instanceof Error ? error.message : error
-    );
-    process.exit(1);
+    exitWithError(error instanceof Error ? error : new Error(String(error)));
   }
 }
 

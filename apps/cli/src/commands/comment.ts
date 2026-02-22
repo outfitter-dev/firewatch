@@ -5,16 +5,17 @@
  * equivalent to `fw pr comment`.
  */
 
+import { exitWithError } from "@outfitter/cli/output";
 import {
-  type GitHubClient,
+  commentHandler,
+  getDatabase,
   loadConfig,
-  type FirewatchConfig,
 } from "@outfitter/firewatch-core";
+import { silentLogger } from "@outfitter/firewatch-shared";
 import { Command, Option } from "commander";
 
-import { createAuthenticatedClient } from "../auth-client";
 import { applyCommonOptions } from "../query-helpers";
-import { parseRepoInput, parsePrNumber, resolveRepoOrThrow } from "../repo";
+import { parsePrNumber, resolveRepoOrThrow } from "../repo";
 import { outputStructured } from "../utils/json";
 import { shouldOutputJson } from "../utils/tty";
 
@@ -26,34 +27,6 @@ export interface CommentCommandOptions {
   noColor?: boolean;
 }
 
-interface CommentContext {
-  client: GitHubClient;
-  config: FirewatchConfig;
-  repo: string;
-  owner: string;
-  name: string;
-  outputJson: boolean;
-}
-
-async function createContext(
-  options: CommentCommandOptions
-): Promise<CommentContext> {
-  const config = await loadConfig();
-  const repo = await resolveRepoOrThrow(options.repo);
-  const { owner, name } = parseRepoInput(repo);
-
-  const { client } = await createAuthenticatedClient(config.github_token);
-
-  return {
-    client,
-    config,
-    repo,
-    owner,
-    name,
-    outputJson: shouldOutputJson(options, config.output?.default_format),
-  };
-}
-
 export async function commentAction(
   pr: number,
   body: string,
@@ -61,53 +34,44 @@ export async function commentAction(
 ): Promise<void> {
   applyCommonOptions(options);
   if (!body.trim()) {
-    console.error("Comment body cannot be empty.");
-    process.exit(1);
+    exitWithError(new Error("Comment body cannot be empty."));
   }
 
   try {
-    const ctx = await createContext(options);
+    const config = await loadConfig();
+    const db = getDatabase();
+    const repo = await resolveRepoOrThrow(options.repo);
+    const outputJson = shouldOutputJson(options, config.output?.default_format);
 
-    const prIdResult = await ctx.client.fetchPullRequestId(
-      ctx.owner,
-      ctx.name,
-      pr
+    const result = await commentHandler(
+      { pr, body, repo },
+      { config, db, logger: silentLogger }
     );
-    if (prIdResult.isErr()) {
-      throw prIdResult.error;
-    }
-    const commentResult = await ctx.client.addIssueComment(
-      prIdResult.value,
-      body
-    );
-    if (commentResult.isErr()) {
-      throw commentResult.error;
-    }
-    const comment = commentResult.value;
 
+    if (result.isErr()) {
+      exitWithError(result.error);
+    }
+
+    const comment = result.value;
     const payload = {
       ok: true,
-      repo: ctx.repo,
+      repo,
       pr,
       action: "comment",
       id: comment.id,
       ...(comment.url && { url: comment.url }),
     };
 
-    if (ctx.outputJson) {
+    if (outputJson) {
       await outputStructured(payload, "jsonl");
     } else {
-      console.log(`Added comment to ${ctx.repo}#${pr}.`);
+      console.log(`Added comment to ${repo}#${pr}.`);
       if (comment.url) {
         console.log(comment.url);
       }
     }
   } catch (error) {
-    console.error(
-      "Comment failed:",
-      error instanceof Error ? error.message : error
-    );
-    process.exit(1);
+    exitWithError(error instanceof Error ? error : new Error(String(error)));
   }
 }
 
