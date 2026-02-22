@@ -30,6 +30,7 @@
     "zod": "^4.3.5"
   },
   "devDependencies": {
+    "@outfitter/firewatch-shared": "workspace:*",
     "@types/bun": "^1.3.6"
   }
 }

@@ -1,0 +1,36 @@
+{
+  "$schema": "https://outfitter.dev/reports/upgrade/v1",
+  "status": "cancelled",
+  "checkedAt": "2026-02-22T01:12:19.816Z",
+  "startedAt": "2026-02-22T01:12:19.499Z",
+  "finishedAt": "2026-02-22T01:12:19.816Z",
+  "cwd": "/Users/mg/Developer/outfitter/firewatch",
+  "workspaceRoot": "/Users/mg/Developer/outfitter/firewatch",
+  "flags": {
+    "dryRun": false,
+    "yes": false,
+    "interactive": true,
+    "all": true,
+    "noCodemods": false,
+    "outputMode": "human"
+  },
+  "applied": false,
+  "summary": {
+    "total": 1,
+    "available": 1,
+    "breaking": 1,
+    "applied": 0
+  },
+  "packages": [
+    {
+      "name": "@outfitter/contracts",
+      "current": "0.1.0",
+      "latest": "0.4.1",
+      "updateAvailable": true,
+      "breaking": true
+    }
+  ],
+  "excluded": {
+    "breaking": []
+  }
+}

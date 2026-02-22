@@ -10,7 +10,12 @@ import {
   isFrozen,
   unfreezePR,
 } from "../src/freeze";
-import { insertEntries, upsertPR, upsertPRs, type PRMetadata } from "../src/repository";
+import {
+  insertEntries,
+  upsertPR,
+  upsertPRs,
+  type PRMetadata,
+} from "../src/repository";
 import type { FirewatchEntry } from "../src/schema/entry";
 
 // =============================================================================
@@ -33,7 +38,7 @@ function createTestPR(overrides: Partial<PRMetadata> = {}): PRMetadata {
 }
 
 function createTestEntry(
-  overrides: Partial<FirewatchEntry> = {},
+  overrides: Partial<FirewatchEntry> = {}
 ): FirewatchEntry {
   return {
     id: "entry-1",
@@ -316,11 +321,19 @@ describe("getFrozenPRs", () => {
   test("orders by frozen_at descending", () => {
     // Set frozen_at manually to guarantee distinct timestamps
     db.prepare(
-      "UPDATE prs SET frozen_at = $frozen_at WHERE repo = $repo AND number = $number",
-    ).run({ $repo: "owner/repo", $number: 1, $frozen_at: "2025-01-01T00:00:00Z" });
+      "UPDATE prs SET frozen_at = $frozen_at WHERE repo = $repo AND number = $number"
+    ).run({
+      $repo: "owner/repo",
+      $number: 1,
+      $frozen_at: "2025-01-01T00:00:00Z",
+    });
     db.prepare(
-      "UPDATE prs SET frozen_at = $frozen_at WHERE repo = $repo AND number = $number",
-    ).run({ $repo: "owner/repo", $number: 2, $frozen_at: "2025-01-02T00:00:00Z" });
+      "UPDATE prs SET frozen_at = $frozen_at WHERE repo = $repo AND number = $number"
+    ).run({
+      $repo: "owner/repo",
+      $number: 2,
+      $frozen_at: "2025-01-02T00:00:00Z",
+    });
 
     const frozen = getFrozenPRs(db);
 

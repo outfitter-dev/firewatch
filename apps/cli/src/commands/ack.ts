@@ -302,7 +302,9 @@ async function handleAck(
         gh_id: entry.id,
         acked: true,
         reaction_added: reactionAdded,
-        ...(authResult ? {} : { warning: "No GitHub token; stored locally only" }),
+        ...(authResult
+          ? {}
+          : { warning: "No GitHub token; stored locally only" }),
       },
       "jsonl"
     );
