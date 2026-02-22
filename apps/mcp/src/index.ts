@@ -22,12 +22,12 @@ import {
   getProjectConfigPath,
   getSyncMeta,
   statusHandler,
+  syncHandler,
   isCommentEntry,
   isReviewComment,
   isShortId,
   loadConfig,
   parseDurationMs,
-  parseSince,
   queryEntries,
   resolveBatchIds,
   resolveShortId,
@@ -542,16 +542,6 @@ async function enrichGraphite(
   return Promise.all(entries.map((entry) => graphitePlugin.enrich!(entry)));
 }
 
-async function resolveGraphiteEnabled(
-  detectedRepo: string | null
-): Promise<boolean> {
-  if (!detectedRepo) {
-    return false;
-  }
-
-  return (await getGraphiteStacks()) !== null;
-}
-
 function resolveSyncRepos(
   params: FirewatchParams,
   config: FirewatchConfig,
@@ -572,23 +562,16 @@ function resolveSyncRepos(
 async function performSync(
   repos: string[],
   config: FirewatchConfig,
-  detectedRepo: string | null,
-  options: { full?: boolean; since?: string; scopes?: SyncScope[] } = {}
+  _detectedRepo: string | null,
+  options: { full?: boolean; scopes?: SyncScope[] } = {}
 ): Promise<
   {
     repo: string;
     scope: SyncScope;
-    prs_processed: number;
     entries_added: number;
   }[]
 > {
-  const auth = await detectAuth(config.github_token);
-  if (auth.isErr()) {
-    throw new Error(auth.error.message);
-  }
-
-  const client = new GitHubClient(auth.value.token);
-  const graphiteEnabled = await resolveGraphiteEnabled(detectedRepo);
+  const db = getDatabase();
   const scopes =
     options.scopes && options.scopes.length > 0
       ? options.scopes
@@ -597,33 +580,27 @@ async function performSync(
   const results: {
     repo: string;
     scope: SyncScope;
-    prs_processed: number;
     entries_added: number;
   }[] = [];
 
-  for (const repo of repos) {
-    const useGraphite = graphiteEnabled && repo === detectedRepo;
-    for (const scope of scopes) {
-      const result = await syncRepo(client, repo, {
+  for (const scope of scopes) {
+    const syncResult = await syncHandler(
+      {
+        repos,
         ...(options.full && { full: true }),
-        ...(options.since && {
-          since: (() => {
-            const sinceResult = parseSince(options.since!);
-            if (sinceResult.isErr()) {
-              throw new Error(sinceResult.error.message);
-            }
-            return sinceResult.value;
-          })(),
-        }),
-        scope,
-        plugins: useGraphite ? [graphitePlugin] : [],
-      });
+      },
+      { config, db, logger: silentLogger }
+    );
 
+    if (syncResult.isErr()) {
+      throw new Error(syncResult.error.message);
+    }
+
+    for (const repoResult of syncResult.value.repos) {
       results.push({
-        repo,
+        repo: repoResult.repo,
         scope,
-        prs_processed: result.prsProcessed,
-        entries_added: result.entriesAdded,
+        entries_added: repoResult.entries ?? 0,
       });
     }
   }
