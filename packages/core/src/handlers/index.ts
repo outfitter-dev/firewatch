@@ -5,6 +5,11 @@ export {
   type AckOutput,
 } from "./ack";
 export {
+  approveHandler,
+  type ApproveInput,
+  type ApproveOutput,
+} from "./approve";
+export {
   closeHandler,
   type CloseInput,
   type CloseOutput,
@@ -21,10 +26,20 @@ export {
   type DoctorOutput,
 } from "./doctor";
 export {
+  editHandler,
+  type EditInput,
+  type EditOutput,
+} from "./edit";
+export {
   queryHandler,
   type QueryInput,
   type QueryOutput,
 } from "./query";
+export {
+  rejectHandler,
+  type RejectInput,
+  type RejectOutput,
+} from "./reject";
 export {
   replyHandler,
   type ReplyInput,
