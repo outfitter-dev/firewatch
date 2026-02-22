@@ -3,7 +3,8 @@
  *
  * Determines output format (structured vs human-readable) based on:
  * 1. Explicit --jsonl/--no-jsonl flags
- * 2. FIREWATCH_JSONL (preferred) or FIREWATCH_JSON environment variable
+ * 2. Environment variables: OUTFITTER_JSON (set by --json via createCLI),
+ *    FIREWATCH_JSONL, FIREWATCH_JSON
  * 3. TTY detection (non-TTY defaults to JSON for piping)
  */
 
@@ -15,31 +16,43 @@ export interface OutputModeOptions {
 /**
  * Determine if output should be structured based on:
  * 1. --jsonl/--no-jsonl flags (explicit)
- * 2. FIREWATCH_JSONL (preferred) or FIREWATCH_JSON env var
- * 3. TTY detection (non-TTY defaults to JSON)
+ * 2. --json flag (only when explicitly true, not default false)
+ * 3. OUTFITTER_JSON (set by createCLI --json), FIREWATCH_JSONL, FIREWATCH_JSON
+ * 4. TTY detection (non-TTY defaults to JSON)
  *
- * Note: Commander's --no-jsonl sets options.jsonl = false (not noJsonl = true)
+ * Note: createCLI defines --json with default false, so options.json is always
+ * false when not passed. We only check for options.json === true (explicitly
+ * passed) and never treat false as "explicitly disabled". The --no-jsonl flag
+ * is the way to explicitly disable structured output.
+ *
+ * Commander's --no-jsonl sets options.jsonl = false (not noJsonl = true)
  */
 export function shouldOutputJson(
   options: OutputModeOptions,
   defaultFormat?: "human" | "json"
 ): boolean {
-  // Explicit flag takes precedence
-  // --jsonl sets jsonl=true, --no-jsonl sets jsonl=false
+  // Explicit --jsonl/--no-jsonl flags take precedence
   if (options.jsonl === true) {
     return true;
   }
   if (options.jsonl === false) {
     return false;
   }
+
+  // --json flag (only truthy check — false may be createCLI's default)
   if (options.json === true) {
     return true;
   }
-  if (options.json === false) {
+
+  // Environment variables
+  // OUTFITTER_JSON is set by createCLI's --json preAction hook
+  if (process.env.OUTFITTER_JSON === "1") {
+    return true;
+  }
+  if (process.env.OUTFITTER_JSON === "0") {
     return false;
   }
-
-  // Environment variable (prefer JSONL)
+  // Firewatch-specific env vars (legacy, still supported)
   if (process.env.FIREWATCH_JSONL === "1") {
     return true;
   }
