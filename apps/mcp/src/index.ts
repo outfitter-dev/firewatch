@@ -1,5 +1,12 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { Result } from "@outfitter/contracts";
+import {
+  type McpServer,
+  TOOL_ANNOTATIONS,
+  adaptHandler,
+  connectStdio,
+  createMcpServer,
+  defineTool,
+} from "@outfitter/mcp";
 import {
   DEFAULT_BOT_PATTERNS,
   DEFAULT_EXCLUDE_AUTHORS,
@@ -69,17 +76,17 @@ import {
 } from "./query";
 import {
   type DoctorParams,
-  DoctorParamsShape,
+  DoctorParamsSchema,
   type FeedbackParams,
-  FeedbackParamsShape,
+  FeedbackParamsSchema,
   type HelpParams,
-  HelpParamsShape,
+  HelpParamsSchema,
   type PrParams,
-  PrParamsShape,
+  PrParamsSchema,
   type QueryParams,
-  QueryParamsShape,
+  QueryParamsSchema,
   type StatusParams,
-  StatusParamsShape,
+  StatusParamsSchema,
   TOOL_DESCRIPTIONS,
 } from "./schemas";
 
@@ -2004,260 +2011,293 @@ Use fw_doctor to check auth status.`;
     : baseText + lockedText;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Tool result helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
 /**
- * FirewatchMCPServer wraps McpServer to provide auth-gated dynamic tool registration.
- *
- * Base tools (fw_query, fw_status, fw_doctor, fw_help) are always available.
- * Write tools (fw_pr, fw_fb) require authentication and are
- * dynamically registered after auth verification.
+ * Extract text from an McpToolResult for use with Result.ok().
+ * Internal handlers still produce McpToolResult; this bridges to the
+ * Result-based return type expected by defineTool handlers.
  */
-export class FirewatchMCPServer {
-  readonly server: McpServer;
-  private _isAuthenticated = false;
-  private _writeToolsRegistered = false;
-  private _authInfo: AuthInfo | null = null;
+function resultText(r: McpToolResult): string {
+  return r.content[0]?.text ?? "";
+}
 
-  constructor() {
-    this.server = new McpServer(
-      { name: "firewatch", version: mcpVersion },
-      {
-        instructions:
-          "Query GitHub PR activity including reviews, comments, commits, and CI status. Use when checking PR status, finding review comments, querying activity, resolving feedback, or working with GitHub pull requests. Outputs JSONL for jq composition.",
-      }
-    );
+// ─────────────────────────────────────────────────────────────────────────────
+// Auth-gated write tool management
+// ─────────────────────────────────────────────────────────────────────────────
 
-    this.registerBaseTools();
-  }
+interface AuthGateState {
+  authenticated: boolean;
+  writeToolsRegistered: boolean;
+  authInfo: AuthInfo | null;
+}
 
-  /**
-   * Check if write tools are available (auth verified).
-   */
-  get writeToolsAvailable(): boolean {
-    return this._writeToolsRegistered;
-  }
-
-  /**
-   * Verify authentication and enable write tools if authenticated.
-   * Safe to call multiple times - will only register tools once.
-   * Sends list_changed notification when tools are newly registered.
-   */
-  async verifyAuthAndEnableWriteTools(): Promise<{
-    authenticated: boolean;
-    toolsEnabled: boolean;
-    source?: string | undefined;
-    error?: string | undefined;
-  }> {
-    // If already registered, return current state
-    if (this._writeToolsRegistered) {
-      return {
-        authenticated: this._isAuthenticated,
-        toolsEnabled: true,
-        ...(this._authInfo?.source && { source: this._authInfo.source }),
-      };
-    }
-
-    // Check auth
-    const config = await loadConfig();
-    const auth = await detectAuth(config.github_token);
-
-    if (auth.isErr()) {
-      return {
-        authenticated: false,
-        toolsEnabled: false,
-        error: auth.error.message,
-      };
-    }
-
-    // Auth succeeded - register write tools
-    this._authInfo = auth.value;
-    this._isAuthenticated = true;
-    this.registerWriteTools();
-    this._writeToolsRegistered = true;
-
-    // Notify client that tool list has changed
-    this.server.sendToolListChanged();
-
+/**
+ * Verify authentication and register write tools if authenticated.
+ * Safe to call multiple times - will only register tools once.
+ * Sends tools_changed notification when tools are newly registered.
+ */
+async function verifyAuthAndEnableWriteTools(
+  server: McpServer,
+  state: AuthGateState
+): Promise<{
+  authenticated: boolean;
+  toolsEnabled: boolean;
+  source?: string | undefined;
+  error?: string | undefined;
+}> {
+  if (state.writeToolsRegistered) {
     return {
-      authenticated: true,
+      authenticated: state.authenticated,
       toolsEnabled: true,
-      source: auth.value.source,
+      ...(state.authInfo?.source && { source: state.authInfo.source }),
     };
   }
 
-  /**
-   * Register base tools that are always available (read-only operations).
-   */
-  private registerBaseTools(): void {
-    // fw_query - Query cached PR activity
-    this.server.tool(
-      "fw_query",
-      TOOL_DESCRIPTIONS.query,
-      QueryParamsShape,
-      (params: QueryParams) => handleQuery(params)
-    );
+  const config = await loadConfig();
+  const auth = await detectAuth(config.github_token);
 
-    // fw_status - Show cache and auth status
-    this.server.tool(
-      "fw_status",
-      TOOL_DESCRIPTIONS.status,
-      StatusParamsShape,
-      this.handleStatusWithRecheck.bind(this)
-    );
-
-    // fw_doctor - Diagnose and fix issues
-    this.server.tool(
-      "fw_doctor",
-      TOOL_DESCRIPTIONS.doctor,
-      DoctorParamsShape,
-      (params: DoctorParams) => handleDoctor(params)
-    );
-
-    // fw_help - Usage documentation
-    this.server.tool(
-      "fw_help",
-      TOOL_DESCRIPTIONS.help,
-      HelpParamsShape,
-      this.handleHelp.bind(this)
-    );
+  if (auth.isErr()) {
+    return {
+      authenticated: false,
+      toolsEnabled: false,
+      error: auth.error.message,
+    };
   }
 
-  /**
-   * Handle help tool requests.
-   */
-  private async handleHelp(params: HelpParams): Promise<McpToolResult> {
-    if (params.schema) {
-      return textResult(JSON.stringify(schemaDoc(params.schema), null, 2));
-    }
-    if (params.config_key || params.config_path) {
-      return await handleConfig({
-        key: params.config_key,
-        path: params.config_path,
-      });
-    }
-    return textResult(buildHelpText(this._writeToolsRegistered));
-  }
+  state.authInfo = auth.value;
+  state.authenticated = true;
+  registerWriteTools(server, state);
+  state.writeToolsRegistered = true;
 
-  /**
-   * Handle status tool requests with optional auth recheck.
-   * Allows clients to trigger auth re-verification to enable write tools.
-   */
-  private async handleStatusWithRecheck(
-    params: StatusParams
-  ): Promise<McpToolResult> {
-    // If recheck_auth is requested, verify auth and possibly enable write tools
-    if (params.recheck_auth) {
-      const authResult = await this.verifyAuthAndEnableWriteTools();
-      // Include auth recheck result in status output
-      const status = await handleStatus(params);
-      // Append auth recheck info to response
-      if (status.content[0]?.type === "text") {
-        const original = JSON.parse(status.content[0].text);
-        const enhanced = {
-          ...original,
-          auth_recheck: {
-            authenticated: authResult.authenticated,
-            tools_enabled: authResult.toolsEnabled,
-            ...(authResult.source && { source: authResult.source }),
-            ...(authResult.error && { error: authResult.error }),
-          },
-        };
-        return textResult(JSON.stringify(enhanced));
+  server.notifyToolsChanged();
+
+  return {
+    authenticated: true,
+    toolsEnabled: true,
+    source: auth.value.source,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tool definitions
+// ─────────────────────────────────────────────────────────────────────────────
+
+function defineQueryTool() {
+  return defineTool({
+    name: "fw_query",
+    description: TOOL_DESCRIPTIONS.query,
+    inputSchema: QueryParamsSchema,
+    annotations: { ...TOOL_ANNOTATIONS.readOnly, openWorldHint: true },
+    handler: adaptHandler(async (params: QueryParams) => {
+      try {
+        return Result.ok(resultText(await handleQuery(params)));
+      } catch (error) {
+        return Result.err(error instanceof Error ? error : new Error(String(error)));
       }
-      return status;
-    }
-    return handleStatus(params);
-  }
+    }),
+  });
+}
 
-  /**
-   * Register write tools that require authentication.
-   * Called after auth verification succeeds.
-   */
-  private registerWriteTools(): void {
-    // fw_pr - PR mutations: edit fields, manage metadata, submit reviews
-    this.server.tool(
-      "fw_pr",
-      TOOL_DESCRIPTIONS.pr,
-      PrParamsShape,
-      (params: PrParams) => {
+function defineStatusTool(server: McpServer, state: AuthGateState) {
+  return defineTool({
+    name: "fw_status",
+    description: TOOL_DESCRIPTIONS.status,
+    inputSchema: StatusParamsSchema,
+    annotations: TOOL_ANNOTATIONS.readOnly,
+    handler: adaptHandler(async (params: StatusParams) => {
+      try {
+        if (params.recheck_auth) {
+          const authResult = await verifyAuthAndEnableWriteTools(server, state);
+          const status = await handleStatus(params);
+          const text = resultText(status);
+          const original = JSON.parse(text) as Record<string, unknown>;
+          const enhanced = {
+            ...original,
+            auth_recheck: {
+              authenticated: authResult.authenticated,
+              tools_enabled: authResult.toolsEnabled,
+              ...(authResult.source && { source: authResult.source }),
+              ...(authResult.error && { error: authResult.error }),
+            },
+          };
+          return Result.ok(JSON.stringify(enhanced));
+        }
+        return Result.ok(resultText(await handleStatus(params)));
+      } catch (error) {
+        return Result.err(error instanceof Error ? error : new Error(String(error)));
+      }
+    }),
+  });
+}
+
+function defineDoctorTool() {
+  return defineTool({
+    name: "fw_doctor",
+    description: TOOL_DESCRIPTIONS.doctor,
+    inputSchema: DoctorParamsSchema,
+    annotations: TOOL_ANNOTATIONS.readOnly,
+    handler: adaptHandler(async (params: DoctorParams) => {
+      try {
+        return Result.ok(resultText(await handleDoctor(params)));
+      } catch (error) {
+        return Result.err(error instanceof Error ? error : new Error(String(error)));
+      }
+    }),
+  });
+}
+
+function defineHelpTool(state: AuthGateState) {
+  return defineTool({
+    name: "fw_help",
+    description: TOOL_DESCRIPTIONS.help,
+    inputSchema: HelpParamsSchema,
+    annotations: TOOL_ANNOTATIONS.readOnly,
+    handler: adaptHandler(async (params: HelpParams) => {
+      try {
+        if (params.schema) {
+          return Result.ok(JSON.stringify(schemaDoc(params.schema), null, 2));
+        }
+        if (params.config_key || params.config_path) {
+          return Result.ok(
+            resultText(
+              await handleConfig({
+                key: params.config_key,
+                path: params.config_path,
+              })
+            )
+          );
+        }
+        return Result.ok(buildHelpText(state.writeToolsRegistered));
+      } catch (error) {
+        return Result.err(error instanceof Error ? error : new Error(String(error)));
+      }
+    }),
+  });
+}
+
+function definePrTool() {
+  return defineTool({
+    name: "fw_pr",
+    description: TOOL_DESCRIPTIONS.pr,
+    inputSchema: PrParamsSchema,
+    annotations: { ...TOOL_ANNOTATIONS.write, openWorldHint: true },
+    handler: adaptHandler(async (params: PrParams) => {
+      try {
         if (params.action === "review") {
-          // Submit PR review - validate review type is provided
           if (!params.review) {
-            throw new Error(
-              "action=review requires review type (approve, request-changes, comment)."
+            return Result.err(
+              new Error("action=review requires review type (approve, request-changes, comment).")
             );
           }
-          return handleAdd({
-            pr: params.pr,
-            repo: params.repo,
-            review: params.review,
-            body: params.body,
-          });
+          return Result.ok(
+            resultText(
+              await handleAdd({
+                pr: params.pr,
+                repo: params.repo,
+                review: params.review,
+                body: params.body,
+              })
+            )
+          );
         }
         if (params.action === "edit") {
-          // Handle metadata additions via edit
           const hasMetadata =
             params.labels || params.label || params.reviewer || params.assignee;
           if (hasMetadata && !hasEditFields(params)) {
-            // Pure metadata add
-            return handleAdd({
-              pr: params.pr,
-              repo: params.repo,
-              labels: params.labels,
-              label: params.label,
-              reviewer: params.reviewer,
-              assignee: params.assignee,
-            });
+            return Result.ok(
+              resultText(
+                await handleAdd({
+                  pr: params.pr,
+                  repo: params.repo,
+                  labels: params.labels,
+                  label: params.label,
+                  reviewer: params.reviewer,
+                  assignee: params.assignee,
+                })
+              )
+            );
           }
-          return handleEdit(params);
+          return Result.ok(resultText(await handleEdit(params)));
         }
-        return handleRm(params);
+        return Result.ok(resultText(await handleRm(params)));
+      } catch (error) {
+        return Result.err(error instanceof Error ? error : new Error(String(error)));
       }
-    );
+    }),
+  });
+}
 
-    // fw_fb - Unified feedback operations (fw fb parity)
-    this.server.tool(
-      "fw_fb",
-      TOOL_DESCRIPTIONS.fb,
-      FeedbackParamsShape,
-      (params: FeedbackParams) => handleFeedback(params)
-    );
-  }
+function defineFbTool() {
+  return defineTool({
+    name: "fw_fb",
+    description: TOOL_DESCRIPTIONS.fb,
+    inputSchema: FeedbackParamsSchema,
+    annotations: { ...TOOL_ANNOTATIONS.write, openWorldHint: true },
+    handler: adaptHandler(async (params: FeedbackParams) => {
+      try {
+        return Result.ok(resultText(await handleFeedback(params)));
+      } catch (error) {
+        return Result.err(error instanceof Error ? error : new Error(String(error)));
+      }
+    }),
+  });
+}
 
-  /**
-   * Connect to transport and optionally verify auth immediately.
-   */
-  async connect(
-    transport: StdioServerTransport,
-    options: { verifyAuthOnConnect?: boolean } = {}
-  ): Promise<void> {
-    await this.server.connect(transport);
+// ─────────────────────────────────────────────────────────────────────────────
+// Server setup
+// ─────────────────────────────────────────────────────────────────────────────
 
-    // Optionally verify auth on connect to enable write tools early
-    if (options.verifyAuthOnConnect) {
-      await this.verifyAuthAndEnableWriteTools();
-    }
-  }
-
-  /**
-   * Close the server connection.
-   */
-  async close(): Promise<void> {
-    await this.server.close();
-  }
+/**
+ * Register write tools that require authentication.
+ * Called after auth verification succeeds.
+ */
+function registerWriteTools(server: McpServer, _state: AuthGateState): void {
+  server.registerTool(definePrTool());
+  server.registerTool(defineFbTool());
 }
 
 /**
- * Create a new FirewatchMCPServer instance.
- * For backward compatibility with existing code.
+ * Initialize the MCP server with base tools.
+ * Returns both the server and the auth gate state for lifecycle management.
  */
-export function createServer(): FirewatchMCPServer {
-  return new FirewatchMCPServer();
+function initializeServer(): { server: McpServer; state: AuthGateState } {
+  const server = createMcpServer({ name: "firewatch", version: mcpVersion });
+
+  const state: AuthGateState = {
+    authenticated: false,
+    writeToolsRegistered: false,
+    authInfo: null,
+  };
+
+  // Register base tools (always available, read-only)
+  server.registerTool(defineQueryTool());
+  server.registerTool(defineStatusTool(server, state));
+  server.registerTool(defineDoctorTool());
+  server.registerTool(defineHelpTool(state));
+
+  return { server, state };
+}
+
+/**
+ * Create the Firewatch MCP server with base tools registered.
+ * Write tools (fw_pr, fw_fb) are registered after auth verification via run().
+ *
+ * For testing, use with {@link createSdkServer} to get an SDK-compatible
+ * server that works with InMemoryTransport.
+ */
+export function createServer(): McpServer {
+  return initializeServer().server;
 }
 
 export async function run(): Promise<void> {
-  const firewatch = createServer();
-  const transport = new StdioServerTransport();
+  const { server, state } = initializeServer();
 
-  // Connect to transport and verify auth to enable write tools
-  await firewatch.connect(transport, { verifyAuthOnConnect: true });
+  // Connect transport
+  await connectStdio(server);
+
+  // Verify auth to enable write tools
+  await verifyAuthAndEnableWriteTools(server, state);
 }

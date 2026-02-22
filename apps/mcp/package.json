@@ -23,12 +23,16 @@
     "check": "bunx tsc -b"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@outfitter/config": "^0.3.0",
+    "@outfitter/contracts": "^0.4.1",
     "@outfitter/firewatch-core": "workspace:*",
     "@outfitter/firewatch-shared": "workspace:*",
+    "@outfitter/logging": "^0.4.1",
+    "@outfitter/mcp": "^0.4.2",
     "zod": "^4.3.5"
   },
   "devDependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
     "@types/bun": "^1.3.6"
   }
 }

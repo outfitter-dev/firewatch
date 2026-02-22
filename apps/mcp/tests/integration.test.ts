@@ -11,6 +11,7 @@ import {
   type FirewatchEntry,
   type PRMetadata,
 } from "@outfitter/firewatch-core";
+import { createSdkServer } from "@outfitter/mcp";
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -102,12 +103,13 @@ afterAll(async () => {
 });
 
 async function callTool(name: string, args: Record<string, unknown>) {
-  const server = createServer();
+  const mcpServer = createServer();
+  const sdkServer = createSdkServer(mcpServer);
   const [clientTransport, serverTransport] =
     InMemoryTransport.createLinkedPair();
   const client = new Client({ name: "firewatch-test", version: "0.0.0" });
 
-  await server.connect(serverTransport);
+  await sdkServer.connect(serverTransport);
   await client.connect(clientTransport);
 
   const result = await client.callTool({
@@ -116,7 +118,7 @@ async function callTool(name: string, args: Record<string, unknown>) {
   });
 
   await client.close();
-  await server.close();
+  await sdkServer.close();
 
   return result;
 }
