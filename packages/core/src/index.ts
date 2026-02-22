@@ -261,11 +261,18 @@ export {
 
 // Handlers
 export {
+  doctorHandler,
   getCacheStats,
+  queryHandler,
   statusHandler,
   type CacheStats,
+  type DoctorCheckResult,
+  type DoctorInput,
+  type DoctorOutput,
   type Handler,
   type HandlerContext,
+  type QueryInput,
+  type QueryOutput,
   type StatusInput,
   type StatusOutput,
 } from "./handlers";
