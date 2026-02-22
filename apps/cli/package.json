@@ -21,11 +21,16 @@
     "check": "bunx tsc -b"
   },
   "dependencies": {
+    "@outfitter/cli": "^0.5.2",
+    "@outfitter/config": "^0.3.3",
     "@outfitter/firewatch-core": "workspace:*",
     "@outfitter/firewatch-mcp": "workspace:*",
     "@outfitter/firewatch-shared": "workspace:*",
-    "commander": "^13.0.0",
-    "ora": "^8.1.1"
+    "@outfitter/schema": "^0.2.2",
+    "@outfitter/types": "^0.2.3",
+    "commander": "^14.0.0",
+    "ora": "^8.1.1",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/bun": "^1.3.6"

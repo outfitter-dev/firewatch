@@ -1,3 +1,4 @@
+import { createCLI } from "@outfitter/cli/command";
 import { Command, Option } from "commander";
 
 import { version } from "../package.json";
@@ -34,16 +35,19 @@ import {
 } from "./query-helpers";
 import { emitAliasHint } from "./utils/alias-hint";
 
-const program = new Command();
+const cli = createCLI({
+  name: "fw",
+  version,
+  description:
+    "GitHub PR activity logger with pure JSONL output for jq-based workflows",
+});
+
+const { program } = cli;
 program.enablePositionalOptions();
 program.showSuggestionAfterError(true);
 
+// Root command acts as query shorthand: `fw --since 24h` === `fw query --since 24h`
 program
-  .name("fw")
-  .description(
-    "GitHub PR activity logger with pure JSONL output for jq-based workflows"
-  )
-  .version(version)
   .option("--pr [numbers]", "Filter to PR domain, optionally specific PRs")
   .option("--repo <name>", "Filter to specific repository", validateRepoSlug)
   .option("--all", "Include all cached repos")
@@ -80,7 +84,6 @@ program
   .option("--summary", "Aggregate entries into per-PR summary")
   .option("-j, --jsonl", "Force structured output")
   .option("--no-jsonl", "Force human-readable output")
-  .addOption(new Option("--json").hideHelp())
   .option("--debug", "Enable debug logging")
   .option("--no-color", "Disable color output")
   .addHelpText(
@@ -129,16 +132,18 @@ Query options on root 'fw' are supported but 'fw query' is preferred.`
     }
   });
 
-program.addCommand(queryCommand);
-program.addCommand(syncCommand);
-program.addCommand(editCommand);
-program.addCommand(ackCommand);
-program.addCommand(closeCommand);
-program.addCommand(commentCommand);
-program.addCommand(approveCommand);
-program.addCommand(rejectCommand);
-program.addCommand(freezeCommand);
-program.addCommand(unfreezeCommand);
+// Register subcommands
+cli
+  .register(queryCommand)
+  .register(syncCommand)
+  .register(editCommand)
+  .register(ackCommand)
+  .register(closeCommand)
+  .register(commentCommand)
+  .register(approveCommand)
+  .register(rejectCommand)
+  .register(freezeCommand)
+  .register(unfreezeCommand);
 
 // Hidden alias: `fw resolve` -> `fw close`
 const resolveCommand = new Command("resolve")
@@ -156,16 +161,17 @@ const resolveCommand = new Command("resolve")
   });
 program.addCommand(resolveCommand, { hidden: true });
 
-program.addCommand(replyCommand);
-program.addCommand(listCommand);
-program.addCommand(viewCommand);
-program.addCommand(claudePluginCommand);
-program.addCommand(statusCommand);
-program.addCommand(configCommand);
-program.addCommand(doctorCommand);
-program.addCommand(schemaCommand);
-program.addCommand(examplesCommand);
-program.addCommand(mcpCommand);
+cli
+  .register(replyCommand)
+  .register(listCommand)
+  .register(viewCommand)
+  .register(claudePluginCommand)
+  .register(statusCommand)
+  .register(configCommand)
+  .register(doctorCommand)
+  .register(schemaCommand)
+  .register(examplesCommand)
+  .register(mcpCommand);
 
 // Explicit help command since root action intercepts unknown args
 program
@@ -192,5 +198,5 @@ program
 export { program };
 
 export async function run(): Promise<void> {
-  await program.parseAsync();
+  await cli.parse();
 }
