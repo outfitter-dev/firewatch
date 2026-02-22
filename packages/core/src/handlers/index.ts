@@ -1,4 +1,20 @@
 export {
+  ackHandler,
+  type AckInput,
+  type AckItemResult,
+  type AckOutput,
+} from "./ack";
+export {
+  closeHandler,
+  type CloseInput,
+  type CloseOutput,
+} from "./close";
+export {
+  commentHandler,
+  type CommentInput,
+  type CommentOutput,
+} from "./comment";
+export {
   doctorHandler,
   type DoctorCheckResult,
   type DoctorInput,
@@ -9,6 +25,11 @@ export {
   type QueryInput,
   type QueryOutput,
 } from "./query";
+export {
+  replyHandler,
+  type ReplyInput,
+  type ReplyOutput,
+} from "./reply";
 export {
   getCacheStats,
   statusHandler,
