@@ -2,24 +2,20 @@
  * Unified sync command for cache synchronization and management.
  *
  * Replaces `fw query --refresh` and `fw cache clear` with a single command.
+ *
+ * Delegates auth, Graphite plugin detection, cache clearing, and syncRepo
+ * orchestration to syncHandler. The CLI layer handles spinners, dry-run
+ * preview, JSON output, and scope iteration.
  */
 import {
   type FirewatchConfig,
-  type SyncResult,
   type SyncScope,
-  GitHubClient,
-  clearRepo,
-  detectAuth,
+  type SyncOutput,
   getDatabase,
   getSyncMeta,
   loadConfig,
-  syncRepo,
+  syncHandler,
 } from "@outfitter/firewatch-core";
-import {
-  getGraphiteStacks,
-  graphitePlugin,
-} from "@outfitter/firewatch-core/plugins";
-import type { Database } from "bun:sqlite";
 import { Command, Option } from "commander";
 import ora, { type Ora } from "ora";
 
@@ -27,6 +23,7 @@ import { applyCommonOptions } from "../query-helpers";
 import { resolveRepoOrThrow } from "../repo";
 import { outputStructured } from "../utils/json";
 import { shouldOutputJson } from "../utils/tty";
+import { silentLogger } from "@outfitter/firewatch-shared";
 
 // ============================================================================
 // Types
@@ -50,15 +47,13 @@ interface SyncOutputResult {
   scope: SyncScope;
   mode: "full" | "incremental";
   entries: number;
-  prs: number;
   duration_ms: number;
   cleared?: boolean;
 }
 
-interface SyncContext {
+interface SyncDisplayContext {
   config: FirewatchConfig;
   repo: string;
-  db: Database;
   outputJson: boolean;
   isFullSync: boolean;
   scope: SyncScope;
@@ -102,36 +97,14 @@ function resolveSyncScopes(options: SyncCommandOptions): SyncScope[] {
 }
 
 /**
- * Handle cache clearing if requested.
- */
-function handleClear(ctx: SyncContext, options: SyncCommandOptions): void {
-  if (!options.clear) {
-    return;
-  }
-
-  if (options.dryRun) {
-    if (!options.quiet) {
-      console.error(`Would clear cache for ${ctx.repo}`);
-    }
-    return;
-  }
-
-  clearRepo(ctx.db, ctx.repo);
-  if (!options.quiet && !ctx.outputJson) {
-    console.error(`Cleared cache for ${ctx.repo}.`);
-  }
-}
-
-/**
  * Handle dry-run output.
- * Returns true if this is a dry-run (caller should return early).
+ * Shows what would be synced without executing.
  */
-function handleDryRun(ctx: SyncContext, options: SyncCommandOptions): boolean {
-  if (!options.dryRun) {
-    return false;
-  }
-
-  const meta = getSyncMeta(ctx.db, ctx.repo, ctx.scope);
+function handleDryRun(
+  ctx: SyncDisplayContext,
+  db: ReturnType<typeof getDatabase>
+): void {
+  const meta = getSyncMeta(db, ctx.repo, ctx.scope);
   if (meta?.last_sync) {
     const lastSyncDate = new Date(meta.last_sync).toISOString().split("T")[0];
     const mode = ctx.isFullSync ? "full" : "incremental";
@@ -143,31 +116,31 @@ function handleDryRun(ctx: SyncContext, options: SyncCommandOptions): boolean {
       `Would sync ${ctx.repo} (${ctx.scope}, full, no previous sync)`
     );
   }
-  return true;
 }
 
 /**
  * Output sync results in the appropriate format.
  */
 async function outputResults(
-  ctx: SyncContext,
+  ctx: SyncDisplayContext,
   options: SyncCommandOptions,
-  result: SyncResult,
-  durationMs: number,
+  output: SyncOutput,
   spinner: Ora | null
 ): Promise<void> {
+  const repoResult = output.repos.find((r) => r.repo === ctx.repo);
+  const entriesAdded = repoResult?.entries ?? 0;
+
   if (ctx.outputJson) {
-    const output: SyncOutputResult = {
+    const result: SyncOutputResult = {
       event: "sync_complete",
       repo: ctx.repo,
       scope: ctx.scope,
       mode: ctx.isFullSync ? "full" : "incremental",
-      entries: result.entriesAdded,
-      prs: result.prsProcessed,
-      duration_ms: durationMs,
+      entries: entriesAdded,
+      duration_ms: output.duration,
       ...(options.clear && { cleared: true }),
     };
-    await outputStructured(output, "jsonl");
+    await outputStructured(result, "jsonl");
     return;
   }
 
@@ -177,9 +150,9 @@ async function outputResults(
   }
 
   const modeLabel = ctx.isFullSync ? "full" : "incremental";
-  const entriesLabel = result.entriesAdded === 1 ? "entry" : "entries";
+  const entriesLabel = entriesAdded === 1 ? "entry" : "entries";
   spinner?.succeed(
-    `Synced ${ctx.repo} (${ctx.scope}, ${modeLabel}). ${result.entriesAdded} ${entriesLabel} (${formatDuration(durationMs)})`
+    `Synced ${ctx.repo} (${ctx.scope}, ${modeLabel}). ${entriesAdded} ${entriesLabel} (${formatDuration(output.duration)})`
   );
 }
 
@@ -187,7 +160,7 @@ async function outputResults(
  * Create a spinner for human output.
  */
 function createSpinner(
-  ctx: SyncContext,
+  ctx: SyncDisplayContext,
   options: SyncCommandOptions
 ): Ora | null {
   if (options.quiet || ctx.outputJson) {
@@ -215,7 +188,7 @@ async function handleSync(
   options: SyncCommandOptions
 ): Promise<void> {
   applyCommonOptions(options);
-  // Build context
+
   const config: FirewatchConfig = await loadConfig();
   const repo = await resolveRepoOrThrow(repoArg);
   const db = getDatabase();
@@ -223,63 +196,50 @@ async function handleSync(
   const isFullSync = Boolean(options.full || options.clear);
   const scopes = resolveSyncScopes(options);
 
-  // Handle --clear
-  handleClear(
-    { config, repo, db, outputJson, isFullSync, scope: scopes[0] ?? "open" },
-    options
-  );
-
-  // Handle --dry-run
+  // Handle --dry-run (show what would be synced without executing)
   if (options.dryRun) {
+    if (options.clear && !options.quiet) {
+      console.error(`Would clear cache for ${repo}`);
+    }
     for (const scope of scopes) {
-      handleDryRun(
-        { config, repo, db, outputJson, isFullSync, scope },
-        options
-      );
+      handleDryRun({ config, repo, outputJson, isFullSync, scope }, db);
     }
     return;
   }
 
-  // Authenticate
-  const auth = await detectAuth(config.github_token);
-  if (auth.isErr()) {
-    console.error("GitHub authentication required.");
-    console.error(auth.error.message);
-    process.exit(1);
-  }
-
-  // Create GitHub client and plugins
-  const client = new GitHubClient(auth.value.token);
-  const useGraphite = (await getGraphiteStacks()) !== null;
-  const plugins = useGraphite ? [graphitePlugin] : [];
-
+  // Delegate auth + plugin resolution + sync to handler
   for (const scope of scopes) {
-    const ctx: SyncContext = {
+    const ctx: SyncDisplayContext = {
       config,
       repo,
-      db,
       outputJson,
       isFullSync,
       scope,
     };
-    const startTime = Date.now();
     const spinner = createSpinner(ctx, options);
 
-    try {
-      const result = await syncRepo(client, repo, {
+    const result = await syncHandler(
+      {
+        repos: [repo],
+        clear: options.clear,
         full: isFullSync,
-        scope,
-        plugins,
-      });
+      },
+      {
+        config,
+        db,
+        logger: silentLogger,
+      }
+    );
 
-      const durationMs = Date.now() - startTime;
-      await outputResults(ctx, options, result, durationMs, spinner);
-    } catch (error) {
+    if (result.isErr()) {
       spinner?.fail(
-        `Sync failed: ${error instanceof Error ? error.message : error}`
+        `Sync failed: ${result.error.message}`
       );
-      throw error;
+      console.error(result.error.message);
+      process.exit(1);
     }
+
+    await outputResults(ctx, options, result.value, spinner);
   }
 }
 

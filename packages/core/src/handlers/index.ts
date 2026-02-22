@@ -46,6 +46,13 @@ export {
   type ReplyOutput,
 } from "./reply";
 export {
+  syncHandler,
+  type SyncInput,
+  type SyncOutput,
+  type SyncProgressCallback,
+  type SyncRepoResult,
+} from "./sync";
+export {
   getCacheStats,
   statusHandler,
   type CacheStats,

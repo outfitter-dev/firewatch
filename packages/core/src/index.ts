@@ -265,6 +265,7 @@ export {
   getCacheStats,
   queryHandler,
   statusHandler,
+  syncHandler,
   type CacheStats,
   type DoctorCheckResult,
   type DoctorInput,
@@ -275,4 +276,8 @@ export {
   type QueryOutput,
   type StatusInput,
   type StatusOutput,
+  type SyncInput,
+  type SyncOutput,
+  type SyncProgressCallback,
+  type SyncRepoResult,
 } from "./handlers";
