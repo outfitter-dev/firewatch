@@ -1,10 +1,6 @@
 # MCP Server
 
-<!-- TODO(FIRE-1): This documentation is outdated. The MCP server now exposes 6 separate tools
-     (fw_query, fw_status, fw_doctor, fw_help, fw_pr, fw_fb) instead of a single
-     "firewatch" tool with action parameter. See https://linear.app/outfitter/issue/FIRE-1 -->
-
-Firewatch provides an MCP (Model Context Protocol) server for AI agent integration. The server exposes PR activity data and write operations through a single tool interface.
+Firewatch provides an MCP (Model Context Protocol) server for AI agent integration. The server exposes 6 tools with auth-gated write operations, built on `@outfitter/mcp` with `createMcpServer()`, `defineTool()`, and `connectStdio()`.
 
 ## Quick Start
 
@@ -46,35 +42,22 @@ Or with the built binary:
 }
 ```
 
-## Tool Design
+## Tools
 
-Firewatch exposes a **single tool** called `firewatch` with an `action` parameter.
+Firewatch exposes **6 tools** with MCP tool annotations. Base tools are always available; write tools require authentication and are registered dynamically.
 
-### Tool Schema
+### Base Tools (always available)
 
-```typescript
-{
-  name: "firewatch",
-  description: "GitHub PR activity query tool. Outputs JSONL for jq.",
-  parameters: {
-    action: "query" | "add" | "close" | "edit" | "rm" | "status" | "config" | "doctor" | "schema" | "help",
-    // ... additional parameters per action
-  }
-}
-```
+#### `fw_query` (readOnly)
 
-## Actions
-
-### query
-
-Filter cached PR activity entries.
+Query cached PR activity entries.
 
 ```json
-{"action": "query", "since": "24h"}
-{"action": "query", "type": "review", "author": "alice"}
-{"action": "query", "pr": "23,34", "summary": true}
-{"action": "query", "states": ["open", "draft"], "limit": 10}
-{"action": "query", "summary": true, "summary_short": true}
+{"since": "24h"}
+{"type": "review", "author": "alice"}
+{"pr": "23,34", "summary": true}
+{"states": ["open", "draft"], "limit": 10}
+{"summary": true, "summary_short": true}
 ```
 
 **Parameters:**
@@ -107,109 +90,120 @@ Filter cached PR activity entries.
 
 Note: `mine` and `reviews` require `user.github_username` to be set in config.
 
-### add
-
-Add content or metadata to PRs.
-
-```json
-{"action": "add", "pr": 42, "body": "Thanks for the review!"}
-{"action": "add", "pr": 42, "body": "Fixed", "reply_to": "comment-123", "resolve": true}
-{"action": "add", "pr": 42, "review": "approve", "body": "LGTM"}
-{"action": "add", "pr": 42, "labels": ["bug", "priority-high"]}
-```
-
-**Parameters:**
-
-| Parameter  | Type               | Description                             |
-| ---------- | ------------------ | --------------------------------------- |
-| `repo`     | string             | Repository                              |
-| `pr`       | number             | PR number (required)                    |
-| `body`     | string             | Comment/review body                     |
-| `reply_to` | string             | Comment ID to reply to                  |
-| `resolve`  | boolean            | Resolve thread after reply              |
-| `review`   | string             | `approve`, `request-changes`, `comment` |
-| `labels`   | string \| string[] | Labels to add                           |
-| `reviewer` | string \| string[] | Reviewers to request                    |
-| `assignee` | string \| string[] | Assignees to add                        |
-
-### close
-
-Resolve review comment threads.
-
-```json
-{"action": "close", "comment_id": "comment-123"}
-{"action": "close", "comment_ids": ["comment-123", "comment-456"]}
-```
-
-### edit
-
-Update PR fields or state.
-
-```json
-{"action": "edit", "pr": 42, "title": "feat: update auth"}
-{"action": "edit", "pr": 42, "draft": true}
-{"action": "edit", "pr": 42, "milestone": "v1.0"}
-```
-
-### rm
-
-Remove metadata from PRs.
-
-```json
-{"action": "rm", "pr": 42, "labels": ["wip"]}
-{"action": "rm", "pr": 42, "assignee": "galligan"}
-{"action": "rm", "pr": 42, "milestone": true}
-```
-
-### status
+#### `fw_status` (readOnly)
 
 Get Firewatch state information (auth/config/cache).
 
 ```json
-{"action": "status"}
-{"action": "status", "status_short": true}
+{}
+{"short": true}
 ```
 
-### config
+#### `fw_doctor` (readOnly)
 
-Read Firewatch configuration (read-only).
+Diagnose setup issues (auth, cache, repo, GitHub API).
 
 ```json
-{"action": "config"}
-{"action": "config", "key": "user.github_username"}
-{"action": "config", "path": true}
+{}
+{"fix": true}
 ```
 
-### doctor
+#### `fw_help` (readOnly)
 
-Diagnose setup (auth, cache, repo, GitHub API).
+Get usage docs, JSON schemas, and config inspection.
 
 ```json
-{ "action": "doctor" }
+{}
+{"schema": "entry"}
+{"schema": "worklist"}
+{"config": true}
+{"config_key": "user.github_username"}
 ```
 
-### schema
+### Write Tools (require authentication)
 
-Get schema documentation.
+These tools are registered after auth verification. Clients receive a `tools/list_changed` notification when write tools become available.
+
+#### `fw_pr` (destructive)
+
+PR mutations: edit fields, manage metadata, submit reviews.
 
 ```json
-{"action": "schema"}
-{"action": "schema", "schema": "entry"}
-{"action": "schema", "schema": "worklist"}
-{"action": "schema", "schema": "config"}
+{"pr": 42, "action": "edit", "title": "feat: update auth"}
+{"pr": 42, "action": "edit", "draft": true}
+{"pr": 42, "action": "add", "review": "approve", "body": "LGTM"}
+{"pr": 42, "action": "add", "labels": ["bug", "priority-high"]}
+{"pr": 42, "action": "rm", "labels": ["wip"]}
 ```
 
-### help
+#### `fw_fb` (destructive)
 
-Get help text.
+Unified feedback: list, view, reply, ack, resolve.
 
 ```json
-{ "action": "help" }
+{"action": "list"}
+{"id": "@a7f3c", "action": "view"}
+{"id": "@a7f3c", "body": "Fixed", "resolve": true}
+{"id": "@a7f3c", "action": "ack"}
+```
+
+## Architecture
+
+### Tool Definition Pattern
+
+Tools are defined using `defineTool()` from `@outfitter/mcp` with Zod input schemas and tool annotations:
+
+```typescript
+import { TOOL_ANNOTATIONS, defineTool } from "@outfitter/mcp";
+
+const queryTool = defineTool({
+  name: "fw_query",
+  description: "Query cached PR activity",
+  inputSchema: queryParamsSchema,
+  annotations: TOOL_ANNOTATIONS.readOnly,
+  handler: async (params) => { /* ... */ },
+});
+```
+
+### Server Creation
+
+The server uses `createMcpServer()` and `connectStdio()` from `@outfitter/mcp`:
+
+```typescript
+const server = createMcpServer({
+  name: "firewatch-mcp",
+  version: mcpVersion,
+});
+
+// Register base tools
+server.registerTool(queryTool);
+server.registerTool(statusTool);
+
+// Start transport
+await connectStdio(server);
+
+// Register write tools after auth check
+if (authResult.isOk()) {
+  server.registerTool(prTool);
+  server.registerTool(feedbackTool);
+}
+```
+
+### Handler Bridge
+
+MCP tool handlers call core handlers via `adaptHandler()` which bridges domain errors to `OutfitterError` for automatic JSON-RPC error code mapping:
+
+```typescript
+handler: adaptHandler(async (params) => {
+  const result = await statusHandler(input, ctx);
+  if (result.isErr()) { return result; }
+  return Result.ok(formatOutput(result.value));
+}),
 ```
 
 ## Output Format
 
-All actions return JSONL (newline-delimited JSON). Each line is a complete JSON object.
+All tools return text content. Query results are JSONL (newline-delimited JSON).
 
 ### Query Output
 
@@ -227,7 +221,7 @@ All actions return JSONL (newline-delimited JSON). Each line is a complete JSON 
 ### Operation Results
 
 ```json
-{ "ok": true, "repo": "org/repo", "pr": 42, "comment_id": "IC_abc123" }
+{"ok": true, "repo": "org/repo", "pr": 42, "comment_id": "IC_abc123"}
 ```
 
 ## Auto-Sync Behavior
@@ -242,7 +236,7 @@ The MCP server uses the same authentication chain as the CLI:
 2. `GITHUB_TOKEN` / `GH_TOKEN` environment variable
 3. `github_token` in config file
 
-Ensure one of these is configured before using the server.
+Ensure one of these is configured before using the server. Write tools (`fw_pr`, `fw_fb`) are only registered after successful authentication.
 
 ## See Also
 
