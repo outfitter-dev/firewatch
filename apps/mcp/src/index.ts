@@ -5,6 +5,7 @@ import {
   DEFAULT_EXCLUDE_AUTHORS,
   GitHubClient,
   PATHS,
+  doctorHandler,
   addAck,
   addAcks,
   batchAddReactions,
@@ -34,6 +35,8 @@ import {
   syncRepo,
   type AckRecord,
   type AuthInfo,
+  type DoctorCheckResult,
+  type DoctorOutput,
   type FirewatchConfig,
   type FirewatchEntry,
   type PrState,
@@ -50,8 +53,6 @@ import {
   WORKLIST_SCHEMA_DOC,
 } from "@outfitter/firewatch-core/schema";
 import { silentLogger } from "@outfitter/firewatch-shared";
-import { constants as fsConstants } from "node:fs";
-import { access } from "node:fs/promises";
 
 import { version as mcpVersion } from "../package.json";
 import {
@@ -1274,99 +1275,72 @@ async function handleConfig(params: FirewatchParams): Promise<McpToolResult> {
   );
 }
 
-async function handleDoctor(params: FirewatchParams): Promise<McpToolResult> {
-  await ensureDirectories();
-
-  const config = await loadConfig();
-  const auth = await detectAuth(config.github_token);
-  const detected = await detectRepo();
-  const configPaths = await getConfigPaths();
-  const projectPath = await getProjectConfigPath();
+function formatDoctorOutput(output: DoctorOutput, fix: boolean | undefined) {
+  const { checks, graphite, counts } = output;
 
   const issues: { check: string; message: string }[] = [];
-
-  let githubOk = false;
-  let githubChecked = false;
-  let githubStatus: number | undefined;
-  const authToken = auth.isOk() ? auth.value.token : undefined;
-  try {
-    const response = await fetch("https://api.github.com/rate_limit", {
-      headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
-    });
-    githubStatus = response.status;
-    githubOk = response.ok;
-    githubChecked = true;
-  } catch (error) {
-    issues.push({
-      check: "github_api",
-      message:
-        error instanceof Error ? error.message : "GitHub API unreachable",
-    });
+  for (const check of checks) {
+    if (!check.ok && check.message) {
+      issues.push({
+        check: check.name.toLowerCase().replaceAll(" ", "_"),
+        message: check.message,
+      });
+    }
   }
 
-  if (githubChecked && !githubOk) {
-    issues.push({
-      check: "github_api",
-      message: `GitHub API request failed${githubStatus ? ` (status ${githubStatus})` : ""}`,
-    });
-  }
+  const findCheck = (name: string) => checks.find((c) => c.name === name);
 
-  if (auth.isErr()) {
-    issues.push({
-      check: "auth",
-      message: auth.error.message,
-    });
-  }
-
-  let cacheWritable = true;
-  try {
-    await access(PATHS.cache, fsConstants.W_OK);
-  } catch {
-    cacheWritable = false;
-    issues.push({
-      check: "cache",
-      message: "Cache directory is not writable.",
-    });
-  }
-
-  const graphiteEnabled = detected.repo && (await getGraphiteStacks()) !== null;
-
-  const output = {
-    ok: issues.length === 0,
+  return {
+    ok: counts.failed === 0,
     checks: {
-      github_api: {
-        ok: githubOk,
-        status: githubStatus,
-      },
-      auth: {
-        ok: auth.isOk(),
-        source: auth.isOk() ? auth.value.source : "none",
-        ...(auth.isErr() && { error: auth.error.message }),
-      },
-      config: {
-        ok: true,
-        user: configPaths.user,
-        project: projectPath,
-      },
-      cache: {
-        ok: cacheWritable,
-        path: PATHS.cache,
-      },
-      repo: {
-        ok: Boolean(detected.repo),
-        repo: detected.repo ?? null,
-        source: detected.source ?? null,
-      },
-      graphite: {
-        ok: Boolean(graphiteEnabled),
-        enabled: Boolean(graphiteEnabled),
-      },
-      ...(params.fix && { fix_applied: false }),
+      github_api: { ok: findCheck("GitHub API reachable")?.ok ?? false },
+      auth: formatDoctorCheckWithError(findCheck("Auth valid")),
+      config: formatDoctorCheckDetail(findCheck("Config parse"), true),
+      cache: { ok: findCheck("Cache writable")?.ok ?? false, path: PATHS.cache },
+      repo: formatDoctorCheckDetail(findCheck("Repository detected")),
+      graphite: { ok: findCheck("Graphite CLI")?.ok ?? false, enabled: graphite.available },
+      ...(fix && { fix_applied: false }),
     },
     issues,
   };
+}
 
-  return textResult(JSON.stringify(output));
+function formatDoctorCheckDetail(
+  check: DoctorCheckResult | undefined,
+  defaultOk = false
+) {
+  return {
+    ok: check?.ok ?? defaultOk,
+    ...(check?.message && { detail: check.message }),
+  };
+}
+
+function formatDoctorCheckWithError(
+  check: DoctorCheckResult | undefined
+) {
+  return {
+    ok: check?.ok ?? false,
+    ...(check?.message && { detail: check.message }),
+    ...(!check?.ok && check?.message && { error: check.message }),
+  };
+}
+
+async function handleDoctor(params: FirewatchParams): Promise<McpToolResult> {
+  const config = await loadConfig();
+  const db = getDatabase();
+
+  const result = await doctorHandler(
+    { fix: params.fix },
+    { config, db, logger: silentLogger }
+  );
+
+  if (result.isErr()) {
+    throw result.error;
+  }
+
+  return textResult(
+    JSON.stringify(formatDoctorOutput(result.value, params.fix))
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
