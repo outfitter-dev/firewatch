@@ -39,13 +39,27 @@ For a local `fw-dev` alias during development:
 
 ```
 apps/
-├── cli/                    # @outfitter/firewatch-cli - Commander-based CLI
+├── cli/                    # @outfitter/firewatch-cli - CLI (Commander + @outfitter/cli)
 │   ├── bin/fw.ts           # Entry point
-│   └── src/commands/       # Command implementations
-└── mcp/                    # @outfitter/firewatch-mcp - MCP server interface
+│   └── src/commands/       # Thin command adapters calling core handlers
+└── mcp/                    # @outfitter/firewatch-mcp - MCP server (@outfitter/mcp)
 
 packages/
 ├── core/                   # @outfitter/firewatch-core - Pure library logic
+│   ├── handlers/           # Transport-agnostic handlers (Result-based)
+│   │   ├── types.ts        # HandlerContext, Handler<TInput, TOutput, TError>
+│   │   ├── approve.ts      # PR approval
+│   │   ├── reject.ts       # PR request-changes
+│   │   ├── comment.ts      # PR-level comments
+│   │   ├── reply.ts        # Review thread replies
+│   │   ├── close.ts        # Thread resolution / PR close
+│   │   ├── ack.ts          # Local acknowledgement
+│   │   ├── edit.ts         # PR/comment editing
+│   │   ├── query.ts        # Entry filtering pipeline
+│   │   ├── sync.ts         # Incremental sync orchestration
+│   │   ├── status.ts       # Cache/auth/config diagnostics
+│   │   ├── doctor.ts       # Setup issue diagnosis
+│   │   └── index.ts        # Barrel exports
 │   ├── ack.ts              # Local acknowledgement tracking
 │   ├── auth.ts             # Adaptive auth: gh CLI → env → config
 │   ├── authors.ts          # Author filtering and bot detection
@@ -103,7 +117,18 @@ packages/
 
 ### Key Patterns
 
-**Layered architecture**: Core library functions in `packages/core/` are interface-agnostic. CLI (`apps/cli/`) and MCP server (`apps/mcp/`) wire these to different interfaces.
+**Handler contract** (`packages/core/src/handlers/`): All business logic lives in transport-agnostic handlers that take typed input + `HandlerContext` and return `Result<TOutput, TError>`. CLI commands and MCP tools are thin adapters. See `handlers/types.ts` for the contract:
+
+```typescript
+type Handler<TInput, TOutput, TError extends Error = Error> = (
+  input: TInput,
+  ctx: HandlerContext
+) => Promise<Result<TOutput, TError>>;
+```
+
+**Layered architecture**: Core library functions in `packages/core/` are interface-agnostic. CLI (`apps/cli/`) uses `@outfitter/cli` (`createCLI`, `exitWithError`). MCP server (`apps/mcp/`) uses `@outfitter/mcp` (`createMcpServer`, `defineTool`, `connectStdio`). Both call the same core handlers.
+
+**Result types** (`@outfitter/contracts`): All core functions return `Result<T, E>` using taxonomy errors (`AuthError`, `NetworkError`, `NotFoundError`, `ValidationError`). CLI maps errors to exit codes via `exitWithError()`. MCP maps errors to JSON-RPC error codes automatically.
 
 **Adaptive auth** (`packages/core/src/auth.ts`): Tries gh CLI first, then environment variables, then config file token.
 
@@ -143,23 +168,23 @@ XDG-compliant paths (cross-platform via `env-paths`):
 
 ### MCP Server
 
-The MCP server (`apps/mcp/`) exposes 6 tools with auth-gated write operations.
+The MCP server (`apps/mcp/`) uses `@outfitter/mcp` with `createMcpServer()`, `defineTool()`, and `connectStdio()`. It exposes 6 tools with auth-gated write operations and MCP tool annotations.
 
 **Base tools (always available):**
 
-| Tool        | Description                                            |
-| ----------- | ------------------------------------------------------ |
-| `fw_query`  | Query cached PR activity (supports summary, filters)   |
-| `fw_status` | Cache and auth status (`short` for compact)            |
-| `fw_doctor` | Diagnose auth/cache/repo issues (`fix` to auto-repair) |
-| `fw_help`   | Usage docs, JSON schemas, config inspection            |
+| Tool        | Annotations     | Description                                            |
+| ----------- | --------------- | ------------------------------------------------------ |
+| `fw_query`  | readOnly        | Query cached PR activity (supports summary, filters)   |
+| `fw_status` | readOnly        | Cache and auth status (`short` for compact)            |
+| `fw_doctor` | readOnly        | Diagnose auth/cache/repo issues (`fix` to auto-repair) |
+| `fw_help`   | readOnly        | Usage docs, JSON schemas, config inspection            |
 
 **Write tools (require authentication):**
 
-| Tool    | Description                                                |
-| ------- | ---------------------------------------------------------- |
-| `fw_pr` | PR mutations: edit fields, manage metadata, submit reviews |
-| `fw_fb` | Unified feedback: list, view, reply, ack, resolve          |
+| Tool    | Annotations     | Description                                                |
+| ------- | --------------- | ---------------------------------------------------------- |
+| `fw_pr` | destructive     | PR mutations: edit fields, manage metadata, submit reviews |
+| `fw_fb` | destructive     | Unified feedback: list, view, reply, ack, resolve          |
 
 **Example calls:**
 
