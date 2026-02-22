@@ -1,3 +1,4 @@
+import { exitWithError } from "@outfitter/cli/output";
 import {
   doctorHandler,
   getDatabase,
@@ -36,8 +37,7 @@ export const doctorCommand = new Command("doctor")
 
       const result = await doctorHandler({ fix: options.fix }, ctx);
       if (result.isErr()) {
-        console.error("Doctor failed:", result.error.message);
-        process.exit(1);
+        exitWithError(result.error);
       }
 
       const output = result.value;
@@ -91,10 +91,8 @@ export const doctorCommand = new Command("doctor")
       console.log("");
       console.log(`${counts.ok} passed, ${counts.failed} failed`);
     } catch (error) {
-      console.error(
-        "Doctor failed:",
-        error instanceof Error ? error.message : error
+      exitWithError(
+        error instanceof Error ? error : new Error(String(error))
       );
-      process.exit(1);
     }
   });
