@@ -25,6 +25,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
     "@outfitter/firewatch-core": "workspace:*",
+    "@outfitter/firewatch-shared": "workspace:*",
     "zod": "^4.3.5"
   },
   "devDependencies": {

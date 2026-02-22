@@ -10,19 +10,17 @@ import {
   batchAddReactions,
   buildShortIdCache,
   classifyId,
-  countEntries,
   detectAuth,
   detectRepo,
   ensureDirectories,
   formatShortId,
   generateShortId,
   getAckedIds,
-  getAllSyncMeta,
   getConfigPaths,
   getDatabase,
   getProjectConfigPath,
-  getRepos,
   getSyncMeta,
+  statusHandler,
   isCommentEntry,
   isReviewComment,
   isShortId,
@@ -51,6 +49,7 @@ import {
   ENTRY_SCHEMA_DOC,
   WORKLIST_SCHEMA_DOC,
 } from "@outfitter/firewatch-core/schema";
+import { silentLogger } from "@outfitter/firewatch-shared";
 import { constants as fsConstants } from "node:fs";
 import { access } from "node:fs/promises";
 
@@ -657,40 +656,6 @@ function redactConfig(config: FirewatchConfig): FirewatchConfig {
   };
 }
 
-function getCacheStats(): {
-  repos: number;
-  entries: number;
-  size_bytes: number;
-  last_sync?: string;
-} {
-  // Check if database exists
-  const dbFile = Bun.file(PATHS.db);
-  if (!dbFile.size) {
-    return { repos: 0, entries: 0, size_bytes: 0 };
-  }
-
-  const db = getDatabase();
-
-  // Get counts from SQLite
-  const repos = getRepos(db).length;
-  const entries = countEntries(db);
-  const size_bytes = dbFile.size;
-
-  // Get last sync time from sync metadata
-  let last_sync: string | undefined;
-  const syncMeta = getAllSyncMeta(db);
-  for (const meta of syncMeta) {
-    if (!meta.last_sync) {
-      continue;
-    }
-    if (!last_sync || meta.last_sync > last_sync) {
-      last_sync = meta.last_sync;
-    }
-  }
-
-  return { repos, entries, size_bytes, ...(last_sync && { last_sync }) };
-}
-
 async function handleQuerySyncFull(
   params: McpQueryParams,
   config: FirewatchConfig,
@@ -823,37 +788,34 @@ async function handleQuery(params: FirewatchParams): Promise<McpToolResult> {
 }
 
 async function handleStatus(params: FirewatchParams): Promise<McpToolResult> {
-  await ensureDirectories();
-
   const config = await loadConfig();
-  const detected = await detectRepo();
-  const auth = await detectAuth(config.github_token);
-  const configPaths = await getConfigPaths();
-  const projectPath = await getProjectConfigPath();
-  const cache = getCacheStats();
+  const db = getDatabase();
 
-  const graphite =
-    detected.repo && (await getGraphiteStacks())
-      ? { enabled: true }
-      : { enabled: false };
+  const result = await statusHandler(
+    { version: mcpVersion },
+    { config, db, logger: silentLogger }
+  );
 
+  if (result.isErr()) {
+    throw result.error;
+  }
+
+  const status = result.value;
+
+  // Transform StatusOutput into MCP-specific shape
   const output = {
-    version: mcpVersion,
-    auth: {
-      ok: auth.isOk(),
-      source: auth.isOk() ? auth.value.source : "none",
-      ...(auth.isErr() && { error: auth.error.message }),
-    },
+    version: status.version,
+    auth: status.auth,
     config: {
       paths: {
-        user: configPaths.user,
-        project: projectPath,
+        user: status.config.user.path,
+        project: status.config.project?.path ?? null,
       },
       values: redactConfig(config),
     },
-    repo: detected.repo,
-    graphite,
-    cache,
+    repo: status.repo.name ?? null,
+    graphite: { enabled: status.graphite.available },
+    cache: status.cache,
   };
 
   const short = Boolean(params.short || params.status_short);
@@ -1125,7 +1087,9 @@ async function applyDraftStatus(
     throw new Error(prIdResult.error.message);
   }
   if (draft) {
-    const draftResult = await ctx.client.convertPullRequestToDraft(prIdResult.value);
+    const draftResult = await ctx.client.convertPullRequestToDraft(
+      prIdResult.value
+    );
     if (draftResult.isErr()) {
       throw new Error(draftResult.error.message);
     }

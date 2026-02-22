@@ -23,6 +23,7 @@
   "dependencies": {
     "@outfitter/firewatch-core": "workspace:*",
     "@outfitter/firewatch-mcp": "workspace:*",
+    "@outfitter/firewatch-shared": "workspace:*",
     "commander": "^13.0.0",
     "ora": "^8.1.1"
   },

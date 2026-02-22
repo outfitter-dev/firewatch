@@ -26,7 +26,7 @@ export interface AuthenticatedClient {
  * @throws {Error} When no authentication method is available
  */
 export async function createAuthenticatedClient(
-  githubToken: string | undefined,
+  githubToken: string | undefined
 ): Promise<AuthenticatedClient> {
   const auth = await detectAuth(githubToken);
   if (auth.isErr()) {
@@ -49,7 +49,7 @@ export async function createAuthenticatedClient(
  * @returns Authenticated client and token, or null if auth unavailable
  */
 export async function tryCreateClient(
-  githubToken: string | undefined,
+  githubToken: string | undefined
 ): Promise<AuthenticatedClient | null> {
   const auth = await detectAuth(githubToken);
   if (auth.isErr()) {

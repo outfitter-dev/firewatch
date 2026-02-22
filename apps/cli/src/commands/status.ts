@@ -1,22 +1,11 @@
 import {
-  GitHubClient,
-  PATHS,
-  countEntries,
-  detectAuth,
-  detectRepo,
-  ensureDirectories,
-  getAllSyncMeta,
-  getConfigPaths,
   getDatabase,
-  getProjectConfigPath,
-  getRepos,
   loadConfig,
-  type AuthSource,
-  type RepoDetectResult,
+  statusHandler,
+  type StatusOutput,
 } from "@outfitter/firewatch-core";
-import { getGraphiteStacks } from "@outfitter/firewatch-core/plugins";
+import { silentLogger } from "@outfitter/firewatch-shared";
 import { Command, Option } from "commander";
-import { existsSync, statSync } from "node:fs";
 
 import { version } from "../../package.json";
 import { applyCommonOptions } from "../query-helpers";
@@ -30,21 +19,6 @@ interface StatusCommandOptions {
   json?: boolean;
   debug?: boolean;
   noColor?: boolean;
-}
-
-interface CacheSummary {
-  repos: number;
-  entries: number;
-  size_bytes: number;
-  last_sync?: string;
-}
-
-/** Resolved auth state for display purposes. */
-interface AuthDisplay {
-  ok: boolean;
-  source: AuthSource;
-  token?: string;
-  error?: string;
 }
 
 function formatBytes(bytes: number): string {
@@ -71,105 +45,63 @@ function formatAuthLabel(
   return "unauthenticated";
 }
 
-function printShortOutput(
-  version: string,
-  authLogin: string | undefined,
-  auth: AuthDisplay,
-  repoName: string | null,
-  cache: CacheSummary
-): void {
-  const authColor = auth.ok ? s.green : s.yellow;
-  const authLabel = formatAuthLabel(authLogin, auth.ok, auth.source);
-  const repoLabel = repoName ?? s.dim("none");
-  const cacheLabel = `${cache.repos} repos, ${cache.entries} entries`;
-  const lastSync = cache.last_sync
-    ? `, last sync ${formatRelativeTime(cache.last_sync)}`
+function printShortOutput(output: StatusOutput): void {
+  const authColor = output.auth.ok ? s.green : s.yellow;
+  const authLabel = formatAuthLabel(
+    output.auth.username,
+    output.auth.ok,
+    output.auth.source
+  );
+  const repoLabel = output.repo.name ?? s.dim("none");
+  const cacheLabel = `${output.cache.repos} repos, ${output.cache.entries} entries`;
+  const lastSync = output.cache.last_sync
+    ? `, last sync ${formatRelativeTime(output.cache.last_sync)}`
     : "";
   console.log(
-    `${s.bold("Firewatch")} v${version} | auth=${authColor(authLabel)} | repo=${repoLabel} | cache=${cacheLabel}${lastSync}`
+    `${s.bold("Firewatch")} v${output.version} | auth=${authColor(authLabel)} | repo=${repoLabel} | cache=${cacheLabel}${lastSync}`
   );
 }
 
-function printFullOutput(
-  version: string,
-  authLogin: string | undefined,
-  auth: AuthDisplay,
-  configPaths: { user: string },
-  projectPath: string | null,
-  detected: RepoDetectResult,
-  graphiteAvailable: boolean,
-  cache: CacheSummary
-): void {
-  console.log(`${s.bold("Firewatch")} v${version}\n`);
-  const authColor = auth.ok ? s.green : s.yellow;
-  const authLine = formatAuthLabel(authLogin, auth.ok, `via ${auth.source}`);
+function printFullOutput(output: StatusOutput): void {
+  console.log(`${s.bold("Firewatch")} v${output.version}\n`);
+  const authColor = output.auth.ok ? s.green : s.yellow;
+  const authLine = formatAuthLabel(
+    output.auth.username,
+    output.auth.ok,
+    `via ${output.auth.source}`
+  );
   console.log(`${s.dim("Auth:")}      ${authColor(authLine)}`);
 
   const configLine = [
-    projectPath ? `${projectPath} (project)` : null,
-    `${configPaths.user} (user)`,
+    output.config.project ? `${output.config.project.path} (project)` : null,
+    `${output.config.user.path} (user)`,
   ]
     .filter(Boolean)
     .join(" + ");
   console.log(`${s.dim("Config:")}    ${configLine}`);
-  const repoLabel = detected.repo ?? s.dim("none");
-  const repoSource = detected.source ? s.dim(` (${detected.source})`) : "";
+  const repoLabel = output.repo.name ?? s.dim("none");
+  const repoSource = output.repo.source
+    ? s.dim(` (${output.repo.source})`)
+    : "";
   console.log(`${s.dim("Repo:")}      ${repoLabel}${repoSource}`);
-  const graphiteLabel = graphiteAvailable
+  const graphiteLabel = output.graphite.available
     ? s.green("enabled")
     : s.dim("disabled");
   console.log(`${s.dim("Graphite:")}  ${graphiteLabel}`);
 
   console.log(`\n${s.dim("Cache:")}`);
-  console.log(`  ${s.dim("Repos:")}     ${cache.repos}`);
-  console.log(`  ${s.dim("Entries:")}   ${cache.entries}`);
-  if (cache.last_sync) {
+  console.log(`  ${s.dim("Repos:")}     ${output.cache.repos}`);
+  console.log(`  ${s.dim("Entries:")}   ${output.cache.entries}`);
+  if (output.cache.last_sync) {
     console.log(
-      `  ${s.dim("Last sync:")} ${formatRelativeTime(cache.last_sync)}`
+      `  ${s.dim("Last sync:")} ${formatRelativeTime(output.cache.last_sync)}`
     );
   }
-  console.log(`  ${s.dim("Size:")}      ${formatBytes(cache.size_bytes)}`);
-}
-
-function getCacheSummary(): CacheSummary {
-  // Check if database exists
-  if (!existsSync(PATHS.db)) {
-    return { repos: 0, entries: 0, size_bytes: 0 };
+  if (output.cache.size_bytes !== undefined) {
+    console.log(
+      `  ${s.dim("Size:")}      ${formatBytes(output.cache.size_bytes)}`
+    );
   }
-
-  const db = getDatabase();
-
-  // Get repo count and entry count from SQLite
-  const repos = getRepos(db).length;
-  const entries = countEntries(db);
-
-  // Get database file size
-  let sizeBytes = 0;
-  try {
-    const stats = statSync(PATHS.db);
-    sizeBytes = stats.size;
-  } catch {
-    // File might not exist yet
-  }
-
-  // Get last sync time from sync metadata
-  let last_sync: string | undefined;
-  const syncMeta = getAllSyncMeta(db);
-  for (const meta of syncMeta) {
-    if (!meta.last_sync) {
-      continue;
-    }
-    if (!last_sync || meta.last_sync > last_sync) {
-      last_sync = meta.last_sync;
-    }
-  }
-
-  return {
-    repos,
-    entries,
-    size_bytes: sizeBytes,
-    ...(last_sync && { last_sync }),
-  };
 }
 
 export const statusCommand = new Command("status")
@@ -183,88 +115,36 @@ export const statusCommand = new Command("status")
   .action(async (options: StatusCommandOptions) => {
     applyCommonOptions(options);
     try {
-      await ensureDirectories();
       const config = await loadConfig();
+      const db = getDatabase();
       const outputJson = shouldOutputJson(
         options,
         config.output?.default_format
       );
 
-      const configPaths = await getConfigPaths();
-      const projectPath = await getProjectConfigPath();
-      const userExists = await Bun.file(configPaths.user).exists();
-      const projectExists = projectPath
-        ? await Bun.file(projectPath).exists()
-        : false;
+      const result = await statusHandler(
+        { version },
+        { config, db, logger: silentLogger }
+      );
 
-      const detected = await detectRepo();
-      const cache = getCacheSummary();
-
-      const authResult = await detectAuth(config.github_token);
-
-      // Build display state from Result
-      const authDisplay: AuthDisplay = authResult.isOk()
-        ? { ok: true, source: authResult.value.source }
-        : { ok: false, source: "none", error: authResult.error.message };
-
-      let authLogin: string | undefined;
-      if (authResult.isOk()) {
-        const client = new GitHubClient(authResult.value.token);
-        const loginResult = await client.fetchViewerLogin();
-        if (loginResult.isOk()) {
-          authLogin = loginResult.value;
-        }
+      if (result.isErr()) {
+        console.error("Status failed:", result.error.message);
+        process.exit(1);
       }
 
-      let graphiteAvailable = false;
-      if (detected.repo) {
-        graphiteAvailable = (await getGraphiteStacks()) !== null;
-      }
-
-      const payload = {
-        version,
-        auth: {
-          ok: authDisplay.ok,
-          source: authDisplay.source,
-          ...(authLogin && { username: authLogin }),
-          ...(authDisplay.error && { error: authDisplay.error }),
-        },
-        config: {
-          user: { path: configPaths.user, exists: userExists },
-          ...(projectPath && {
-            project: { path: projectPath, exists: projectExists },
-          }),
-        },
-        repo: {
-          ...(detected.repo && { name: detected.repo }),
-          ...(detected.source && { source: detected.source }),
-        },
-        graphite: {
-          available: graphiteAvailable,
-        },
-        cache,
-      };
+      const output = result.value;
 
       if (outputJson) {
-        await outputStructured(payload, "jsonl");
+        await outputStructured(output, "jsonl");
         return;
       }
 
       if (options.short) {
-        printShortOutput(version, authLogin, authDisplay, detected.repo, cache);
+        printShortOutput(output);
         return;
       }
 
-      printFullOutput(
-        version,
-        authLogin,
-        authDisplay,
-        configPaths,
-        projectPath,
-        detected,
-        graphiteAvailable,
-        cache
-      );
+      printFullOutput(output);
     } catch (error) {
       console.error(
         "Status failed:",

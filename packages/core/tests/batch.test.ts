@@ -14,7 +14,7 @@ import type { FirewatchEntry } from "../src/schema/entry";
 // =============================================================================
 
 function createTestEntry(
-  overrides: Partial<FirewatchEntry> = {},
+  overrides: Partial<FirewatchEntry> = {}
 ): FirewatchEntry {
   return {
     id: "entry-1",
@@ -245,10 +245,10 @@ describe("buildAckRecords", () => {
 
   test("builds ack records with correct fields", () => {
     const entry = createTestEntry({ id: "IC_123", pr: 5 });
-    const records = buildAckRecords(
-      [{ entry, reactionAdded: true }],
-      { repo: "owner/repo", username: "alice" },
-    );
+    const records = buildAckRecords([{ entry, reactionAdded: true }], {
+      repo: "owner/repo",
+      username: "alice",
+    });
 
     expect(records).toHaveLength(1);
     const record = records[0]!;
@@ -293,7 +293,7 @@ describe("buildAckRecords", () => {
   test("omits acked_by when username is not provided", () => {
     const records = buildAckRecords(
       [{ entry: createTestEntry(), reactionAdded: false }],
-      { repo: "owner/repo" },
+      { repo: "owner/repo" }
     );
 
     expect(records).toHaveLength(1);

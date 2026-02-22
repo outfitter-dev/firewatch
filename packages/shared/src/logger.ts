@@ -1,4 +1,8 @@
-import type { Logger, LogMetadata, LogMethod } from "@outfitter/contracts/logging";
+import type {
+  Logger,
+  LogMetadata,
+  LogMethod,
+} from "@outfitter/contracts/logging";
 
 type LogLevel = "trace" | "debug" | "info" | "warn" | "error" | "fatal";
 
@@ -56,7 +60,7 @@ export function createLogger(options: LoggerOptions = {}): Logger {
   function log(
     level: LogLevel,
     message: string,
-    metadata?: Record<string, unknown>,
+    metadata?: Record<string, unknown>
   ): void {
     if (silent || !shouldLog(level, minLevel)) {
       return;

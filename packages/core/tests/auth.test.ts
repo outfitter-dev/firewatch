@@ -31,7 +31,9 @@ function disableGhCli(): void {
  * - When gh is authenticated: verifies token and source
  * - When gh is unavailable (e.g. CI): verifies error is AuthError
  */
-async function verifyGhCliAuth(savedGhConfig: string | undefined): Promise<void> {
+async function verifyGhCliAuth(
+  savedGhConfig: string | undefined
+): Promise<void> {
   if (savedGhConfig) {
     process.env.GH_CONFIG_DIR = savedGhConfig;
   }

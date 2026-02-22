@@ -258,3 +258,14 @@ export {
   type TreeOptions,
   type Viewport,
 } from "./render";
+
+// Handlers
+export {
+  getCacheStats,
+  statusHandler,
+  type CacheStats,
+  type Handler,
+  type HandlerContext,
+  type StatusInput,
+  type StatusOutput,
+} from "./handlers";
